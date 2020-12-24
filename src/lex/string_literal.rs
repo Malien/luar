@@ -29,6 +29,28 @@ impl FromStr for StringLiteral {
         ))
     }
 }
-// fn parse_string_literal(input: &mut Lexer<Token>) -> Result<String, StringLiteralParseError> {
-//     let slice = input.slice();
-// }
+
+#[cfg(test)]
+mod tests {
+    use quickcheck::TestResult;
+
+    use super::StringLiteral;
+
+    #[quickcheck]
+    fn parses_plain_string(input: String) -> TestResult {
+        if input.chars().any(|c| ! c.is_alphanumeric()) {
+            return TestResult::discard();
+        }
+
+        let StringLiteral(res) = format!("\"{}\"", input).parse().unwrap();
+        assert_eq!(res, input);
+
+        TestResult::passed()
+    }
+
+    #[test]
+    fn parses_escape_sequences() {
+        let StringLiteral(res) = r"'hello \n\r\t\\\'world\''".parse().unwrap();
+        assert_eq!(res, "hello \n\r\t\\'world'");
+    }
+}
