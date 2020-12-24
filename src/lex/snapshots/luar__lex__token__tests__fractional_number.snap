@@ -1,0 +1,57 @@
+---
+source: src/lex/token.rs
+expression: tokens
+---
+[
+    Number(
+        Floating(
+            4.23,
+        ),
+    ),
+    Number(
+        Floating(
+            0.23,
+        ),
+    ),
+    Number(
+        Floating(
+            4.0,
+        ),
+    ),
+    Number(
+        Floating(
+            -4.67,
+        ),
+    ),
+    Number(
+        Floating(
+            -0.25,
+        ),
+    ),
+    Number(
+        Floating(
+            -8.0,
+        ),
+    ),
+    Number(
+        Floating(
+            0.24000000000000002,
+        ),
+    ),
+    Number(
+        Floating(
+            5.0,
+        ),
+    ),
+    Number(
+        Floating(
+            4.27,
+        ),
+    ),
+    Comma,
+    Number(
+        Floating(
+            -0.12345678901234568,
+        ),
+    ),
+]

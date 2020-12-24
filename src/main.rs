@@ -1,6 +1,10 @@
 use indoc::indoc;
 use logos::Logos;
 
+#[cfg(test)]
+#[macro_use(quickcheck)]
+extern crate quickcheck_macros;
+
 mod lex;
 
 static LUA_FUNCTION: &'static str = indoc! {"

@@ -1,0 +1,36 @@
+---
+source: src/lex/token.rs
+expression: tokens
+---
+[
+    Number(
+        Integer(
+            40000000000,
+        ),
+    ),
+    Number(
+        Floating(
+            0.000000015000000000000002,
+        ),
+    ),
+    Number(
+        Floating(
+            500000000.0,
+        ),
+    ),
+    Number(
+        Integer(
+            -60000000,
+        ),
+    ),
+    Number(
+        Floating(
+            -0.000000524,
+        ),
+    ),
+    Number(
+        Floating(
+            8.0,
+        ),
+    ),
+]

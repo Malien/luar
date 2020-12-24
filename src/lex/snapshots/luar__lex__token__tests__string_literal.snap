@@ -1,0 +1,11 @@
+---
+source: src/lex/token.rs
+expression: tokens
+---
+[
+    String(
+        StringLiteral(
+            "hello world \n \"nope\"",
+        ),
+    ),
+]

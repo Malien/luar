@@ -1,0 +1,31 @@
+---
+source: src/lex/token.rs
+expression: tokens
+---
+[
+    Number(
+        Integer(
+            4,
+        ),
+    ),
+    Number(
+        Integer(
+            1000,
+        ),
+    ),
+    Number(
+        Integer(
+            10000000000000000,
+        ),
+    ),
+    Number(
+        Integer(
+            -60,
+        ),
+    ),
+    Number(
+        Integer(
+            728,
+        ),
+    ),
+]

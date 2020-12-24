@@ -1,5 +1,6 @@
 use logos::{Lexer, Logos};
-use thiserror::Error;
+
+use super::{NumberLiteral, StringLiteral};
 
 /// Syntax
 ///
@@ -55,10 +56,11 @@ use thiserror::Error;
 //
 // }
 
-#[derive(Clone, Debug, PartialEq, Eq, Logos)]
+#[derive(Clone, Debug, PartialEq, Logos)]
 pub enum Token {
     #[error]
     #[regex(r"[ \t\n\f]", logos::skip)]
+    #[regex("--.*", logos::skip)]
     Error,
     #[token("and")]
     And,
@@ -140,59 +142,26 @@ pub enum Token {
     Ident(String),
     #[regex(
         "(\"(?:[^\"'\\\\]|\\\\.)*\")|('(?:[^\"'\\\\]|\\\\.)*')",
-        parse_string_literal
+        |token| token.slice().parse()
     )]
-    StringLiteral(String),
+    String(StringLiteral),
     #[regex(
         r"[+-]?((\d+\.\d+)|(\.\d+)|(\d+\.?))(e[+-]?\d+)?",
-        parse_number_literal
+        |token| token.slice().parse()
     )]
     Number(NumberLiteral),
 }
 
-#[derive(Error, Debug)]
-#[error("Token passed in is not a valid string literal")]
-struct StringLiteralParseError;
-
-// enum NumberLiteralParseError {
-//     Integral()
-// }
-type NumberLiteralParseError = num::rational::ParseRatioError;
-
-// Can be optimized not to allocate extra space if not necessary
-// enum LuaNumberLiteral {
-//     Integral(BigInt),
-//     Rational(BigRational)
-// }
-type NumberLiteral = num::rational::BigRational;
-
-fn parse_string_literal(input: &mut Lexer<Token>) -> Result<String, StringLiteralParseError> {
-    let slice = input.slice();
-    if slice.len() < 2 {
-        return Err(StringLiteralParseError);
-    }
-    let raw_string: &str = &slice[1..slice.len() - 1];
-    // Not a very efficient method to escape characters
-    Ok(raw_string
-        .replace(r"\\", "\\")
-        .replace(r"\r", "\r")
-        .replace(r"\n", "\n")
-        .replace(r"\t", "\t")
-        .replace("\\\"", "\"")
-        .replace(r"\'", "'"))
-}
-
 // static integer_regex: Regex = Regex::new(r"[+-]?(\d+\.?)(e[+-]?\d+)?").unwrap();
-
-fn parse_number_literal(
-    input: &mut Lexer<Token>,
-) -> Result<NumberLiteral, NumberLiteralParseError> {
-    let slice: &str = input.slice();
-    slice.parse()
-}
 
 fn make_owned_string(input: &mut Lexer<Token>) -> String {
     input.slice().to_string()
+}
+
+impl Token {
+    pub fn is_err(&self) -> bool {
+        if let Token::Error = self { true } else { false }
+    }
 }
 
 #[cfg(test)]
@@ -203,11 +172,11 @@ mod tests {
     macro_rules! assert_tokens {
         ($name:ident, $text:tt) => {
             #[test]
-            #[function_name::named]
             fn $name() {
                 static TEXT: &str = indoc::indoc!($text);
                 let tokens: Vec<Token> = Token::lexer(TEXT).into_iter().collect();
-                insta::assert_debug_snapshot!(function_name!(), tokens);
+                assert!(tokens.iter().all(|token| !token.is_err()), "Token stream contains Token::Error,\n{:?}", tokens);
+                insta::assert_debug_snapshot!(tokens);
             }
         };
     }
@@ -222,4 +191,20 @@ mod tests {
             return s
         end
     ");
+
+    assert_tokens!(function_2, "
+        function f (t)                  -- t is a table
+            local i, v = next(t, nil)   -- i is an index of t, v = t[i]
+            while i do
+                -- do something with i and v
+                i, v = next(t, i)       -- get next index
+            end
+        end
+    ");
+
+    assert_tokens!(string_literal, "\"hello world \\n \\\"nope\\\"\"");
+
+    assert_tokens!(simple_number, "4 1000 10000000000000000 -60 +728");
+    assert_tokens!(fractional_number, "4.23 .23 4. -4.67 -.25 -8. +.24 +5. +4.27, -.1234567890123456789");
+    assert_tokens!(exponents, "4e10 .15e-7 5.e+8 -6e7 -5.24e-7 +.8e+1");
 }

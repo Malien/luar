@@ -1,0 +1,106 @@
+---
+source: src/lex.rs
+expression: tokens
+---
+[
+    Number(
+        Ratio {
+            numer: BigInt {
+                sign: Plus,
+                data: BigUint {
+                    data: [
+                        4,
+                    ],
+                },
+            },
+            denom: BigInt {
+                sign: Plus,
+                data: BigUint {
+                    data: [
+                        1,
+                    ],
+                },
+            },
+        },
+    ),
+    Number(
+        Ratio {
+            numer: BigInt {
+                sign: Plus,
+                data: BigUint {
+                    data: [
+                        1000,
+                    ],
+                },
+            },
+            denom: BigInt {
+                sign: Plus,
+                data: BigUint {
+                    data: [
+                        1,
+                    ],
+                },
+            },
+        },
+    ),
+    Number(
+        Ratio {
+            numer: BigInt {
+                sign: Plus,
+                data: BigUint {
+                    data: [
+                        10000000000000000,
+                    ],
+                },
+            },
+            denom: BigInt {
+                sign: Plus,
+                data: BigUint {
+                    data: [
+                        1,
+                    ],
+                },
+            },
+        },
+    ),
+    Number(
+        Ratio {
+            numer: BigInt {
+                sign: Minus,
+                data: BigUint {
+                    data: [
+                        60,
+                    ],
+                },
+            },
+            denom: BigInt {
+                sign: Plus,
+                data: BigUint {
+                    data: [
+                        1,
+                    ],
+                },
+            },
+        },
+    ),
+    Number(
+        Ratio {
+            numer: BigInt {
+                sign: Plus,
+                data: BigUint {
+                    data: [
+                        728,
+                    ],
+                },
+            },
+            denom: BigInt {
+                sign: Plus,
+                data: BigUint {
+                    data: [
+                        1,
+                    ],
+                },
+            },
+        },
+    ),
+]
