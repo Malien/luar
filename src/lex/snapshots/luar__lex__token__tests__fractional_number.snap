@@ -4,53 +4,53 @@ expression: tokens
 ---
 [
     Number(
-        Floating(
+        NumberLiteral(
             4.23,
         ),
     ),
     Number(
-        Floating(
+        NumberLiteral(
             0.23,
         ),
     ),
     Number(
-        Floating(
+        NumberLiteral(
             4.0,
         ),
     ),
     Number(
-        Floating(
+        NumberLiteral(
             -4.67,
         ),
     ),
     Number(
-        Floating(
+        NumberLiteral(
             -0.25,
         ),
     ),
     Number(
-        Floating(
+        NumberLiteral(
             -8.0,
         ),
     ),
     Number(
-        Floating(
+        NumberLiteral(
             0.24000000000000002,
         ),
     ),
     Number(
-        Floating(
+        NumberLiteral(
             5.0,
         ),
     ),
     Number(
-        Floating(
+        NumberLiteral(
             4.27,
         ),
     ),
     Comma,
     Number(
-        Floating(
+        NumberLiteral(
             -0.12345678901234568,
         ),
     ),

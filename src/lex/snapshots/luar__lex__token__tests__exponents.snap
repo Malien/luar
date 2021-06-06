@@ -4,32 +4,32 @@ expression: tokens
 ---
 [
     Number(
-        Integer(
-            40000000000,
+        NumberLiteral(
+            40000000000.0,
         ),
     ),
     Number(
-        Floating(
+        NumberLiteral(
             0.000000015000000000000002,
         ),
     ),
     Number(
-        Floating(
+        NumberLiteral(
             500000000.0,
         ),
     ),
     Number(
-        Integer(
-            -60000000,
+        NumberLiteral(
+            -60000000.0,
         ),
     ),
     Number(
-        Floating(
+        NumberLiteral(
             -0.000000524,
         ),
     ),
     Number(
-        Floating(
+        NumberLiteral(
             8.0,
         ),
     ),

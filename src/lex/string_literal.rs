@@ -1,6 +1,7 @@
 use std::str::FromStr;
-
 use thiserror::Error;
+#[cfg(test)]
+use quickcheck::{Arbitrary, Gen};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StringLiteral(String);
@@ -27,6 +28,13 @@ impl FromStr for StringLiteral {
                 .replace("\\\"", "\"")
                 .replace(r"\'", "'"),
         ))
+    }
+}
+
+#[cfg(test)]
+impl Arbitrary for StringLiteral {
+    fn arbitrary(g: &mut Gen) -> Self {
+        StringLiteral(String::arbitrary(g))
     }
 }
 

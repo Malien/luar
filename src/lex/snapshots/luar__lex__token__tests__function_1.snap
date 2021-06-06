@@ -5,24 +5,34 @@ expression: tokens
 [
     Function,
     Ident(
-        "remove_blanks",
+        Ident(
+            "remove_blanks",
+        ),
     ),
     OpenRoundBracket,
     Ident(
-        "s",
+        Ident(
+            "s",
+        ),
     ),
     CloseRoundBracket,
     Local,
     Ident(
-        "b",
+        Ident(
+            "b",
+        ),
     ),
     Equals,
     Ident(
-        "strfind",
+        Ident(
+            "strfind",
+        ),
     ),
     OpenRoundBracket,
     Ident(
-        "s",
+        Ident(
+            "s",
+        ),
     ),
     Comma,
     String(
@@ -33,64 +43,86 @@ expression: tokens
     CloseRoundBracket,
     While,
     Ident(
-        "b",
+        Ident(
+            "b",
+        ),
     ),
     Do,
     Ident(
-        "s",
+        Ident(
+            "s",
+        ),
     ),
     Equals,
     Ident(
-        "strsub",
+        Ident(
+            "strsub",
+        ),
     ),
     OpenRoundBracket,
     Ident(
-        "s",
+        Ident(
+            "s",
+        ),
     ),
     Comma,
     Number(
-        Integer(
-            1,
+        NumberLiteral(
+            1.0,
         ),
     ),
     Comma,
     Ident(
-        "b",
+        Ident(
+            "b",
+        ),
     ),
     Number(
-        Integer(
-            -1,
+        NumberLiteral(
+            -1.0,
         ),
     ),
     CloseRoundBracket,
     Concat,
     Ident(
-        "strsub",
+        Ident(
+            "strsub",
+        ),
     ),
     OpenRoundBracket,
     Ident(
-        "s",
+        Ident(
+            "s",
+        ),
     ),
     Comma,
     Ident(
-        "b",
+        Ident(
+            "b",
+        ),
     ),
     Number(
-        Integer(
-            1,
+        NumberLiteral(
+            1.0,
         ),
     ),
     CloseRoundBracket,
     Ident(
-        "b",
+        Ident(
+            "b",
+        ),
     ),
     Equals,
     Ident(
-        "strfind",
+        Ident(
+            "strfind",
+        ),
     ),
     OpenRoundBracket,
     Ident(
-        "s",
+        Ident(
+            "s",
+        ),
     ),
     Comma,
     String(
@@ -102,7 +134,9 @@ expression: tokens
     End,
     Return,
     Ident(
-        "s",
+        Ident(
+            "s",
+        ),
     ),
     End,
 ]

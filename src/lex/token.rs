@@ -1,41 +1,6 @@
-use logos::{Lexer, Logos};
+use logos::Logos;
 
-use super::{NumberLiteral, StringLiteral};
-
-/// Syntax
-///
-/// ```
-/// module -> { statement | function }
-/// block -> { stat sc } [ret sc]
-/// sc -> ';'
-/// stat -> varlist1 '=' explist1
-/// varlist1 -> var { ',' var }
-/// var -> name | var '[' exp1 ']' | var '.' name
-/// stat -> 'while' exp1 'do' block 'end'
-///       | 'repeat' block 'until' exp1
-///       | 'if' exp1 'then' block { elseif } ['else' block] 'end'
-///       | functioncall
-///       | tableconstructor
-///       | 'local' declist [init]
-/// elseif -> 'elseif' exp1 'then' block
-/// ret -> 'return' explist
-/// declist -> name { , 'name' }
-/// init -> '=' explist1
-/// exp -> '(' exp ')'
-///      | 'nil'
-///      | number
-///      | literal
-///      | var
-/// tableconstructor -> '@' '(' [exp1] ')' | '@' [name] fieldlist
-/// fieldlist -> '{' [ffieldlist1] '}' | '[' [lfieldlist1] ']'
-/// ffieldlist1 -> ffield { ',' ffield }
-/// ffield -> name '=' exp
-/// lfieldlist1 -> exp { ',' exp }
-/// functioncall -> var '(' [explist1] ')'
-/// explist1 -> { exp1 ',' } exp
-/// function -> 'function' name '(' [parlist1] ')' block 'end'
-/// parlist1 -> 'name' { ',' name }
-/// ```
+use super::{Ident, NumberLiteral, StringLiteral};
 
 /// Reserved words:
 ///     `and` `do` `else` `elseif` `end` `function` `if` `local` `nil` `not`
@@ -50,11 +15,6 @@ use super::{NumberLiteral, StringLiteral};
 ///
 /// Numbers are have either
 ///     `4` `4.23` `4.` `.23` `4.57e-7` `.3e4`
-
-// #[derive(Copy, Clone, Debug, Eq, PartialEq, Logos)]
-// enum Token {
-//
-// }
 
 #[derive(Clone, Debug, PartialEq, Logos)]
 pub enum Token {
@@ -138,8 +98,9 @@ pub enum Token {
     Comma,
     #[token(";")]
     Semicolon,
-    #[regex(r"[_a-zA-Z][_a-zA-Z0-9]*", make_owned_string)]
-    Ident(String),
+    // SAFETY: This is the same regex used to check for identifier validity
+    #[regex(r"[_a-zA-Z][_a-zA-Z0-9]*", |str| unsafe { Ident::from_raw(str.slice()) })]
+    Ident(Ident),
     #[regex(
         "(\"(?:[^\"'\\\\]|\\\\.)*\")|('(?:[^\"'\\\\]|\\\\.)*')",
         |token| token.slice().parse()
@@ -152,22 +113,82 @@ pub enum Token {
     Number(NumberLiteral),
 }
 
-// static integer_regex: Regex = Regex::new(r"[+-]?(\d+\.?)(e[+-]?\d+)?").unwrap();
-
-fn make_owned_string(input: &mut Lexer<Token>) -> String {
-    input.slice().to_string()
-}
-
 impl Token {
     pub fn is_err(&self) -> bool {
-        if let Token::Error = self { true } else { false }
+        if let Token::Error = self {
+            true
+        } else {
+            false
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::unreachable;
+
     use super::Token;
     use logos::Logos;
+    use quickcheck::Arbitrary;
+
+    impl Arbitrary for Token {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let idx = u8::arbitrary(g) % 42;
+            match idx {
+                0 => Token::And,
+                1 => Token::Do,
+                3 => Token::Else,
+                4 => Token::ElseIf,
+                5 => Token::End,
+                6 => Token::Function,
+                7 => Token::If,
+                8 => Token::Local,
+                9 => Token::Nil,
+                10 => Token::Not,
+                11 => Token::Or,
+                12 => Token::Repeat,
+                13 => Token::Return,
+                14 => Token::Until,
+                15 => Token::Then,
+                16 => Token::While,
+                17 => Token::NotEquals,
+                18 => Token::LessOrEquals,
+                19 => Token::GreaterOrEquals,
+                20 => Token::Greater,
+                21 => Token::Lesser,
+                22 => Token::Equals,
+                23 => Token::Concat,
+                24 => Token::Plus,
+                25 => Token::Minus,
+                26 => Token::Multiply,
+                27 => Token::Div,
+                28 => Token::Mod,
+                29 => Token::OpenRoundBracket,
+                30 => Token::CloseRoundBracket,
+                31 => Token::OpenSquareBracket,
+                32 => Token::CloseSquareBracket,
+                33 => Token::OpenSquigglyBracket,
+                34 => Token::CloseSquigglyBracket,
+                35 => Token::At,
+                36 => Token::Dot,
+                37 => Token::Comma,
+                38 => Token::Semicolon,
+                39 => {
+                    // Ident(String),
+                    todo!()
+                }
+                40 => {
+                    // String(StringLiteral)
+                    todo!()
+                }
+                41 => {
+                    // Number(NumberLiteral)
+                    todo!()
+                }
+                _ => unreachable!()
+            }
+        }
+    }
 
     macro_rules! assert_tokens {
         ($name:ident, $text:tt) => {
@@ -175,13 +196,19 @@ mod tests {
             fn $name() {
                 static TEXT: &str = indoc::indoc!($text);
                 let tokens: Vec<Token> = Token::lexer(TEXT).into_iter().collect();
-                assert!(tokens.iter().all(|token| !token.is_err()), "Token stream contains Token::Error,\n{:?}", tokens);
+                assert!(
+                    tokens.iter().all(|token| !token.is_err()),
+                    "Token stream contains Token::Error,\n{:?}",
+                    tokens
+                );
                 insta::assert_debug_snapshot!(tokens);
             }
         };
     }
 
-    assert_tokens!(function_1, "
+    assert_tokens!(
+        function_1,
+        "
         function remove_blanks (s)
             local b = strfind(s, ' ')
             while b do
@@ -190,9 +217,12 @@ mod tests {
             end
             return s
         end
-    ");
+    "
+    );
 
-    assert_tokens!(function_2, "
+    assert_tokens!(
+        function_2,
+        "
         function f (t)                  -- t is a table
             local i, v = next(t, nil)   -- i is an index of t, v = t[i]
             while i do
@@ -200,11 +230,15 @@ mod tests {
                 i, v = next(t, i)       -- get next index
             end
         end
-    ");
+    "
+    );
 
     assert_tokens!(string_literal, "\"hello world \\n \\\"nope\\\"\"");
 
     assert_tokens!(simple_number, "4 1000 10000000000000000 -60 +728");
-    assert_tokens!(fractional_number, "4.23 .23 4. -4.67 -.25 -8. +.24 +5. +4.27, -.1234567890123456789");
+    assert_tokens!(
+        fractional_number,
+        "4.23 .23 4. -4.67 -.25 -8. +.24 +5. +4.27, -.1234567890123456789"
+    );
     assert_tokens!(exponents, "4e10 .15e-7 5.e+8 -6e7 -5.24e-7 +.8e+1");
 }

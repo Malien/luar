@@ -5,55 +5,79 @@ expression: tokens
 [
     Function,
     Ident(
-        "f",
+        Ident(
+            "f",
+        ),
     ),
     OpenRoundBracket,
     Ident(
-        "t",
+        Ident(
+            "t",
+        ),
     ),
     CloseRoundBracket,
     Local,
     Ident(
-        "i",
+        Ident(
+            "i",
+        ),
     ),
     Comma,
     Ident(
-        "v",
+        Ident(
+            "v",
+        ),
     ),
     Equals,
     Ident(
-        "next",
+        Ident(
+            "next",
+        ),
     ),
     OpenRoundBracket,
     Ident(
-        "t",
+        Ident(
+            "t",
+        ),
     ),
     Comma,
     Nil,
     CloseRoundBracket,
     While,
     Ident(
-        "i",
+        Ident(
+            "i",
+        ),
     ),
     Do,
     Ident(
-        "i",
+        Ident(
+            "i",
+        ),
     ),
     Comma,
     Ident(
-        "v",
+        Ident(
+            "v",
+        ),
     ),
     Equals,
     Ident(
-        "next",
+        Ident(
+            "next",
+        ),
     ),
     OpenRoundBracket,
     Ident(
-        "t",
+        Ident(
+            "t",
+        ),
     ),
     Comma,
     Ident(
-        "i",
+        Ident(
+            "i",
+        ),
     ),
     CloseRoundBracket,
     End,

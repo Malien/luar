@@ -1,11 +1,18 @@
 use indoc::indoc;
 use logos::Logos;
 
+#[macro_use]
+extern crate lazy_static;
+
 #[cfg(test)]
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
 
+#[cfg(test)]
+mod test_util;
+
 mod lex;
+mod syn;
 
 static LUA_FUNCTION: &'static str = indoc! {"
     function remove_blanks (s)

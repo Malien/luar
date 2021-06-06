@@ -4,28 +4,28 @@ expression: tokens
 ---
 [
     Number(
-        Integer(
-            4,
+        NumberLiteral(
+            4.0,
         ),
     ),
     Number(
-        Integer(
-            1000,
+        NumberLiteral(
+            1000.0,
         ),
     ),
     Number(
-        Integer(
-            10000000000000000,
+        NumberLiteral(
+            10000000000000000.0,
         ),
     ),
     Number(
-        Integer(
-            -60,
+        NumberLiteral(
+            -60.0,
         ),
     ),
     Number(
-        Integer(
-            728,
+        NumberLiteral(
+            728.0,
         ),
     ),
 ]
