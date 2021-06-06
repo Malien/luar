@@ -36,9 +36,9 @@ deref_t!(NonShrinkable);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
-pub struct NanBegone<T>(pub T);
+pub struct Finite<T>(pub T);
 
-impl<T> Arbitrary for NanBegone<T>
+impl<T> Arbitrary for Finite<T>
 where
     T: num::Float + Arbitrary,
 {
@@ -46,7 +46,7 @@ where
         loop {
             let val = T::arbitrary(g);
             if val.is_finite() {
-                return NanBegone(val);
+                return Finite(val);
             }
         }
     }
@@ -56,9 +56,9 @@ where
             self.0
                 .shrink()
                 .filter(|v| v.is_finite())
-                .map(|v| NanBegone(v)),
+                .map(|v| Finite(v)),
         )
     }
 }
 
-deref_t!(NanBegone);
+deref_t!(Finite);

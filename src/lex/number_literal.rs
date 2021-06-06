@@ -7,21 +7,11 @@ use std::{
 };
 use thiserror::Error;
 
-// #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-// pub enum NumberLiteral {
-//     Integer(i64),
-//     Floating(f64),
-// }
-
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct NumberLiteral(pub f64);
 
 impl Display for NumberLiteral {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        // match self {
-        //     Self::Integer(x) => write!(f, "{}", x),
-        //     Self::Floating(x) => write!(f, "{}", x),
-        // }
         write!(f, "{}", self.0)
     }
 }
@@ -180,7 +170,7 @@ mod tests {
     use quickcheck::TestResult;
     use std::cmp::Ordering;
 
-    use crate::test_util::{NanBegone, NonShrinkable};
+    use crate::test_util::{Finite, NonShrinkable};
 
     use super::NumberLiteral;
 
@@ -211,7 +201,7 @@ mod tests {
     // I'm blowing my stack on tests. Yeah, this is worse for testing, but at least tests
     // finish without getting stack overflow.
     #[quickcheck]
-    fn parses_floats(input: NonShrinkable<NanBegone<f64>>) {
+    fn parses_floats(input: NonShrinkable<Finite<f64>>) {
         let input = **input;
         let res: NumberLiteral = input.to_string().parse().unwrap();
         assert_eq_f64(input, res);
@@ -294,7 +284,7 @@ mod tests {
     // finish without getting stack overflow.
     #[quickcheck]
     fn parses_floats_with_exponent(
-        input: NonShrinkable<NanBegone<f64>>,
+        input: NonShrinkable<Finite<f64>>,
         exponent: u8,
     ) -> TestResult {
         let input = **input;
@@ -329,7 +319,7 @@ mod tests {
     }
 
     fn partial_min<T: PartialOrd>(v1: T, v2: T) -> Option<T> {
-        Some(match PartialOrd::partial_cmp(&v1, &v2)? {
+        PartialOrd::partial_cmp(&v1, &v2).map(|order| match order {
             Ordering::Less | Ordering::Equal => v1,
             Ordering::Greater => v2,
         })
@@ -347,7 +337,7 @@ mod tests {
 
     fn close_cmp(a: f64, b: f64, eps: f64) -> bool {
         if a.is_infinite() && b.is_infinite() {
-            return true
+            return true;
         }
         abs(a - b) < eps
     }
