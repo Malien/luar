@@ -1,9 +1,6 @@
 use indoc::indoc;
 use logos::Logos;
 
-#[macro_use]
-extern crate lazy_static;
-
 #[cfg(test)]
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;

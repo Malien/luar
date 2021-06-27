@@ -1,7 +1,12 @@
-use std::num::NonZeroUsize;
+use std::{
+    iter::{Cloned, Enumerate},
+    num::NonZeroUsize,
+};
 
 use crate::lex::{NumberLiteral, StringLiteral, Token};
-use nom::{alt, map, verify, Err, IResult, Needed, Parser};
+use nom::{
+    alt, map, named, tag, verify, Err, IResult, InputIter, InputLength, InputTake, Needed, Parser,
+};
 use thiserror::Error;
 
 /// Syntax
@@ -69,9 +74,7 @@ enum Expression {
     Nil,
     String(StringLiteral),
     Number(NumberLiteral),
-    Variable {
-        name: String,
-    },
+    Variable(Var),
     BinaryOperator {
         lhs: Box<Expression>,
         op: Operator,
@@ -83,8 +86,21 @@ enum Expression {
     },
     TableConstructor(TableConstructor),
     FunctionCall {
-        name: String,
+        func: Var,
         args: Vec<Expression>,
+    },
+}
+
+#[derive(Debug, PartialEq, Clone)]
+enum Var {
+    Named(String),
+    PropertyAccess {
+        from: Box<Var>,
+        value: Box<Expression>,
+    },
+    MemberLookup {
+        from: Box<Var>,
+        property: String,
     },
 }
 
@@ -128,6 +144,58 @@ fn parse_expr(input: &[Token]) -> ParsingResult<Expression> {
     }
 }
 
+pub struct MySlice<'a, T>(pub &'a [T]);
+
+impl<'a, T> InputTake for MySlice<'a, T> {
+    fn take(&self, count: usize) -> Self {
+        MySlice(&self.0[0..count])
+    }
+
+    fn take_split(&self, count: usize) -> (Self, Self) {
+        let (prefix, suffix) = self.0.split_at(count);
+        (MySlice(suffix), MySlice(prefix))
+    }
+}
+
+impl<'a, T> InputLength for MySlice<'a, T> {
+    fn input_len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl<'a, T> InputIter for MySlice<'a, T> {
+    type Item = &'a T;
+
+    type Iter = Enumerate<<&'a [T] as IntoIterator>::IntoIter>;
+
+    type IterElem = <&'a [T] as IntoIterator>::IntoIter;
+
+    fn iter_indices(&self) -> Self::Iter {
+        self.0.iter().enumerate()
+    }
+
+    fn iter_elements(&self) -> Self::IterElem {
+        self.0.iter()
+    }
+
+    fn position<P>(&self, predicate: P) -> Option<usize>
+    where
+        P: Fn(Self::Item) -> bool,
+    {
+        self.0
+            .iter()
+            .enumerate()
+            .find(|(idx, elem)| predicate(elem))
+            .map(|(idx, _)| idx)
+    }
+
+    fn slice_index(&self, count: usize) -> Result<usize, Needed> {
+        
+    }
+}
+
+named!(parse_nil<MySlice<'_, Token>, Expression>, tag!(Token::Nil));
+
 #[cfg(test)]
 mod tests {
     use super::{parse_expr, Expression, ParsingError};
@@ -146,9 +214,7 @@ mod tests {
     fn number_expr(literal: NumberLiteral) -> ReturnType {
         let expression = parse_expr(&[Token::Number(literal)])?.1;
         match (&literal, &expression) {
-            (NumberLiteral(x), Expression::Number(NumberLiteral(y)))
-                if f64::is_nan(*x) =>
-            {
+            (NumberLiteral(x), Expression::Number(NumberLiteral(y))) if f64::is_nan(*x) => {
                 assert!(f64::is_nan(*y))
             }
             _ => assert_eq!(Expression::Number(literal), expression),
@@ -159,12 +225,15 @@ mod tests {
 
     #[quickcheck]
     fn string_expr(literal: StringLiteral) -> ReturnType {
-        assert_eq!(Expression::String(literal.clone()), parse_expr(&[Token::String(literal)])?.1);
+        assert_eq!(
+            Expression::String(literal.clone()),
+            parse_expr(&[Token::String(literal)])?.1
+        );
 
         Ok(())
     }
 
-    // fn 
+    // fn
 }
 
 // fn token<'a>(token: Token, input: &'a[Token]) -> ParsingResult<'a, Token> {

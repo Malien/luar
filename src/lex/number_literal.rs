@@ -7,8 +7,24 @@ use std::{
 };
 use thiserror::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialOrd)]
 pub struct NumberLiteral(pub f64);
+
+impl PartialEq for NumberLiteral {
+    fn eq(&self, other: &Self) -> bool {
+        let a = self.0;
+        let b = other.0;
+        if a.is_nan() && b.is_nan() {
+            true
+        } else if a.is_infinite() && b.is_infinite() {
+            a.is_sign_negative() == b.is_sign_negative()
+        } else {
+            a == b
+        }
+    }
+}
+
+impl Eq for NumberLiteral {}
 
 impl Display for NumberLiteral {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -283,10 +299,7 @@ mod tests {
     // I'm blowing my stack on tests. Yeah, this is worse for testing, but at least tests
     // finish without getting stack overflow.
     #[quickcheck]
-    fn parses_floats_with_exponent(
-        input: NonShrinkable<Finite<f64>>,
-        exponent: u8,
-    ) -> TestResult {
+    fn parses_floats_with_exponent(input: NonShrinkable<Finite<f64>>, exponent: u8) -> TestResult {
         let input = **input;
         if exponent > 16 {
             return TestResult::discard();

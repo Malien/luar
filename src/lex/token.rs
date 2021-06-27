@@ -106,6 +106,7 @@ pub enum Token {
         |token| token.slice().parse()
     )]
     String(StringLiteral),
+    // TODO: Remove unary + or -. Parse NaN and Inf
     #[regex(
         r"[+-]?((\d+\.\d+)|(\.\d+)|(\d+\.?))(e[+-]?\d+)?",
         |token| token.slice().parse()
