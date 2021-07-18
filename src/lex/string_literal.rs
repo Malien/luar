@@ -1,7 +1,7 @@
-use std::str::FromStr;
-use thiserror::Error;
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
+use std::str::FromStr;
+use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StringLiteral(String);
@@ -36,6 +36,10 @@ impl Arbitrary for StringLiteral {
     fn arbitrary(g: &mut Gen) -> Self {
         StringLiteral(String::arbitrary(g))
     }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        Box::new(self.0.shrink().map(StringLiteral))
+    }
 }
 
 #[cfg(test)]
@@ -46,7 +50,7 @@ mod tests {
 
     #[quickcheck]
     fn parses_plain_string(input: String) -> TestResult {
-        if input.chars().any(|c| ! c.is_alphanumeric()) {
+        if input.chars().any(|c| !c.is_alphanumeric()) {
             return TestResult::discard();
         }
 

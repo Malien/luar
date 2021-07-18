@@ -7,7 +7,7 @@ use super::{Ident, NumberLiteral, StringLiteral};
 ///     `or` `repeat` `return` `until` `then` `while`
 ///
 /// Other tokens:
-///     `~=` `<=` `>=` `<` `>` `=` `..` `+` `-` `*` `/` `%` `(` `)` `{` `}` `[` `]` `@` `;` `,` `.`
+///     `==` `~=` `<=` `>=` `<` `>` `=` `..` `+` `-` `*` `/` `%` `(` `)` `{` `}` `[` `]` `:` `;` `,` `.`
 ///
 /// Comments denoted by `--` and continue until the end of the line
 ///
@@ -54,6 +54,8 @@ pub enum Token {
     Then,
     #[token("while")]
     While,
+    #[token("==")]
+    Equals,
     #[token("~=")]
     NotEquals,
     #[token("<=")]
@@ -65,7 +67,7 @@ pub enum Token {
     #[token("<")]
     Lesser,
     #[token("=")]
-    Equals,
+    Assignment,
     #[token("..")]
     Concat,
     #[token("+")]
@@ -78,6 +80,8 @@ pub enum Token {
     Div,
     #[token("%")]
     Mod,
+    #[token("^")]
+    Exp,
     #[token("(")]
     OpenRoundBracket,
     #[token(")")]
@@ -90,14 +94,14 @@ pub enum Token {
     OpenSquigglyBracket,
     #[token("}")]
     CloseSquigglyBracket,
-    #[token("@")]
-    At,
     #[token(".")]
     Dot,
     #[token(",")]
     Comma,
     #[token(";")]
     Semicolon,
+    #[token(":")]
+    Colon,
     // SAFETY: This is the same regex used to check for identifier validity
     #[regex(r"[_a-zA-Z][_a-zA-Z0-9]*", |str| unsafe { Ident::from_raw(str.slice()) })]
     Ident(Ident),
@@ -128,13 +132,15 @@ impl Token {
 mod tests {
     use std::unreachable;
 
+    use crate::lex::{Ident, NumberLiteral, StringLiteral};
+
     use super::Token;
     use logos::Logos;
     use quickcheck::Arbitrary;
 
     impl Arbitrary for Token {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let idx = u8::arbitrary(g) % 42;
+            let idx = u8::arbitrary(g) % 44;
             match idx {
                 0 => Token::And,
                 1 => Token::Do,
@@ -152,41 +158,34 @@ mod tests {
                 14 => Token::Until,
                 15 => Token::Then,
                 16 => Token::While,
-                17 => Token::NotEquals,
-                18 => Token::LessOrEquals,
-                19 => Token::GreaterOrEquals,
-                20 => Token::Greater,
-                21 => Token::Lesser,
-                22 => Token::Equals,
-                23 => Token::Concat,
-                24 => Token::Plus,
-                25 => Token::Minus,
-                26 => Token::Multiply,
-                27 => Token::Div,
-                28 => Token::Mod,
-                29 => Token::OpenRoundBracket,
-                30 => Token::CloseRoundBracket,
-                31 => Token::OpenSquareBracket,
-                32 => Token::CloseSquareBracket,
-                33 => Token::OpenSquigglyBracket,
-                34 => Token::CloseSquigglyBracket,
-                35 => Token::At,
-                36 => Token::Dot,
-                37 => Token::Comma,
-                38 => Token::Semicolon,
-                39 => {
-                    // Ident(String),
-                    todo!()
-                }
-                40 => {
-                    // String(StringLiteral)
-                    todo!()
-                }
-                41 => {
-                    // Number(NumberLiteral)
-                    todo!()
-                }
-                _ => unreachable!()
+                17 => Token::Equals,
+                18 => Token::NotEquals,
+                19 => Token::LessOrEquals,
+                20 => Token::GreaterOrEquals,
+                21 => Token::Greater,
+                22 => Token::Lesser,
+                23 => Token::Assignment,
+                24 => Token::Concat,
+                25 => Token::Plus,
+                26 => Token::Minus,
+                27 => Token::Multiply,
+                28 => Token::Div,
+                29 => Token::Mod,
+                30 => Token::Exp,
+                31 => Token::OpenRoundBracket,
+                32 => Token::CloseRoundBracket,
+                33 => Token::OpenSquareBracket,
+                34 => Token::CloseSquareBracket,
+                35 => Token::OpenSquigglyBracket,
+                36 => Token::CloseSquigglyBracket,
+                37 => Token::Colon,
+                38 => Token::Dot,
+                39 => Token::Comma,
+                40 => Token::Semicolon,
+                41 => Token::Ident(Ident::arbitrary(g)),
+                42 => Token::String(StringLiteral::arbitrary(g)),
+                43 => Token::Number(NumberLiteral::arbitrary(g)),
+                _ => unreachable!(),
             }
         }
     }
@@ -210,28 +209,28 @@ mod tests {
     assert_tokens!(
         function_1,
         "
-        function remove_blanks (s)
-            local b = strfind(s, ' ')
-            while b do
-                s = strsub(s, 1, b-1) .. strsub(s, b+1)
-                b = strfind(s, ' ')
+            function remove_blanks (s)
+                local b = strfind(s, ' ')
+                while b do
+                    s = strsub(s, 1, b-1) .. strsub(s, b+1)
+                    b = strfind(s, ' ')
+                end
+                return s
             end
-            return s
-        end
-    "
+        "
     );
 
     assert_tokens!(
         function_2,
         "
-        function f (t)                  -- t is a table
-            local i, v = next(t, nil)   -- i is an index of t, v = t[i]
-            while i do
-                -- do something with i and v
-                i, v = next(t, i)       -- get next index
+            function f (t)                  -- t is a table
+                local i, v = next(t, nil)   -- i is an index of t, v = t[i]
+                while i do
+                    -- do something with i and v
+                    i, v = next(t, i)       -- get next index
+                end
             end
-        end
-    "
+        "
     );
 
     assert_tokens!(string_literal, "\"hello world \\n \\\"nope\\\"\"");

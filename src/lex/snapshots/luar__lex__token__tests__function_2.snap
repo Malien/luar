@@ -28,7 +28,7 @@ expression: tokens
             "v",
         ),
     ),
-    Equals,
+    Assignment,
     Ident(
         Ident(
             "next",
@@ -61,7 +61,7 @@ expression: tokens
             "v",
         ),
     ),
-    Equals,
+    Assignment,
     Ident(
         Ident(
             "next",

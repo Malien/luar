@@ -22,7 +22,7 @@ expression: tokens
             "b",
         ),
     ),
-    Equals,
+    Assignment,
     Ident(
         Ident(
             "strfind",
@@ -53,7 +53,7 @@ expression: tokens
             "s",
         ),
     ),
-    Equals,
+    Assignment,
     Ident(
         Ident(
             "strsub",
@@ -112,7 +112,7 @@ expression: tokens
             "b",
         ),
     ),
-    Equals,
+    Assignment,
     Ident(
         Ident(
             "strfind",

@@ -1,7 +1,34 @@
 use crate::lex::{Ident, NumberLiteral, StringLiteral, Token};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Operator {}
+pub enum BinaryOperator {
+    // Precedence level 0
+    And,
+    Or,
+    // Precedence level 1
+    Less,
+    Greater,
+    LessOrEquals,
+    GreaterOrEquals,
+    NotEquals,
+    Equals,
+    // Precedence level 2
+    Concat,
+    // Precedence level 3
+    Plus,
+    Minus,
+    // Precedence level 4
+    Mul,
+    Div,
+    // Precedence level 5
+    Exp,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum UnaryOperator {
+    Minus,
+    Not,
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TableConstructor {}
@@ -14,11 +41,11 @@ pub enum Expression {
     Variable(Var),
     BinaryOperator {
         lhs: Box<Expression>,
-        op: Operator,
+        op: BinaryOperator,
         rhs: Box<Expression>,
     },
     UnaryOperator {
-        op: Operator,
+        op: UnaryOperator,
         exp: Box<Expression>,
     },
     TableConstructor(TableConstructor),
@@ -73,6 +100,30 @@ fn accumulate_var_leftovers(base: Var, leftovers: VarLeftover) -> Var {
     }
 }
 
+// macro_rules! l_binary_op_expr {
+//     ($token:pat, $op:expr) => {
+//         lhs:(@) _:[$token] rhs:@ {
+//             Expression::BinaryOperator {
+//                 op: $op,
+//                 lhs: Box::new(lhs),
+//                 rhs: Box::new(rhs),
+//             }
+//         }
+//     };
+// }
+
+// macro_rules! r_binary_op_expr {
+//     ($token:pat, $op:expr) => {
+//         lhs:@ _:[$token] rhs:(@) {
+//             Expression::BinaryOperator {
+//                 op: $op,
+//                 lhs: Box::new(lhs),
+//                 rhs: Box::new(rhs),
+//             }
+//         }
+//     };
+// }
+
 peg::parser! {
     grammar lua_parser() for [Token] {
         pub rule nil() -> Expression
@@ -84,10 +135,133 @@ peg::parser! {
         pub rule number() -> Expression
             = _:[Token::Number(literal)] { Expression::Number(literal) }
 
-        pub rule expression() -> Expression
-            = e:nil() { e }
-            / e:string() { e }
-            / e:number() { e }
+        pub rule var_expression() -> Expression
+            = var:var() { Expression::Variable(var) }
+
+        pub rule expression() -> Expression = precedence! {
+            x:(@) _:[Token::And] y:@ {
+                Expression::BinaryOperator {
+                    op: BinaryOperator::And,
+                    lhs: Box::new(x),
+                    rhs: Box::new(y),
+                }
+            }
+            x:(@) _:[Token::Or] y:@ {
+                Expression::BinaryOperator {
+                    op: BinaryOperator::Or,
+                    lhs: Box::new(x),
+                    rhs: Box::new(y),
+                }
+            }
+            --
+            x:(@) _:[Token::Lesser] y:@ {
+                Expression::BinaryOperator {
+                    op: BinaryOperator::Less,
+                    lhs: Box::new(x),
+                    rhs: Box::new(y),
+                }
+            }
+            x:(@) _:[Token::Greater] y:@ {
+                Expression::BinaryOperator {
+                    op: BinaryOperator::Greater,
+                    lhs: Box::new(x),
+                    rhs: Box::new(y),
+                }
+            }
+            x:(@) _:[Token::LessOrEquals] y:@ {
+                Expression::BinaryOperator {
+                    op: BinaryOperator::LessOrEquals,
+                    lhs: Box::new(x),
+                    rhs: Box::new(y),
+                }
+            }
+            x:(@) _:[Token::GreaterOrEquals] y:@ {
+                Expression::BinaryOperator {
+                    op: BinaryOperator::GreaterOrEquals,
+                    lhs: Box::new(x),
+                    rhs: Box::new(y),
+                }
+            }
+            x:(@) _:[Token::NotEquals] y:@ {
+                Expression::BinaryOperator {
+                    op: BinaryOperator::NotEquals,
+                    lhs: Box::new(x),
+                    rhs: Box::new(y),
+                }
+            }
+            x:(@) _:[Token::Equals] y:@ {
+                Expression::BinaryOperator {
+                    op: BinaryOperator::Equals,
+                    lhs: Box::new(x),
+                    rhs: Box::new(y),
+                }
+            }
+            --
+            x:(@) _:[Token::Concat] y:@ {
+                Expression::BinaryOperator {
+                    op: BinaryOperator::Concat,
+                    lhs: Box::new(x),
+                    rhs: Box::new(y),
+                }
+            }
+            --
+            x:(@) _:[Token::Plus] y:@ {
+                Expression::BinaryOperator {
+                    op: BinaryOperator::Plus,
+                    lhs: Box::new(x),
+                    rhs: Box::new(y),
+                }
+            }
+            x:(@) _:[Token::Minus] y:@ {
+                Expression::BinaryOperator {
+                    op: BinaryOperator::Minus,
+                    lhs: Box::new(x),
+                    rhs: Box::new(y),
+                }
+            }
+            --
+            x:(@) _:[Token::Multiply] y:@ {
+                Expression::BinaryOperator {
+                    op: BinaryOperator::Mul,
+                    lhs: Box::new(x),
+                    rhs: Box::new(y),
+                }
+            }
+            x:(@) _:[Token::Div] y:@ {
+                Expression::BinaryOperator {
+                    op: BinaryOperator::Div,
+                    lhs: Box::new(x),
+                    rhs: Box::new(y),
+                }
+            }
+            --
+            _:[Token::Not] x:@ {
+                Expression::UnaryOperator {
+                    op: UnaryOperator::Not,
+                    exp: Box::new(x),
+                }
+            }
+            _:[Token::Minus] x:@ {
+                Expression::UnaryOperator {
+                    op: UnaryOperator::Minus,
+                    exp: Box::new(x),
+                }
+            }
+            --
+            x:@ _:[Token::Exp] y:(@) {
+                Expression::BinaryOperator {
+                    op: BinaryOperator::Exp,
+                    lhs: Box::new(x),
+                    rhs: Box::new(y),
+                }
+            }
+            --
+            e:nil() { e }
+            e:string() { e }
+            e:number() { e }
+            e:var_expression() { e }
+            _: [Token::OpenRoundBracket] e:expression() _:[Token::CloseRoundBracket] { e }
+        }
 
         pub rule named() -> Var
             = _:[Token::Ident(ident)] { Var::Named(ident) }
@@ -122,10 +296,14 @@ peg::parser! {
 
 #[cfg(test)]
 mod tests {
+    use indoc::indoc;
+    use logos::Logos;
     use quickcheck::{Arbitrary, Gen};
 
-    use super::{lua_parser, Expression, Var};
+    use super::{lua_parser, BinaryOperator, Expression, UnaryOperator, Var};
     use crate::lex::{Ident, NumberLiteral, StringLiteral, Token};
+
+    use std::iter;
 
     #[derive(Debug, Clone)]
     struct ArbitraryTokens<T> {
@@ -139,24 +317,127 @@ mod tests {
         }
     }
 
-    impl Arbitrary for ArbitraryTokens<Expression> {
+    impl Arbitrary for ArbitraryTokens<UnaryOperator> {
         fn arbitrary(g: &mut Gen) -> Self {
-            match u8::arbitrary(g) % 3 {
-                0 => (vec![Token::Nil], Expression::Nil),
-                1 => {
-                    let literal = NumberLiteral::arbitrary(g);
-                    (vec![Token::Number(literal)], Expression::Number(literal))
-                }
-                2 => {
-                    let literal = StringLiteral::arbitrary(g);
-                    (
-                        vec![Token::String(literal.clone())],
-                        Expression::String(literal),
-                    )
-                }
+            match u8::arbitrary(g) % 2 {
+                0 => (vec![Token::Minus], UnaryOperator::Minus),
+                1 => (vec![Token::Not], UnaryOperator::Not),
                 _ => unreachable!(),
             }
             .into()
+        }
+    }
+
+    impl Arbitrary for ArbitraryTokens<BinaryOperator> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            match u8::arbitrary(g) % 14 {
+                0 => (vec![Token::And], BinaryOperator::And),
+                1 => (vec![Token::Or], BinaryOperator::Or),
+                2 => (vec![Token::Lesser], BinaryOperator::Less),
+                3 => (vec![Token::Greater], BinaryOperator::Greater),
+                4 => (vec![Token::LessOrEquals], BinaryOperator::LessOrEquals),
+                5 => (
+                    vec![Token::GreaterOrEquals],
+                    BinaryOperator::GreaterOrEquals,
+                ),
+                6 => (vec![Token::NotEquals], BinaryOperator::NotEquals),
+                7 => (vec![Token::Equals], BinaryOperator::Equals),
+                8 => (vec![Token::Concat], BinaryOperator::Concat),
+                9 => (vec![Token::Plus], BinaryOperator::Plus),
+                10 => (vec![Token::Minus], BinaryOperator::Minus),
+                11 => (vec![Token::Multiply], BinaryOperator::Mul),
+                12 => (vec![Token::Div], BinaryOperator::Div),
+                13 => (vec![Token::Exp], BinaryOperator::Exp),
+                _ => unreachable!(),
+            }
+            .into()
+        }
+    }
+
+    impl Arbitrary for ArbitraryTokens<Expression> {
+        fn arbitrary(g: &mut Gen) -> Self {
+            match u8::arbitrary(g) % 6 {
+                0 => ArbitraryTokens {
+                    tokens: vec![Token::Nil],
+                    expected: Expression::Nil,
+                },
+                1 => {
+                    let literal = NumberLiteral::arbitrary(g);
+                    ArbitraryTokens {
+                        tokens: vec![Token::Number(literal)],
+                        expected: Expression::Number(literal),
+                    }
+                }
+                2 => {
+                    let literal = StringLiteral::arbitrary(g);
+                    ArbitraryTokens {
+                        tokens: vec![Token::String(literal.clone())],
+                        expected: Expression::String(literal),
+                    }
+                }
+                3 => {
+                    let ArbitraryTokens { expected, tokens } = ArbitraryTokens::arbitrary(g);
+                    ArbitraryTokens {
+                        tokens,
+                        expected: Expression::Variable(expected),
+                    }
+                }
+                4 => {
+                    let ArbitraryTokens {
+                        expected: op,
+                        tokens: op_tokens,
+                    } = ArbitraryTokens::arbitrary(g);
+                    let ArbitraryTokens {
+                        expected: exp,
+                        tokens: exp_tokens,
+                    } = ArbitraryTokens::arbitrary(g);
+
+                    let tokens: Vec<_> = iter::once(Token::OpenRoundBracket)
+                        .chain(op_tokens)
+                        .chain(exp_tokens)
+                        .chain(iter::once(Token::CloseRoundBracket))
+                        .collect();
+
+                    ArbitraryTokens {
+                        tokens,
+                        expected: Expression::UnaryOperator {
+                            op,
+                            exp: Box::new(exp),
+                        },
+                    }
+                }
+                5 => {
+                    let ArbitraryTokens {
+                        expected: op,
+                        tokens: op_tokens,
+                    } = ArbitraryTokens::arbitrary(g);
+                    let ArbitraryTokens {
+                        expected: lhs,
+                        tokens: lhs_tokens,
+                    } = ArbitraryTokens::arbitrary(g);
+                    let ArbitraryTokens {
+                        expected: rhs,
+                        tokens: rhs_tokens,
+                    } = ArbitraryTokens::arbitrary(g);
+
+                    let tokens: Vec<_> = iter::once(Token::OpenRoundBracket)
+                        .chain(lhs_tokens)
+                        .chain(op_tokens)
+                        .chain(rhs_tokens)
+                        .chain(iter::once(Token::CloseRoundBracket))
+                        .collect();
+
+                    ArbitraryTokens {
+                        tokens,
+                        expected: Expression::BinaryOperator {
+                            op,
+                            lhs: Box::new(lhs),
+                            rhs: Box::new(rhs),
+                        },
+                    }
+                }
+                _ => unreachable!(),
+            }
         }
     }
 
@@ -183,6 +464,12 @@ mod tests {
             Expression::String(literal.clone()),
             lua_parser::expression(&[Token::String(literal)]).unwrap()
         );
+    }
+
+    #[quickcheck]
+    fn var_expr(ArbitraryTokens { tokens, expected }: ArbitraryTokens<Var>) {
+        let parsed = lua_parser::expression(&tokens).unwrap();
+        assert_eq!(parsed, Expression::Variable(expected));
     }
 
     #[quickcheck]
@@ -325,5 +612,114 @@ mod tests {
     fn parse_arbitrary_var(ArbitraryTokens { tokens, expected }: ArbitraryTokens<Var>) {
         let parsed = lua_parser::var(&tokens).unwrap();
         assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn operator_precedence_1() {
+        /*
+        (
+            (
+                (
+                    (
+                        (
+                            not (
+                                (1)^(2)
+                            )
+                        ) * (
+                            - (3)
+                        )
+                    ) + (
+                        (4) / (5)
+                    )
+                ) .. (
+                    (6) - (7)
+                )
+            ) < (8)
+        ) and (
+            (9) > (10)
+        ) or (
+            (11) == (12)
+        )
+        */
+        static TEXT: &str = indoc! {"
+            not 1^2 * - 3 + 4 / 5 .. 6 - 7 < 8 and 9 > 10 or 11 == 12
+        "};
+        let tokens: Vec<_> = Token::lexer(TEXT).collect();
+        let expression = lua_parser::expression(&tokens).unwrap();
+        insta::assert_debug_snapshot!(expression);
+    }
+
+    #[test]
+    fn operator_precedence_2() {
+        /*
+        (
+            (1) <= (2)
+        ) and (
+            (
+                (3) + (
+                    (
+                        not (4)
+                    ) * (
+                        (5) ^ (6)
+                    )
+                )
+            ) >= (
+                (7) - (
+                    (
+                        - (8)
+                    ) / (9)
+                )
+            )
+        ) or (
+            (10) ~= (
+                (11) .. (12)
+            )
+        )
+        */
+        static TEXT: &str = indoc! {"
+            1 <= 2 and 3 + not 4 * 5 ^ 6 >= 7 - - 8 / 9 or 10 ~= 11 .. 12
+        "};
+        let tokens: Vec<_> = Token::lexer(TEXT).collect();
+        let expression = lua_parser::expression(&tokens).unwrap();
+        insta::assert_debug_snapshot!(expression);
+    }
+
+    #[test]
+    fn operator_precedence_3() {
+        /*
+        (
+            (
+                (1) <= (
+                    (
+                        (2) and (3)
+                    ) + (
+                        not (
+                            (
+                                (4) * (5)
+                            )
+                        ) ^ (6)
+                    )
+                )
+            ) >= (
+                (
+                    (7) - (
+                        (
+                            - (8)
+                        ) / (
+                            (
+                                (9) or (10)
+                            ) ~= (11)
+                        )
+                    )
+                ) .. (12)
+            )
+        )
+        */
+        static TEXT: &str = indoc! {"
+            1 <= ((2 and 3) + not (4 * 5)) ^ 6 >= 7 - - 8 / ((9 or 10) ~= 11) .. 12
+        "};
+        let tokens: Vec<_> = Token::lexer(TEXT).collect();
+        let expression = lua_parser::expression(&tokens).unwrap();
+        insta::assert_debug_snapshot!(expression);
     }
 }
