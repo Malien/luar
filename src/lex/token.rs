@@ -65,7 +65,7 @@ pub enum Token {
     #[token(">")]
     Greater,
     #[token("<")]
-    Lesser,
+    Less,
     #[token("=")]
     Assignment,
     #[token("..")]
@@ -75,7 +75,7 @@ pub enum Token {
     #[token("-")]
     Minus,
     #[token("*")]
-    Multiply,
+    Mul,
     #[token("/")]
     Div,
     #[token("%")]
@@ -163,12 +163,12 @@ mod tests {
                 19 => Token::LessOrEquals,
                 20 => Token::GreaterOrEquals,
                 21 => Token::Greater,
-                22 => Token::Lesser,
+                22 => Token::Less,
                 23 => Token::Assignment,
                 24 => Token::Concat,
                 25 => Token::Plus,
                 26 => Token::Minus,
-                27 => Token::Multiply,
+                27 => Token::Mul,
                 28 => Token::Div,
                 29 => Token::Mod,
                 30 => Token::Exp,

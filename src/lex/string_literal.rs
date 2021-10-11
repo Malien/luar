@@ -1,7 +1,9 @@
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
-use std::str::FromStr;
+use std::{iter, str::FromStr};
 use thiserror::Error;
+
+use super::{ToTokenStream, Token};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StringLiteral(String);
@@ -39,6 +41,14 @@ impl Arbitrary for StringLiteral {
 
     fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
         Box::new(self.0.shrink().map(StringLiteral))
+    }
+}
+
+impl ToTokenStream for StringLiteral {
+    type Tokens = iter::Once<Token>;
+
+    fn to_tokens(self) -> Self::Tokens {
+        iter::once(Token::String(self))
     }
 }
 

@@ -1,11 +1,10 @@
 use num::pow;
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
-use std::{
-    fmt::{Display, Formatter},
-    str::{Chars, FromStr},
-};
+use std::{fmt::{Display, Formatter}, iter, str::{Chars, FromStr}};
 use thiserror::Error;
+
+use super::{ToTokenStream, Token};
 
 #[derive(Debug, Clone, Copy, PartialOrd)]
 pub struct NumberLiteral(pub f64);
@@ -29,6 +28,13 @@ impl Eq for NumberLiteral {}
 impl Display for NumberLiteral {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl ToTokenStream for NumberLiteral {
+    type Tokens = iter::Once<Token>;
+    fn to_tokens(self) -> Self::Tokens {
+        iter::once(Token::Number(self))
     }
 }
 

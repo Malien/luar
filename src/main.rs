@@ -11,6 +11,8 @@ mod test_util;
 mod lex;
 mod syn;
 
+mod util;
+
 static LUA_FUNCTION: &'static str = indoc! {"
     function remove_blanks (s)
         local b = strfind(s, ' ')
@@ -23,9 +25,12 @@ static LUA_FUNCTION: &'static str = indoc! {"
 "};
 
 fn main() {
-    println!("{}", LUA_FUNCTION);
-    let lexer = lex::Token::lexer(LUA_FUNCTION);
-    for lexem in lexer {
-        println!("{:?}", lexem);
-    }
+    // println!("{}", LUA_FUNCTION);
+    // let lexer = lex::Token::lexer(LUA_FUNCTION);
+    // for lexem in lexer {
+    //     println!("{:?}", lexem);
+    // }
+
+    let tokens: Vec<_> = lex::Token::lexer("{ 1, 2 }").collect();
+    println!("{:?}", syn::lua_parser::table_constructor(&tokens));
 }

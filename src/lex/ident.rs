@@ -2,8 +2,10 @@ use lazy_static::lazy_static;
 #[cfg(test)]
 use quickcheck::Arbitrary;
 use regex::Regex;
-use std::str::FromStr;
+use std::{iter, str::FromStr};
 use thiserror::Error;
+
+use super::{ToTokenStream, Token};
 
 lazy_static! {
     static ref IDENT_REGEX: Regex = Regex::new(r"^[_a-zA-Z][_a-zA-Z0-9]*$").unwrap();
@@ -39,6 +41,13 @@ impl Ident {
 
     pub unsafe fn from_raw(str: &str) -> Self {
         Ident(str.to_string())
+    }
+}
+
+impl ToTokenStream for Ident {
+    type Tokens = iter::Once<Token>;
+    fn to_tokens(self) -> Self::Tokens {
+        iter::once(Token::Ident(self))
     }
 }
 
