@@ -1,5 +1,6 @@
 use std::iter;
 
+use crate::fmt_tokens;
 use crate::lex::{DynTokens, NumberLiteral, StringLiteral, ToTokenStream, Token};
 
 pub mod op;
@@ -57,13 +58,17 @@ impl ToTokenStream for Expression {
     }
 }
 
+fmt_tokens!(Expression);
+
 #[cfg(test)]
 mod test {
     use crate::{
+        lex::Ident,
         syn::expr::TableConstructor,
         test_util::{with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH},
     };
-    use quickcheck::{empty_shrinker, Arbitrary, Gen, TestResult};
+    use logos::Logos;
+    use quickcheck::{empty_shrinker, Arbitrary, Gen};
     use std::iter;
 
     use crate::{
@@ -152,7 +157,6 @@ mod test {
     }
 
     #[quickcheck]
-    #[ignore]
     fn var_expr(expected: Var) {
         let tokens = expected.clone().to_tokens().collect::<Vec<_>>();
         let parsed = lua_parser::expression(&tokens).unwrap();
@@ -160,10 +164,29 @@ mod test {
     }
 
     #[quickcheck]
-    #[ignore]
     fn parses_arbitrary_expression(expected: Expression) {
         let tokens = expected.clone().to_tokens().collect::<Vec<_>>();
         let parsed = lua_parser::expression(&tokens).unwrap();
         assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn parses_my_example() {
+        let tokens: Vec<_> = Token::lexer("A[{}]").collect();
+        let parsed = lua_parser::expression(&tokens).unwrap();
+        assert_eq!(
+            Expression::Variable(Var::MemberLookup {
+                from: Box::new(Var::Named("A".parse().unwrap())),
+                value: Box::new(Expression::TableConstructor(TableConstructor::Empty))
+            }),
+            parsed
+        );
+    }
+
+    #[test]
+    fn sure() {
+        let tokens: Vec<_> = Token::lexer("something[{\"hello\",42}>={}].c").collect();
+        let parsed = lua_parser::expression(&tokens).unwrap();
+        println!("{:#?}", parsed);
     }
 }

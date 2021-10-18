@@ -25,16 +25,16 @@ impl PartialEq for NumberLiteral {
 
 impl Eq for NumberLiteral {}
 
-impl Display for NumberLiteral {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
 impl ToTokenStream for NumberLiteral {
     type Tokens = iter::Once<Token>;
     fn to_tokens(self) -> Self::Tokens {
         iter::once(Token::Number(self))
+    }
+}
+
+impl std::fmt::Display for NumberLiteral {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
     }
 }
 

@@ -115,7 +115,6 @@ mod test {
     }
 
     #[quickcheck]
-    #[ignore]
     fn parse_arbitrary_ppty_access(base: Ident, properties: Vec<Ident>) {
         let mut sequence = Vec::with_capacity(properties.len() + 1);
         sequence.push(Token::Ident(base.clone()));
@@ -152,7 +151,6 @@ mod test {
     }
 
     #[quickcheck]
-    #[ignore]
     fn parse_arbitrary_member_lookup(base: Ident, expressions: Vec<Expression>) {
         let mut sequence = Vec::with_capacity(expressions.len() * 3 + 1);
         sequence.push(Token::Ident(base.clone()));

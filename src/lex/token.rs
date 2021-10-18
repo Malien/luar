@@ -128,6 +128,57 @@ impl Token {
     }
 }
 
+impl std::fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Error => "<#ERROR#>".fmt(f),
+            Self::And => "and".fmt(f),
+            Self::Do => "do".fmt(f),
+            Self::Else => "else".fmt(f),
+            Self::ElseIf => "elseif".fmt(f),
+            Self::End => "end".fmt(f),
+            Self::Function => "function".fmt(f),
+            Self::If => "if".fmt(f),
+            Self::Local => "local".fmt(f),
+            Self::Nil => "nil".fmt(f),
+            Self::Not => "not".fmt(f),
+            Self::Or => "or".fmt(f),
+            Self::Repeat => "repeat".fmt(f),
+            Self::Return => "return".fmt(f),
+            Self::Until => "until".fmt(f),
+            Self::Then => "then".fmt(f),
+            Self::While => "while".fmt(f),
+            Self::Equals => "==".fmt(f),
+            Self::NotEquals => "~=".fmt(f),
+            Self::LessOrEquals => "<=".fmt(f),
+            Self::GreaterOrEquals => ">=".fmt(f),
+            Self::Greater => ">".fmt(f),
+            Self::Less => "<".fmt(f),
+            Self::Assignment => "=".fmt(f),
+            Self::Concat => "..".fmt(f),
+            Self::Plus => "+".fmt(f),
+            Self::Minus => "-".fmt(f),
+            Self::Mul => "*".fmt(f),
+            Self::Div => "/".fmt(f),
+            Self::Mod => "%".fmt(f),
+            Self::Exp => "^".fmt(f),
+            Self::OpenRoundBracket => "(".fmt(f),
+            Self::CloseRoundBracket => ")".fmt(f),
+            Self::OpenSquareBracket => "[".fmt(f),
+            Self::CloseSquareBracket => "]".fmt(f),
+            Self::OpenSquigglyBracket => "{".fmt(f),
+            Self::CloseSquigglyBracket => "}".fmt(f),
+            Self::Dot => ".".fmt(f),
+            Self::Comma => ",".fmt(f),
+            Self::Semicolon => ";".fmt(f),
+            Self::Colon => ":".fmt(f),
+            Self::Ident(ident) => ident.fmt(f),
+            Self::String(literal) => literal.fmt(f),
+            Self::Number(literal) => literal.fmt(f),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::unreachable;
