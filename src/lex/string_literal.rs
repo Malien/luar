@@ -6,7 +6,7 @@ use thiserror::Error;
 use super::{ToTokenStream, Token};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct StringLiteral(String);
+pub struct StringLiteral(pub String);
 
 #[derive(Error, Debug)]
 #[error("Token passed in is not a valid string literal")]

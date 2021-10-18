@@ -41,7 +41,8 @@ impl ToTokenStream for Var {
 
 #[cfg(test)]
 mod test {
-    use quickcheck::{Arbitrary, Gen};
+    use quickcheck::{empty_shrinker, Arbitrary, Gen};
+    use std::iter;
 
     use crate::{
         lex::{Ident, ToTokenStream, Token},
@@ -49,27 +50,44 @@ mod test {
             expr::{Expression, Var},
             lua_parser,
         },
+        test_util::{with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH},
     };
 
     impl Arbitrary for Var {
         fn arbitrary(g: &mut Gen) -> Self {
-            // if g.size() <= 1 {
-            //     let ident = Ident::arbitrary(g);
-            //     return (vec![Token::Ident(ident.clone())], Var::Named(ident)).into();
-            // }
-            match u8::arbitrary(g) % 3 {
-                0 => Var::Named(Ident::arbitrary(g)),
-                1 => Var::PropertyAccess {
-                    from: Box::new(Var::arbitrary(g)),
-                    property: Ident::arbitrary(g),
-                },
-                2 => Var::MemberLookup {
-                    from: Box::new(Var::arbitrary(g)),
-                    value: Box::new(Expression::arbitrary(g)),
-                },
-                _ => unreachable!(),
+            if g.size() == 0 {
+                Var::Named(with_thread_gen(Ident::arbitrary))
+            } else {
+                let g = &mut Gen::new(QUICKCHECK_RECURSIVE_DEPTH.min(g.size() - 1));
+                match u8::arbitrary(g) % 2 {
+                    0 => Var::PropertyAccess {
+                        from: Box::new(Var::arbitrary(g)),
+                        property: with_thread_gen(Ident::arbitrary),
+                    },
+                    1 => Var::MemberLookup {
+                        from: Box::new(Var::arbitrary(g)),
+                        value: Box::new(Expression::arbitrary(g)),
+                    },
+                    _ => unreachable!(),
+                }
             }
-            .into()
+        }
+
+        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+            match self {
+                Var::Named(_) => empty_shrinker(),
+                Var::PropertyAccess { from, .. } => Box::new(iter::once(from.as_ref().clone())),
+                // Var::MemberLookup { from, .. } => Box::new(iter::once(from.as_ref().clone())),
+                Var::MemberLookup { from, value } => {
+                    let from = Box::clone(from);
+                    Box::new(iter::once(from.as_ref().clone()).chain(value.shrink().map(
+                        move |expr| Var::MemberLookup {
+                            from: Box::clone(&from),
+                            value: expr,
+                        },
+                    )))
+                }
+            }
         }
     }
 
@@ -115,12 +133,14 @@ mod test {
         assert_eq!(var, parsed);
     }
 
+    type Res = Result<(), peg::error::ParseError<usize>>;
+
     #[quickcheck]
-    fn parse_single_member_lookup(base: Ident, expression: Expression) {
+    fn parse_single_member_lookup(base: Ident, expression: Expression) -> Res {
         let mut tokens = vec![Token::Ident(base.clone()), Token::OpenSquareBracket];
         tokens.extend(expression.clone().to_tokens());
         tokens.push(Token::CloseSquareBracket);
-        let parsed = lua_parser::var(&tokens).unwrap();
+        let parsed = lua_parser::var(&tokens)?;
         assert_eq!(
             parsed,
             Var::MemberLookup {
@@ -128,6 +148,7 @@ mod test {
                 value: Box::new(expression)
             }
         );
+        Ok(())
     }
 
     #[quickcheck]

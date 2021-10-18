@@ -55,6 +55,9 @@ peg::parser! {
         pub rule var_expression() -> Expression
             = var:var() { Expression::Variable(var) }
 
+        pub rule tbl_expression() -> Expression
+            = tbl:table_constructor() { Expression::TableConstructor(tbl) }
+
         pub rule expression() -> Expression = precedence! {
             x:(@) _:[Token::And] y:@ {
                 Expression::BinaryOperator {
@@ -177,6 +180,7 @@ peg::parser! {
             e:string() { e }
             e:number() { e }
             e:var_expression() { e }
+            e:tbl_expression() { e }
             _: [Token::OpenRoundBracket] e:expression() _:[Token::CloseRoundBracket] { e }
         }
 

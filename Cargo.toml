@@ -15,6 +15,7 @@ regex = "1.4"
 # nom = "6.0"
 lazy_static = "1.4.0"
 peg = "0.7.0"
+itertools = "0.10.1"
 
 [dev-dependencies]
 insta = "1.3"

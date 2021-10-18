@@ -73,14 +73,33 @@ mod test {
     use crate::lex::Token;
     use crate::syn::lua_parser;
     use crate::syn::Expression;
+    use crate::test_util::{arbitrary_recursive_vec, QUICKCHECK_RECURSIVE_DEPTH};
+    use quickcheck::empty_shrinker;
     use quickcheck::{Arbitrary, Gen, TestResult};
+    use std::iter;
 
     impl Arbitrary for TableConstructor {
         fn arbitrary(g: &mut Gen) -> Self {
-            match u8::arbitrary(g) % 2 {
-                0 => TableConstructor::Empty,
-                1 => TableConstructor::LFieldList(Vec::<Expression>::arbitrary(g)),
-                _ => unreachable!(),
+            if g.size() == 0 {
+                TableConstructor::Empty
+            } else {
+                let gen = &mut Gen::new(QUICKCHECK_RECURSIVE_DEPTH.min(g.size() - 1));
+                TableConstructor::LFieldList(arbitrary_recursive_vec(gen))
+            }
+        }
+
+        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+            match self {
+                TableConstructor::Empty => empty_shrinker(),
+                TableConstructor::LFieldList(_) | TableConstructor::FFieldList(_) => {
+                    Box::new(iter::once(TableConstructor::Empty))
+                }
+                TableConstructor::Combined { lfield, ffield } => {
+                    Box::new(IntoIterator::into_iter([
+                        TableConstructor::LFieldList(lfield.clone()),
+                        TableConstructor::FFieldList(ffield.clone()),
+                    ]))
+                }
             }
         }
     }
@@ -93,6 +112,7 @@ mod test {
     }
 
     #[quickcheck]
+    #[ignore]
     fn parses_arbitrary_table_constructor(expected: TableConstructor) {
         let tokens = expected.clone().to_tokens().collect::<Vec<_>>();
         let parsed = lua_parser::table_constructor(&tokens).unwrap();

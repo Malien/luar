@@ -1,5 +1,10 @@
-use quickcheck::Arbitrary;
-use std::ops::{Deref, DerefMut};
+use lazy_static::lazy_static;
+use quickcheck::{Arbitrary, Gen};
+use std::{
+    cell::RefCell,
+    env,
+    ops::{Deref, DerefMut},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
@@ -52,13 +57,38 @@ where
     }
 
     fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-        Box::new(
-            self.0
-                .shrink()
-                .filter(|v| v.is_finite())
-                .map(|v| Finite(v)),
-        )
+        Box::new(self.0.shrink().filter(|v| v.is_finite()).map(|v| Finite(v)))
     }
 }
 
 deref_t!(Finite);
+
+lazy_static! {
+    pub static ref QUICKCHECK_RECURSIVE_DEPTH: usize = {
+        let default = 4;
+        match env::var("QUICKCHECK_RECURSIVE_DEPTH") {
+            Ok(val) => val.parse().unwrap_or(default),
+            Err(_) => default,
+        }
+    };
+    pub static ref QC_GEN_SIZE: usize = {
+        let default = 10;
+        match env::var("QUICKCHECK_GEN_SIZE") {
+            Ok(val) => val.parse().unwrap_or(default),
+            Err(_) => default,
+        }
+    };
+}
+
+thread_local! {
+    pub static THREAD_GEN: RefCell<Gen> = RefCell::new(Gen::new(*QC_GEN_SIZE));
+}
+
+pub fn with_thread_gen<R>(func: impl FnOnce(&mut Gen) -> R) -> R {
+    THREAD_GEN.with(|gen| func(&mut gen.borrow_mut()))
+}
+
+pub fn arbitrary_recursive_vec<T: Arbitrary>(inner_gen: &mut Gen) -> Vec<T> {
+    let size = with_thread_gen(|gen| usize::arbitrary(gen) % gen.size());
+    (0..size).map(|_| T::arbitrary(inner_gen)).collect()
+}
