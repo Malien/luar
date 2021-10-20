@@ -7,15 +7,30 @@ use crate::{
     util::flat_intersperse,
 };
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum TableConstructor {
-    Empty,
-    LFieldList(Vec<Expression>),
-    FFieldList(Vec<(Ident, Expression)>),
-    Combined {
-        lfield: Vec<Expression>,
-        ffield: Vec<(Ident, Expression)>,
-    },
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct TableConstructor {
+    pub lfield: Vec<Expression>,
+    pub ffield: Vec<(Ident, Expression)>,
+}
+
+impl TableConstructor {
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    pub fn lfieldlist(lfield: Vec<Expression>) -> Self {
+        Self {
+            lfield,
+            ..Default::default()
+        }
+    }
+
+    pub fn ffieldlist(ffield: Vec<(Ident, Expression)>) -> Self {
+        Self {
+            ffield,
+            ..Default::default()
+        }
+    }
 }
 
 fn lfieldlist_tokens(lfield: Vec<Expression>) -> impl Iterator<Item = Token> {
@@ -39,26 +54,26 @@ fn ffieldlist_tokens(ffield: Vec<(Ident, Expression)>) -> impl Iterator<Item = T
 impl ToTokenStream for TableConstructor {
     type Tokens = DynTokens;
     fn to_tokens(self) -> Self::Tokens {
-        match self {
-            TableConstructor::Empty => Box::new(IntoIterator::into_iter([
+        match (self.lfield.is_empty(), self.ffield.is_empty()) {
+            (true, true) => Box::new(IntoIterator::into_iter([
                 Token::OpenSquigglyBracket,
                 Token::CloseSquigglyBracket,
             ])),
-            TableConstructor::LFieldList(exprs) => Box::new(
+            (false, true) => Box::new(
                 iter::once(Token::OpenSquigglyBracket)
-                    .chain(lfieldlist_tokens(exprs))
+                    .chain(lfieldlist_tokens(self.lfield))
                     .chain(iter::once(Token::CloseSquigglyBracket)),
             ),
-            TableConstructor::FFieldList(exprs) => Box::new(
+            (true, false) => Box::new(
                 iter::once(Token::OpenSquigglyBracket)
-                    .chain(ffieldlist_tokens(exprs))
+                    .chain(ffieldlist_tokens(self.ffield))
                     .chain(iter::once(Token::CloseSquigglyBracket)),
             ),
-            TableConstructor::Combined { lfield, ffield } => Box::new(
+            (false, false) => Box::new(
                 iter::once(Token::OpenSquigglyBracket)
-                    .chain(lfieldlist_tokens(lfield))
+                    .chain(lfieldlist_tokens(self.lfield))
                     .chain(iter::once(Token::Semicolon))
-                    .chain(ffieldlist_tokens(ffield))
+                    .chain(ffieldlist_tokens(self.ffield))
                     .chain(iter::once(Token::CloseSquigglyBracket)),
             ),
         }
@@ -90,19 +105,19 @@ mod test {
     impl Arbitrary for TableConstructor {
         fn arbitrary(g: &mut Gen) -> Self {
             if g.size() == 0 {
-                TableConstructor::Empty
+                TableConstructor::empty()
             } else {
                 let gen = &mut Gen::new(QUICKCHECK_RECURSIVE_DEPTH.min(g.size() - 1));
                 let exprs = arbitrary_recursive_vec(gen);
                 match u8::arbitrary(gen) % 3 {
-                    0 => TableConstructor::LFieldList(exprs),
-                    1 => TableConstructor::FFieldList(
+                    0 => TableConstructor::lfieldlist(exprs),
+                    1 => TableConstructor::ffieldlist(
                         exprs
                             .into_iter()
                             .map(|expr| (with_thread_gen(Ident::arbitrary), expr))
                             .collect(),
                     ),
-                    2 => TableConstructor::Combined {
+                    2 => TableConstructor {
                         lfield: exprs,
                         ffield: arbitrary_recursive_vec(gen)
                             .into_iter()
@@ -115,17 +130,13 @@ mod test {
         }
 
         fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            match self {
-                TableConstructor::Empty => empty_shrinker(),
-                TableConstructor::LFieldList(_) | TableConstructor::FFieldList(_) => {
-                    Box::new(iter::once(TableConstructor::Empty))
-                }
-                TableConstructor::Combined { lfield, ffield } => {
-                    Box::new(IntoIterator::into_iter([
-                        TableConstructor::LFieldList(lfield.clone()),
-                        TableConstructor::FFieldList(ffield.clone()),
-                    ]))
-                }
+            match (self.lfield.is_empty(), self.ffield.is_empty()) {
+                (true, true) => empty_shrinker(),
+                (true, false) | (false, true) => Box::new(iter::once(TableConstructor::empty())),
+                (false, false) => Box::new(IntoIterator::into_iter([
+                    TableConstructor::lfieldlist(self.lfield.clone()),
+                    TableConstructor::ffieldlist(self.ffield.clone()),
+                ])),
             }
         }
     }
@@ -134,7 +145,7 @@ mod test {
     fn parses_empty_table_constructor() {
         let tokens = [Token::OpenSquigglyBracket, Token::CloseSquigglyBracket];
         let parsed = lua_parser::table_constructor(&tokens).unwrap();
-        assert_eq!(parsed, TableConstructor::Empty);
+        assert_eq!(parsed, TableConstructor::empty());
     }
 
     #[quickcheck]
@@ -157,7 +168,7 @@ mod test {
         tokens.push(Token::Comma);
         tokens.push(Token::CloseSquigglyBracket);
         let parsed = lua_parser::table_constructor(&tokens).unwrap();
-        let table_constructor = TableConstructor::LFieldList(exprs);
+        let table_constructor = TableConstructor::lfieldlist(exprs);
         assert_eq!(parsed, table_constructor);
         TestResult::passed()
     }
@@ -172,7 +183,7 @@ mod test {
         tokens.extend(lfieldlist_tokens(exprs.clone()));
         tokens.push(Token::CloseSquigglyBracket);
         let parsed = lua_parser::table_constructor(&tokens).unwrap();
-        let table_constructor = TableConstructor::LFieldList(exprs);
+        let table_constructor = TableConstructor::lfieldlist(exprs);
         assert_eq!(parsed, table_constructor);
         TestResult::passed()
     }
@@ -184,7 +195,7 @@ mod test {
         if exprs.len() == 0 {
             return TestResult::discard();
         }
-        let expected = TableConstructor::FFieldList(exprs);
+        let expected = TableConstructor::ffieldlist(exprs);
         let tokens: Vec<_> = expected.clone().to_tokens().collect();
         let parsed = lua_parser::table_constructor(&tokens).unwrap();
         assert_eq!(parsed, expected);

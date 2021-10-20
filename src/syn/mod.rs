@@ -218,29 +218,11 @@ peg::parser! {
 
         rule table_constructor_contents() -> TableConstructor
             = lfield:lfieldlist()? ffield:ffieldlist()? {
-                match (lfield, ffield) {
-                    (Some(lfield), Some(ffield)) => {
-                        let mut lfield = lfield;
-                        lfield.reverse();
-                        let mut ffield = ffield;
-                        ffield.reverse();
-                        TableConstructor::Combined { ffield, lfield }
-                    },
-                    (Some(lfield), None) => {
-                        let mut lfield = lfield;
-                        lfield.reverse();
-                        TableConstructor::LFieldList(lfield)
-                    },
-                    (None, Some(ffield)) => {
-                        let mut ffield = ffield;
-                        ffield.reverse();
-                        TableConstructor::FFieldList(ffield)
-                    }
-                    (None, None) => {
-                        TableConstructor::Empty
-                    }
-
-                }
+                let mut lfield = lfield.unwrap_or_default();
+                lfield.reverse();
+                let mut ffield = ffield.unwrap_or_default();
+                ffield.reverse();
+                TableConstructor { lfield, ffield }
             }
 
         rule lfieldlist() -> Vec<Expression>

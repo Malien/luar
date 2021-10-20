@@ -176,7 +176,7 @@ mod test {
         assert_eq!(
             Expression::Variable(Var::MemberLookup {
                 from: Box::new(Var::Named("A".parse().unwrap())),
-                value: Box::new(Expression::TableConstructor(TableConstructor::Empty))
+                value: Box::new(Expression::TableConstructor(TableConstructor::empty()))
             }),
             parsed
         );
