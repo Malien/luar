@@ -2,6 +2,7 @@ use std::iter;
 
 use super::Expression;
 use crate::{
+    fmt_tokens,
     lex::{DynTokens, Ident, ToTokenStream, Token},
     util::flat_intersperse,
 };
@@ -59,16 +60,18 @@ impl ToTokenStream for TableConstructor {
                     .chain(iter::once(Token::Comma))
                     .chain(ffieldlist_tokens(ffield))
                     .chain(iter::once(Token::CloseSquigglyBracket)),
-                // .chain()
             ),
         }
     }
 }
 
+fmt_tokens!(TableConstructor);
+
 #[cfg(test)]
 mod test {
     use super::lfieldlist_tokens;
     use super::TableConstructor;
+    use crate::lex::Ident;
     use crate::lex::ToTokenStream;
     use crate::lex::Token;
     use crate::syn::lua_parser;
@@ -90,7 +93,11 @@ mod test {
                 TableConstructor::Empty
             } else {
                 let gen = &mut Gen::new(QUICKCHECK_RECURSIVE_DEPTH.min(g.size() - 1));
-                TableConstructor::LFieldList(arbitrary_recursive_vec(gen))
+                match u8::arbitrary(gen) % 2 {
+                    0 => TableConstructor::LFieldList(arbitrary_recursive_vec(gen)),
+                    1 => TableConstructor::FFieldList(arbitrary_recursive_vec(gen)),
+                    _ => unreachable!()
+                }
             }
         }
 
@@ -154,6 +161,20 @@ mod test {
         let parsed = lua_parser::table_constructor(&tokens).unwrap();
         let table_constructor = TableConstructor::LFieldList(exprs);
         assert_eq!(parsed, table_constructor);
+        TestResult::passed()
+    }
+
+    #[quickcheck]
+    fn parses_arbitrary_associative_table_constructor(
+        exprs: Vec<(Ident, Expression)>,
+    ) -> TestResult {
+        if exprs.len() == 0 {
+            return TestResult::discard();
+        }
+        let expected = TableConstructor::FFieldList(exprs);
+        let tokens: Vec<_> = expected.clone().to_tokens().collect();
+        let parsed = lua_parser::table_constructor(&tokens).unwrap();
+        assert_eq!(parsed, expected);
         TestResult::passed()
     }
 }
