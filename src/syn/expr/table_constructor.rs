@@ -57,7 +57,7 @@ impl ToTokenStream for TableConstructor {
             TableConstructor::Combined { lfield, ffield } => Box::new(
                 iter::once(Token::OpenSquigglyBracket)
                     .chain(lfieldlist_tokens(lfield))
-                    .chain(iter::once(Token::Comma))
+                    .chain(iter::once(Token::Semicolon))
                     .chain(ffieldlist_tokens(ffield))
                     .chain(iter::once(Token::CloseSquigglyBracket)),
             ),
@@ -94,7 +94,7 @@ mod test {
             } else {
                 let gen = &mut Gen::new(QUICKCHECK_RECURSIVE_DEPTH.min(g.size() - 1));
                 let exprs = arbitrary_recursive_vec(gen);
-                match u8::arbitrary(gen) % 2 {
+                match u8::arbitrary(gen) % 3 {
                     0 => TableConstructor::LFieldList(exprs),
                     1 => TableConstructor::FFieldList(
                         exprs
@@ -102,6 +102,13 @@ mod test {
                             .map(|expr| (with_thread_gen(Ident::arbitrary), expr))
                             .collect(),
                     ),
+                    2 => TableConstructor::Combined {
+                        lfield: exprs,
+                        ffield: arbitrary_recursive_vec(gen)
+                            .into_iter()
+                            .map(|expr| (with_thread_gen(Ident::arbitrary), expr))
+                            .collect(),
+                    },
                     _ => unreachable!(),
                 }
             }

@@ -217,17 +217,31 @@ peg::parser! {
             = _:[Token::OpenSquigglyBracket] tc:table_constructor_contents() _:[Token::CloseSquigglyBracket] { tc }
 
         rule table_constructor_contents() -> TableConstructor
-            = list:lfieldlist() {
-                let mut list = list;
-                list.reverse();
-                TableConstructor::LFieldList(list)
+            = lfield:lfieldlist()? ffield:ffieldlist()? {
+                match (lfield, ffield) {
+                    (Some(lfield), Some(ffield)) => {
+                        let mut lfield = lfield;
+                        lfield.reverse();
+                        let mut ffield = ffield;
+                        ffield.reverse();
+                        TableConstructor::Combined { ffield, lfield }
+                    },
+                    (Some(lfield), None) => {
+                        let mut lfield = lfield;
+                        lfield.reverse();
+                        TableConstructor::LFieldList(lfield)
+                    },
+                    (None, Some(ffield)) => {
+                        let mut ffield = ffield;
+                        ffield.reverse();
+                        TableConstructor::FFieldList(ffield)
+                    }
+                    (None, None) => {
+                        TableConstructor::Empty
+                    }
+
+                }
             }
-            / list:ffieldlist() {
-                let mut list = list;
-                list.reverse();
-                TableConstructor::FFieldList(list)
-            }
-            / { TableConstructor::Empty }
 
         rule lfieldlist() -> Vec<Expression>
             = head:expression() !(_:[Token::Assignment]) tail:_lfieldlist_after_expr() {
@@ -249,7 +263,7 @@ peg::parser! {
             / { Vec::new() }
 
         rule ffieldlist() -> Vec<(Ident, Expression)>
-            = head:name_pair() tail:_ffieldlist_after_pair() {
+            = _:[Token::Semicolon]? head:name_pair() tail:_ffieldlist_after_pair() {
                 let mut tail = tail;
                 tail.push(head);
                 tail

@@ -63,7 +63,6 @@ fmt_tokens!(Expression);
 #[cfg(test)]
 mod test {
     use crate::{
-        lex::Ident,
         syn::expr::TableConstructor,
         test_util::{with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH},
     };
