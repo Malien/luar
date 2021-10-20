@@ -222,10 +222,15 @@ peg::parser! {
                 list.reverse();
                 TableConstructor::LFieldList(list)
             }
+            / list:ffieldlist() {
+                let mut list = list;
+                list.reverse();
+                TableConstructor::FFieldList(list)
+            }
             / { TableConstructor::Empty }
 
         rule lfieldlist() -> Vec<Expression>
-            = head:expression() tail:_lfieldlist_after_expr() {
+            = head:expression() !(_:[Token::Assignment]) tail:_lfieldlist_after_expr() {
                 let mut tail = tail;
                 tail.push(head);
                 tail
@@ -241,6 +246,28 @@ peg::parser! {
 
         rule _lfieldlist_after_expr() -> Vec<Expression>
             = _:[Token::Comma] rest:_lfieldlist() { rest }
+            / { Vec::new() }
+
+        rule ffieldlist() -> Vec<(Ident, Expression)>
+            = head:name_pair() tail:_ffieldlist_after_pair() {
+                let mut tail = tail;
+                tail.push(head);
+                tail
+            }
+
+        rule name_pair() -> (Ident, Expression)
+            = _:[Token::Ident(ident)] _:[Token::Assignment] expr:expression() { (ident, expr) }
+
+        rule _ffieldlist_after_pair() -> Vec<(Ident, Expression)>
+            = _: [Token::Comma] rest:_ffieldlist() { rest }
+            / { Vec::new() }
+
+        rule _ffieldlist() -> Vec<(Ident, Expression)>
+            = head:name_pair() tail:_ffieldlist_after_pair() {
+                let mut tail = tail;
+                tail.push(head);
+                tail
+            }
             / { Vec::new() }
 
     }

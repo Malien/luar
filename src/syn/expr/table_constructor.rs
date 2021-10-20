@@ -82,9 +82,9 @@ mod test {
     use quickcheck::{Arbitrary, Gen, TestResult};
     use std::iter;
 
-    fn arbitrary_recursive_vec<T: Arbitrary>(inner_gen: &mut Gen) -> Vec<T> {
+    fn arbitrary_recursive_vec<T: Arbitrary>(gen: &mut Gen) -> Vec<T> {
         let size = with_thread_gen(|gen| usize::arbitrary(gen) % gen.size());
-        (0..size + 1).map(|_| T::arbitrary(inner_gen)).collect()
+        (0..size + 1).map(|_| T::arbitrary(gen)).collect()
     }
 
     impl Arbitrary for TableConstructor {
@@ -93,10 +93,16 @@ mod test {
                 TableConstructor::Empty
             } else {
                 let gen = &mut Gen::new(QUICKCHECK_RECURSIVE_DEPTH.min(g.size() - 1));
+                let exprs = arbitrary_recursive_vec(gen);
                 match u8::arbitrary(gen) % 2 {
-                    0 => TableConstructor::LFieldList(arbitrary_recursive_vec(gen)),
-                    1 => TableConstructor::FFieldList(arbitrary_recursive_vec(gen)),
-                    _ => unreachable!()
+                    0 => TableConstructor::LFieldList(exprs),
+                    1 => TableConstructor::FFieldList(
+                        exprs
+                            .into_iter()
+                            .map(|expr| (with_thread_gen(Ident::arbitrary), expr))
+                            .collect(),
+                    ),
+                    _ => unreachable!(),
                 }
             }
         }

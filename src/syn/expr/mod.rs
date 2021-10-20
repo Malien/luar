@@ -182,11 +182,4 @@ mod test {
             parsed
         );
     }
-
-    #[test]
-    fn sure() {
-        let tokens: Vec<_> = Token::lexer("something[{\"hello\",42}>={}].c").collect();
-        let parsed = lua_parser::expression(&tokens).unwrap();
-        println!("{:#?}", parsed);
-    }
 }

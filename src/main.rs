@@ -31,6 +31,7 @@ fn main() {
     //     println!("{:?}", lexem);
     // }
 
-    let tokens: Vec<_> = lex::Token::lexer("{ 1, 2 }").collect();
-    println!("{:?}", syn::lua_parser::table_constructor(&tokens));
+    let tokens: Vec<_> = lex::Token::lexer("{ foo = bar }").collect();
+    let parsed = syn::lua_parser::expression(&tokens).unwrap();
+    println!("{}\n{:?}", parsed, parsed);
 }

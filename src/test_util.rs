@@ -73,7 +73,7 @@ lazy_static! {
     };
     pub static ref QC_GEN_SIZE: usize = {
         let default = 10;
-        match env::var("QUICKCHECK_GEN_SIZE") {
+        match env::var("QUICKCHECK_GENERATOR_SIZE") {
             Ok(val) => val.parse().unwrap_or(default),
             Err(_) => default,
         }
