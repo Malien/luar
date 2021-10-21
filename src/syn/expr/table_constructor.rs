@@ -31,6 +31,10 @@ impl TableConstructor {
             ..Default::default()
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.lfield.is_empty() && self.ffield.is_empty()
+    }
 }
 
 fn lfieldlist_tokens(lfield: Vec<Expression>) -> impl Iterator<Item = Token> {
@@ -91,16 +95,12 @@ mod test {
     use crate::lex::Token;
     use crate::syn::lua_parser;
     use crate::syn::Expression;
+    use crate::test_util::arbitrary_recursive_vec;
     use crate::test_util::with_thread_gen;
     use crate::test_util::QUICKCHECK_RECURSIVE_DEPTH;
     use quickcheck::empty_shrinker;
     use quickcheck::{Arbitrary, Gen, TestResult};
     use std::iter;
-
-    fn arbitrary_recursive_vec<T: Arbitrary>(gen: &mut Gen) -> Vec<T> {
-        let size = with_thread_gen(|gen| usize::arbitrary(gen) % gen.size());
-        (0..size + 1).map(|_| T::arbitrary(gen)).collect()
-    }
 
     impl Arbitrary for TableConstructor {
         fn arbitrary(g: &mut Gen) -> Self {

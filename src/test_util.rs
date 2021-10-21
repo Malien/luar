@@ -88,3 +88,7 @@ pub fn with_thread_gen<R>(func: impl FnOnce(&mut Gen) -> R) -> R {
     THREAD_GEN.with(|gen| func(&mut gen.borrow_mut()))
 }
 
+pub fn arbitrary_recursive_vec<T: Arbitrary>(gen: &mut Gen) -> Vec<T> {
+    let size = with_thread_gen(|gen| usize::arbitrary(gen) % gen.size());
+    (0..size + 1).map(|_| T::arbitrary(gen)).collect()
+}

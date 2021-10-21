@@ -3,11 +3,12 @@ use std::iter;
 use crate::fmt_tokens;
 use crate::lex::{DynTokens, NumberLiteral, StringLiteral, ToTokenStream, Token};
 
+pub mod function_call;
 pub mod op;
 pub mod table_constructor;
 pub mod var;
 
-pub use self::{op::*, table_constructor::*, var::*};
+pub use self::{function_call::*, op::*, table_constructor::*, var::*};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
@@ -25,35 +26,33 @@ pub enum Expression {
         exp: Box<Expression>,
     },
     TableConstructor(TableConstructor),
-    FunctionCall {
-        func: Var,
-        args: Vec<Expression>,
-    },
+    FunctionCall(FunctionCall),
 }
 
 impl ToTokenStream for Expression {
     type Tokens = DynTokens;
     fn to_tokens(self) -> Self::Tokens {
+        use Expression::*;
         match self {
-            Expression::Nil => Box::new(iter::once(Token::Nil)),
-            Expression::String(literal) => Box::new(literal.to_tokens()),
-            Expression::Number(literal) => Box::new(literal.to_tokens()),
-            Expression::Variable(var) => var.to_tokens(),
-            Expression::BinaryOperator { lhs, op, rhs } => Box::new(
+            Nil => Box::new(iter::once(Token::Nil)),
+            String(literal) => Box::new(literal.to_tokens()),
+            Number(literal) => Box::new(literal.to_tokens()),
+            Variable(var) => var.to_tokens(),
+            BinaryOperator { lhs, op, rhs } => Box::new(
                 iter::once(Token::OpenRoundBracket)
                     .chain(lhs.to_tokens())
                     .chain(op.to_tokens())
                     .chain(rhs.to_tokens())
                     .chain(iter::once(Token::CloseRoundBracket)),
             ),
-            Expression::UnaryOperator { op, exp } => Box::new(
+            UnaryOperator { op, exp } => Box::new(
                 iter::once(Token::OpenRoundBracket)
                     .chain(op.to_tokens())
                     .chain(exp.to_tokens())
                     .chain(iter::once(Token::CloseRoundBracket)),
             ),
-            Expression::TableConstructor(constructor) => constructor.to_tokens(),
-            Expression::FunctionCall { .. } => todo!(),
+            TableConstructor(constructor) => constructor.to_tokens(),
+            FunctionCall(_) => todo!(),
         }
     }
 }
@@ -107,25 +106,21 @@ mod test {
         }
 
         fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+            use Expression::*;
             match self {
                 // Expression::Nil => empty_shrinker(),
                 // Expression::Number(_) => Box::new(iter::once(Expression::Number(NumberLiteral(42.0)))),
                 // Expression::String(_) => Box::new(iter::once(Expression::String(StringLiteral("str".to_string())))),
                 // Expression::Number(_) | Expression::String(_) => Box::new(iter::once(Expression::Nil)),
-                Expression::Variable(var) => Box::new(var.shrink().map(Expression::Variable)),
-                Expression::UnaryOperator { exp, .. } => Box::new(iter::once(exp.as_ref().clone())),
-                Expression::BinaryOperator { lhs, rhs, .. } => Box::new(
+                Variable(var) => Box::new(var.shrink().map(Variable)),
+                UnaryOperator { exp, .. } => Box::new(iter::once(exp.as_ref().clone())),
+                BinaryOperator { lhs, rhs, .. } => Box::new(
                     iter::once(lhs.as_ref().clone()).chain(iter::once(rhs.as_ref().clone())),
                 ),
-                Expression::TableConstructor(tbl) => {
-                    Box::new(tbl.shrink().map(Expression::TableConstructor))
-                }
+                TableConstructor(tbl) => Box::new(tbl.shrink().map(TableConstructor)),
                 // Expression::FunctionCall { .. } => empty_shrinker(),
                 // Expression::FunctionCall { args } => Box::new(args.map(Expression::shrink).chain(iter::once(Expression::FunctionCall)))
-                Expression::Nil
-                | Expression::Number(_)
-                | Expression::String(_)
-                | Expression::FunctionCall { .. } => empty_shrinker(),
+                Nil | Number(_) | String(_) | FunctionCall(_) => empty_shrinker(),
             }
         }
     }

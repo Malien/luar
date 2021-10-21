@@ -100,8 +100,8 @@ pub enum Token {
     Comma,
     #[token(";")]
     Semicolon,
-    // #[token(":")]
-    // Colon,
+    #[token(":")]
+    Colon,
     // SAFETY: This is the same regex used to check for identifier validity
     #[regex(r"[_a-zA-Z][_a-zA-Z0-9]*", |str| unsafe { Ident::from_raw(str.slice()) })]
     Ident(Ident),
@@ -171,7 +171,7 @@ impl std::fmt::Display for Token {
             Self::Dot => ".".fmt(f),
             Self::Comma => ",".fmt(f),
             Self::Semicolon => ";".fmt(f),
-            // Self::Colon => ":".fmt(f),
+            Self::Colon => ":".fmt(f),
             Self::Ident(ident) => ident.fmt(f),
             Self::String(literal) => literal.fmt(f),
             Self::Number(literal) => literal.fmt(f),
@@ -229,7 +229,7 @@ mod tests {
                 34 => Token::CloseSquareBracket,
                 35 => Token::OpenSquigglyBracket,
                 36 => Token::CloseSquigglyBracket,
-                // 37 => Token::Colon,
+                37 => Token::Colon,
                 38 => Token::Dot,
                 39 => Token::Comma,
                 40 => Token::Semicolon,

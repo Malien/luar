@@ -73,7 +73,7 @@ impl Token {
                 after: Indent(Increase),
             },
             Exp | OpenRoundBracket | CloseRoundBracket | OpenSquareBracket | CloseSquareBracket
-            | Dot => Formatting {
+            | Dot | Colon => Formatting {
                 before: Condensed,
                 after: Condensed,
             },

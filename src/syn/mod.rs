@@ -41,6 +41,18 @@ fn accumulate_var_leftovers(base: Var, leftovers: VarLeftover) -> Var {
     }
 }
 
+enum FunctionCallHead {
+    Function(Var),
+    Method(Var, Ident),
+}
+
+fn compose_function_call(head: FunctionCallHead, args: FunctionCallArgs) -> FunctionCall {
+    match head {
+        FunctionCallHead::Function(func) => FunctionCall::Function { func, args },
+        FunctionCallHead::Method(func, method) => FunctionCall::Method { func, method, args },
+    }
+}
+
 peg::parser! {
     pub grammar lua_parser() for [Token] {
         pub rule nil() -> Expression
@@ -264,6 +276,36 @@ peg::parser! {
                 tail.push(head);
                 tail
             }
+            / { Vec::new() }
+
+        pub rule function_call() -> FunctionCall
+            = head:function_call_head() _:[Token::OpenRoundBracket] exprs:exprlist1() _:[Token::CloseRoundBracket] {
+                compose_function_call(head, FunctionCallArgs::Arglist(exprs))
+            }
+            / head:function_call_head() tbl:table_constructor() {
+                compose_function_call(head, FunctionCallArgs::Table(tbl))
+            }
+
+        rule function_call_head() -> FunctionCallHead
+            = func:var() _:[Token::Colon] _:[Token::Ident(ident)] { FunctionCallHead::Method(func, ident) }
+            / func:var() { FunctionCallHead::Function(func) }
+
+        rule exprlist1() -> Vec<Expression>
+            = head:expression() tail:exprlist() {
+                let mut tail = tail;
+                tail.push(head);
+                tail.reverse();
+                tail
+            }
+            / { Vec::new() }
+
+        rule exprlist() -> Vec<Expression>
+            = _:[Token::Comma] head:expression() tail:exprlist() {
+                let mut tail = tail;
+                tail.push(head);
+                tail
+            }
+            / _:[Token::Comma] { Vec::new() }
             / { Vec::new() }
 
     }

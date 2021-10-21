@@ -1,7 +1,7 @@
 use num::pow;
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
-use std::{fmt::{Display, Formatter}, iter, str::{Chars, FromStr}};
+use std::{fmt::Formatter, iter, str::{Chars, FromStr}};
 use thiserror::Error;
 
 use super::{ToTokenStream, Token};
