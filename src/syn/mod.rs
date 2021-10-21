@@ -279,16 +279,21 @@ peg::parser! {
             / { Vec::new() }
 
         pub rule function_call() -> FunctionCall
-            = head:function_call_head() _:[Token::OpenRoundBracket] exprs:exprlist1() _:[Token::CloseRoundBracket] {
-                compose_function_call(head, FunctionCallArgs::Arglist(exprs))
-            }
-            / head:function_call_head() tbl:table_constructor() {
-                compose_function_call(head, FunctionCallArgs::Table(tbl))
+            = head:function_call_head() args:function_call_args() {
+                compose_function_call(head, args)
             }
 
         rule function_call_head() -> FunctionCallHead
             = func:var() _:[Token::Colon] _:[Token::Ident(ident)] { FunctionCallHead::Method(func, ident) }
             / func:var() { FunctionCallHead::Function(func) }
+
+        rule function_call_args() -> FunctionCallArgs
+            = _:[Token::OpenRoundBracket] exprs:exprlist1() _:[Token::CloseRoundBracket] {
+                FunctionCallArgs::Arglist(exprs)
+            }
+            / tbl:table_constructor() {
+                FunctionCallArgs::Table(tbl)
+            }
 
         rule exprlist1() -> Vec<Expression>
             = head:expression() tail:exprlist() {
