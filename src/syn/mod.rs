@@ -72,7 +72,7 @@ peg::parser! {
             = tbl:table_constructor() { Expression::TableConstructor(tbl) }
 
         pub rule var_or_func_expression() -> Expression
-            = func:var() _:[Token::Colon] _:[Token::Ident(method)] args:function_call_args() { 
+            = func:var() _:[Token::Colon] _:[Token::Ident(method)] args:function_call_args() {
                 Expression::FunctionCall(FunctionCall::Method { func, method, args })
             }
             / func:var() args:function_call_args() {
@@ -311,7 +311,7 @@ peg::parser! {
                 tail.push(head);
                 tail.reverse();
                 // SAFETY: I've pushed head into vec
-                unsafe { NonEmptyVec::unchecked_new(tail) }
+                unsafe { NonEmptyVec::new_unchecked(tail) }
             }
 
         rule exprlist() -> Vec<Expression>
@@ -340,7 +340,7 @@ peg::parser! {
                 tail.push(head);
                 tail.reverse();
                 // SAFETY: I've pushed head into vec
-                unsafe { NonEmptyVec::unchecked_new(tail) }
+                unsafe { NonEmptyVec::new_unchecked(tail) }
             }
 
         rule varlist() -> Vec<Var>
@@ -354,6 +354,33 @@ peg::parser! {
                 tail
             }
             / { Vec::new() }
+
+        pub rule declaration() -> Declaration
+            = _:[Token::Local] names:decllist() initial_values:initial_values() {
+                Declaration { names, initial_values, }
+            }
+
+        rule initial_values() -> Vec<Expression>
+            = _:[Token::Assignment] values:exprlist1() { values.into() }
+            / { Vec::new() }
+
+        rule decllist() -> NonEmptyVec<Ident>
+            = _:[Token::Ident(head)]() tail:_decllist() {
+                let mut tail = tail;
+                tail.push(head);
+                tail.reverse();
+                // SAFETY: I've pushed head into vec
+                unsafe { NonEmptyVec::new_unchecked(tail) }
+            }
+
+        rule _decllist() -> Vec<Ident>
+            = _:[Token::Comma] _:[Token::Ident(head)]() tail:_decllist() {
+                let mut tail = tail;
+                tail.push(head);
+                tail
+            }
+            / { Vec::new() }
+
 
     }
 }

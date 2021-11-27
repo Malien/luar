@@ -103,7 +103,7 @@ pub enum Token {
     #[token(":")]
     Colon,
     // SAFETY: This is the same regex used to check for identifier validity
-    #[regex(r"[_a-zA-Z][_a-zA-Z0-9]*", |str| unsafe { Ident::from_raw(str.slice()) })]
+    #[regex(r"[_a-zA-Z][_a-zA-Z0-9]*", |str| unsafe { Ident::new_unchecked(str.slice()) })]
     Ident(Ident),
     #[regex(
         "(\"(?:[^\"'\\\\]|\\\\.)*\")|('(?:[^\"'\\\\]|\\\\.)*')",

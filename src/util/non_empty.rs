@@ -6,6 +6,10 @@ pub struct NonEmptyVec<T>(Vec<T>);
 pub struct VecIsEmptyError<T>(Vec<T>);
 
 impl<T> NonEmptyVec<T> {
+    pub fn of_single(value: T) -> Self {
+        Self(vec![value])
+    }
+
     pub fn try_new(vec: Vec<T>) -> Result<Self, VecIsEmptyError<T>> {
         if vec.is_empty() {
             Err(VecIsEmptyError(vec))
@@ -14,7 +18,7 @@ impl<T> NonEmptyVec<T> {
         }
     }
 
-    pub unsafe fn unchecked_new(vec: Vec<T>) -> Self {
+    pub unsafe fn new_unchecked(vec: Vec<T>) -> Self {
         NonEmptyVec(vec)
     }
 }

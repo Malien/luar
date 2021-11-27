@@ -39,7 +39,7 @@ impl Ident {
         }
     }
 
-    pub unsafe fn from_raw(str: &str) -> Self {
+    pub unsafe fn new_unchecked(str: &str) -> Self {
         Ident(str.to_string())
     }
 }

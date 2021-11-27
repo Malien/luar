@@ -6,6 +6,9 @@ use crate::{
 mod assignment;
 pub use assignment::*;
 
+mod declaration;
+pub use declaration::*;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Assignment(Assignment),
