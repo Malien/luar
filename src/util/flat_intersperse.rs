@@ -32,6 +32,26 @@ where
     FlatIntersperse::new(iter.into_iter(), sep)
 }
 
+pub trait FlatIntersperseExt
+where
+    Self: Iterator,
+    Self::Item: IntoIterator,
+{
+    fn flat_intersperse<Sep>(self, sep: Sep) -> FlatIntersperse<Self, Sep>
+    where
+        Self: Sized;
+}
+
+impl<T> FlatIntersperseExt for T
+where
+    T: Iterator,
+    T::Item: IntoIterator,
+{
+    fn flat_intersperse<Sep>(self, sep: Sep) -> FlatIntersperse<Self, Sep> {
+        flat_intersperse(self, sep)
+    }
+}
+
 impl<Iter, Sep> Iterator for FlatIntersperse<Iter, Sep>
 where
     Iter: Iterator,

@@ -1,7 +1,7 @@
 use crate::{
     fmt_tokens,
     lex::{DynTokens, Ident, ToTokenStream, Token},
-    util::flat_intersperse,
+    util::FlatIntersperseExt,
 };
 
 use super::{Expression, TableConstructor, Var};
@@ -53,10 +53,12 @@ impl ToTokenStream for FunctionCallArgs {
             Self::Table(table) => table.to_tokens(),
             Self::Arglist(exprs) => Box::new(
                 iter::once(Token::OpenRoundBracket)
-                    .chain(flat_intersperse(
-                        exprs.into_iter().map(Expression::to_tokens),
-                        Token::Comma,
-                    ))
+                    .chain(
+                        exprs
+                            .into_iter()
+                            .map(Expression::to_tokens)
+                            .flat_intersperse(Token::Comma),
+                    )
                     .chain(iter::once(Token::CloseRoundBracket)),
             ),
         }

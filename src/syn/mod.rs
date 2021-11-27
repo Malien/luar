@@ -1,12 +1,14 @@
 use crate::lex::{Ident, Token};
+use crate::util::NonEmptyVec;
 
 pub mod expr;
 pub use expr::op::*;
 
-use expr::*;
+pub mod stmnt;
+// pub use stmnt::*;
 
-#[cfg(test)]
-pub mod arbitrary_tokens;
+use expr::*;
+use peg::error::ParseError;
 
 #[derive(Debug, PartialEq, Clone)]
 enum VarLeftover {
@@ -288,29 +290,58 @@ peg::parser! {
             / func:var() { FunctionCallHead::Function(func) }
 
         rule function_call_args() -> FunctionCallArgs
-            = _:[Token::OpenRoundBracket] exprs:exprlist1() _:[Token::CloseRoundBracket] {
+            = _:[Token::OpenRoundBracket] exprs:exprlist() _:[Token::CloseRoundBracket] {
                 FunctionCallArgs::Arglist(exprs)
             }
             / tbl:table_constructor() {
                 FunctionCallArgs::Table(tbl)
             }
 
-        rule exprlist1() -> Vec<Expression>
-            = head:expression() tail:exprlist() {
+        rule exprlist1() -> NonEmptyVec<Expression>
+            = head:expression() tail:_exprlist() {
                 let mut tail = tail;
                 tail.push(head);
                 tail.reverse();
+                // SAFETY: I've pushed head into vec
+                unsafe { NonEmptyVec::unchecked_new(tail) }
+            }
+
+        rule exprlist() -> Vec<Expression>
+            = exprs:exprlist1() { exprs.into() }
+            / { Vec::new() }
+
+        rule _exprlist() -> Vec<Expression>
+            = _:[Token::Comma] head:expression() tail:_exprlist() {
+                let mut tail = tail;
+                tail.push(head);
                 tail
             }
             / { Vec::new() }
 
-        rule exprlist() -> Vec<Expression>
-            = _:[Token::Comma] head:expression() tail:exprlist() {
+        pub rule assignment() -> stmnt::Assignment 
+            = names:varlist1() _:[Token::Assignment] values:exprlist1() { 
+                stmnt::Assignment { names, values }
+            }
+
+        rule varlist1() -> NonEmptyVec<Var>
+            = head:var() tail:_varlist() {
+                let mut tail = tail;
+                tail.push(head);
+                tail.reverse();
+                // SAFETY: I've pushed head into vec
+                unsafe { NonEmptyVec::unchecked_new(tail) }
+            }
+
+        rule varlist() -> Vec<Var>
+            = vars:varlist1() { vars.into() }
+            / { Vec::new() } 
+
+        rule _varlist() -> Vec<Var>
+            = _:[Token::Comma] head:var() tail:_varlist() {
                 let mut tail = tail;
                 tail.push(head);
                 tail
             }
-            / _:[Token::Comma] { Vec::new() }
             / { Vec::new() }
 
     }

@@ -4,7 +4,7 @@ use super::Expression;
 use crate::{
     fmt_tokens,
     lex::{DynTokens, Ident, ToTokenStream, Token},
-    util::flat_intersperse,
+    util::FlatIntersperseExt
 };
 
 #[derive(Debug, PartialEq, Clone, Default)]
@@ -38,21 +38,21 @@ impl TableConstructor {
 }
 
 fn lfieldlist_tokens(lfield: Vec<Expression>) -> impl Iterator<Item = Token> {
-    flat_intersperse(
-        lfield.into_iter().map(ToTokenStream::to_tokens),
-        Token::Comma,
-    )
+    lfield
+        .into_iter()
+        .map(ToTokenStream::to_tokens)
+        .flat_intersperse(Token::Comma)
 }
 
 fn ffieldlist_tokens(ffield: Vec<(Ident, Expression)>) -> impl Iterator<Item = Token> {
-    flat_intersperse(
-        ffield.into_iter().map(|(name, expr)| {
+    ffield
+        .into_iter()
+        .map(|(name, expr)| {
             name.to_tokens()
                 .chain(iter::once(Token::Assignment))
                 .chain(expr.to_tokens())
-        }),
-        Token::Comma,
-    )
+        })
+        .flat_intersperse(Token::Comma)
 }
 
 impl ToTokenStream for TableConstructor {
