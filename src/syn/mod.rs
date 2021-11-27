@@ -327,7 +327,11 @@ peg::parser! {
             / { Vec::new() }
 
         pub rule statement() -> Statement
-            = assignment:assignment() _:[Token::Semicolon]? { Statement::Assignment(assignment) }
+            = s:_statement() _:[Token::Semicolon]? { s }
+
+        rule _statement() -> Statement
+            = assignment:assignment() { Statement::Assignment(assignment) }
+            / decl:declaration() { Statement::LocalDeclaration(decl) }
 
         pub rule assignment() -> Assignment
             = names:varlist1() _:[Token::Assignment] values:exprlist1() {

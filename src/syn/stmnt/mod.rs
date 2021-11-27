@@ -12,7 +12,7 @@ pub use declaration::*;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Assignment(Assignment),
-    // LocalDeclaration,
+    LocalDeclaration(Declaration),
     // While,
     // Repeat,
     // If,
@@ -25,7 +25,8 @@ impl ToTokenStream for Statement {
     type Tokens = DynTokens;
     fn to_tokens(self) -> Self::Tokens {
         match self {
-            Self::Assignment(assignment) => Box::new(assignment.to_tokens()),
+            Self::Assignment(assignment) => assignment.to_tokens(),
+            Self::LocalDeclaration(decl) => decl.to_tokens(),
         }
     }
 }
@@ -38,16 +39,25 @@ mod test {
 
     use crate::lex::{ToTokenStream, Token};
     use crate::syn::lua_parser;
+    use crate::test_util::GenExt;
 
-    use super::Statement;
+    use super::{Assignment, Declaration, Statement};
 
     impl Arbitrary for Statement {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            Self::Assignment(Arbitrary::arbitrary(g))
+            let g = &mut g.next_iter();
+            match u8::arbitrary(g) % 2 {
+                0 => Statement::Assignment(Assignment::arbitrary(g)),
+                1 => Statement::LocalDeclaration(Declaration::arbitrary(g)),
+                _ => unreachable!()
+            }
         }
+
         fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            let Self::Assignment(a) = self;
-            Box::new(a.shrink().map(Self::Assignment))
+            match self {
+                Self::Assignment(a) => Box::new(a.shrink().map(Self::Assignment)),
+                Self::LocalDeclaration(decl) => Box::new(decl.shrink().map(Self::LocalDeclaration)),
+            }
         }
     }
 

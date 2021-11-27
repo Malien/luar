@@ -92,3 +92,13 @@ pub fn arbitrary_recursive_vec<T: Arbitrary>(gen: &mut Gen) -> Vec<T> {
     let size = with_thread_gen(|gen| usize::arbitrary(gen) % gen.size());
     (0..size + 1).map(|_| T::arbitrary(gen)).collect()
 }
+
+pub trait GenExt {
+    fn next_iter(&self) -> Self;
+}
+
+impl GenExt for Gen {
+    fn next_iter(&self) -> Self {
+        Gen::new(std::cmp::min(*QUICKCHECK_RECURSIVE_DEPTH, self.size() - 1))
+    }
+}
