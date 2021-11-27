@@ -65,10 +65,10 @@ fmt_tokens!(Assignment);
 mod test {
     use quickcheck::Arbitrary;
 
-    use crate::lex::ToTokenStream;
+    use crate::lex::{ToTokenStream, Token};
     use crate::syn::lua_parser;
 
-    use super::Assignment;
+    use super::{Assignment, Statement};
 
     impl Arbitrary for Assignment {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
@@ -100,6 +100,30 @@ mod test {
     fn parses_arbitrary_assignment(expected: Assignment) {
         let tokens = expected.clone().to_tokens().collect::<Vec<_>>();
         let parsed = lua_parser::assignment(&tokens).unwrap();
+        assert_eq!(parsed, expected);
+    }
+
+    impl Arbitrary for Statement {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            Self::Assignment(Arbitrary::arbitrary(g))
+        }
+        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+            let Self::Assignment(a) = self;
+            Box::new(a.shrink().map(Self::Assignment))
+        }
+    }
+
+    #[quickcheck]
+    fn parses_arbitrary_statement(expected: Statement) {
+        let tokens = expected.clone().to_tokens().collect::<Vec<_>>();
+        let parsed = lua_parser::statement(&tokens).unwrap();
+        assert_eq!(parsed, expected);
+    }
+
+    #[quickcheck]
+    fn parses_arbitrary_statement_ending_with_semi(expected: Statement) {
+        let tokens: Vec<_> = expected.clone().to_tokens().chain(std::iter::once(Token::Semicolon)).collect();
+        let parsed = lua_parser::statement(&tokens).unwrap();
         assert_eq!(parsed, expected);
     }
 }

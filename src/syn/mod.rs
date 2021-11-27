@@ -5,10 +5,9 @@ pub mod expr;
 pub use expr::op::*;
 
 pub mod stmnt;
-// pub use stmnt::*;
+pub use stmnt::*;
 
 use expr::*;
-use peg::error::ParseError;
 
 #[derive(Debug, PartialEq, Clone)]
 enum VarLeftover {
@@ -318,9 +317,12 @@ peg::parser! {
             }
             / { Vec::new() }
 
-        pub rule assignment() -> stmnt::Assignment 
+        pub rule statement() -> Statement
+            = assignment:assignment() _:[Token::Semicolon]? { Statement::Assignment(assignment) }
+
+        pub rule assignment() -> Assignment 
             = names:varlist1() _:[Token::Assignment] values:exprlist1() { 
-                stmnt::Assignment { names, values }
+                Assignment { names, values }
             }
 
         rule varlist1() -> NonEmptyVec<Var>
