@@ -52,7 +52,7 @@ impl ToTokenStream for Expression {
                     .chain(iter::once(Token::CloseRoundBracket)),
             ),
             TableConstructor(constructor) => constructor.to_tokens(),
-            FunctionCall(_) => todo!(),
+            FunctionCall(func) => func.to_tokens(),
         }
     }
 }
@@ -62,7 +62,7 @@ fmt_tokens!(Expression);
 #[cfg(test)]
 mod test {
     use crate::{
-        syn::expr::TableConstructor,
+        syn::expr::{FunctionCall, TableConstructor},
         test_util::{with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH},
     };
     use logos::Logos;
@@ -88,7 +88,7 @@ mod test {
             } else {
                 let mut gen = Gen::new(QUICKCHECK_RECURSIVE_DEPTH.min(g.size() - 1));
                 let g = &mut gen;
-                match u8::arbitrary(g) % 4 {
+                match u8::arbitrary(g) % 5 {
                     0 => Expression::Variable(Var::arbitrary(g)),
                     1 => Expression::UnaryOperator {
                         op: UnaryOperator::arbitrary(g),
@@ -100,6 +100,7 @@ mod test {
                         rhs: Box::new(Expression::arbitrary(g)),
                     },
                     3 => Expression::TableConstructor(TableConstructor::arbitrary(g)),
+                    4 => Expression::FunctionCall(FunctionCall::arbitrary(g)),
                     _ => unreachable!(),
                 }
             }
@@ -118,9 +119,10 @@ mod test {
                     iter::once(lhs.as_ref().clone()).chain(iter::once(rhs.as_ref().clone())),
                 ),
                 TableConstructor(tbl) => Box::new(tbl.shrink().map(TableConstructor)),
+                FunctionCall(func) => Box::new(func.shrink().map(Expression::FunctionCall)),
                 // Expression::FunctionCall { .. } => empty_shrinker(),
                 // Expression::FunctionCall { args } => Box::new(args.map(Expression::shrink).chain(iter::once(Expression::FunctionCall)))
-                Nil | Number(_) | String(_) | FunctionCall(_) => empty_shrinker(),
+                Nil | Number(_) | String(_) => empty_shrinker(),
             }
         }
     }

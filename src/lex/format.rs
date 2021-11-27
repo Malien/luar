@@ -7,6 +7,7 @@ pub struct Formatting {
     after: FormattingStyle,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FormattingStyle {
     Condensed,
     Space,
@@ -15,6 +16,7 @@ pub enum FormattingStyle {
     Indent(IndentationChange),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i8)]
 pub enum IndentationChange {
     Increase = 1,
@@ -89,34 +91,44 @@ impl Token {
     }
 }
 
+pub fn format_single_token(
+    token: Token,
+    indent: &mut i32,
+    current_format: &mut FormattingStyle,
+    fmt: &mut std::fmt::Formatter,
+) -> std::fmt::Result {
+    use FormattingStyle::*;
+    let Formatting { before, after } = token.formatting();
+    match formatting_style_precedence(*current_format, before) {
+        Condensed => {}
+        Space | StrictSpace => ' '.fmt(fmt)?,
+        Newline => {
+            '\n'.fmt(fmt)?;
+            for _ in 0..*indent {
+                '\t'.fmt(fmt)?;
+            }
+        }
+        Indent(change) => {
+            '\n'.fmt(fmt)?;
+            *indent += change as i32;
+            for _ in 0..*indent {
+                '\t'.fmt(fmt)?;
+            }
+        }
+    };
+    *current_format = after;
+    token.fmt(fmt)?;
+    Ok(())
+}
+
 pub fn format_tokens(
     tokens: &mut impl Iterator<Item = Token>,
     fmt: &mut std::fmt::Formatter,
 ) -> std::fmt::Result {
-    use FormattingStyle::*;
     let mut indent = 0;
     let mut current_format = FormattingStyle::Condensed;
     for token in tokens {
-        let Formatting { before, after } = token.formatting();
-        match formatting_style_precedence(current_format, before) {
-            Condensed => {}
-            Space | StrictSpace => ' '.fmt(fmt)?,
-            Newline => {
-                '\n'.fmt(fmt)?;
-                for _ in 0..indent {
-                    '\t'.fmt(fmt)?;
-                }
-            }
-            Indent(change) => {
-                '\n'.fmt(fmt)?;
-                indent += change as i32;
-                for _ in 0..indent {
-                    '\t'.fmt(fmt)?;
-                }
-            }
-        };
-        current_format = after;
-        token.fmt(fmt)?;
+        format_single_token(token, &mut indent, &mut current_format, fmt)?;
     }
     Ok(())
 }

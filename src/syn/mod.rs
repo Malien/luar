@@ -71,6 +71,15 @@ peg::parser! {
         pub rule tbl_expression() -> Expression
             = tbl:table_constructor() { Expression::TableConstructor(tbl) }
 
+        pub rule var_or_func_expression() -> Expression
+            = func:var() _:[Token::Colon] _:[Token::Ident(method)] args:function_call_args() { 
+                Expression::FunctionCall(FunctionCall::Method { func, method, args })
+            }
+            / func:var() args:function_call_args() {
+                Expression::FunctionCall(FunctionCall::Function { func, args })
+            }
+            / var:var()  { Expression::Variable(var) }
+
         pub rule expression() -> Expression = precedence! {
             x:(@) _:[Token::And] y:@ {
                 Expression::BinaryOperator {
@@ -192,8 +201,8 @@ peg::parser! {
             e:nil() { e }
             e:string() { e }
             e:number() { e }
-            e:var_expression() { e }
             e:tbl_expression() { e }
+            e:var_or_func_expression() { e }
             _: [Token::OpenRoundBracket] e:expression() _:[Token::CloseRoundBracket] { e }
         }
 
@@ -320,8 +329,8 @@ peg::parser! {
         pub rule statement() -> Statement
             = assignment:assignment() _:[Token::Semicolon]? { Statement::Assignment(assignment) }
 
-        pub rule assignment() -> Assignment 
-            = names:varlist1() _:[Token::Assignment] values:exprlist1() { 
+        pub rule assignment() -> Assignment
+            = names:varlist1() _:[Token::Assignment] values:exprlist1() {
                 Assignment { names, values }
             }
 
@@ -336,7 +345,7 @@ peg::parser! {
 
         rule varlist() -> Vec<Var>
             = vars:varlist1() { vars.into() }
-            / { Vec::new() } 
+            / { Vec::new() }
 
         rule _varlist() -> Vec<Var>
             = _:[Token::Comma] head:var() tail:_varlist() {

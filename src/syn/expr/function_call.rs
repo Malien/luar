@@ -70,14 +70,10 @@ mod test {
     use peg::error::ParseError;
     use quickcheck::{empty_shrinker, Arbitrary, Gen};
 
-    use crate::{
-        lex::{Ident, ToTokenStream},
-        syn::{
+    use crate::{lex::{Ident, ToTokenStream}, syn::{
             expr::{Expression, TableConstructor, Var},
             lua_parser,
-        },
-        test_util::{arbitrary_recursive_vec, QUICKCHECK_RECURSIVE_DEPTH},
-    };
+        }, test_util::{QUICKCHECK_RECURSIVE_DEPTH, arbitrary_recursive_vec, with_thread_gen}};
 
     use super::{FunctionCall, FunctionCallArgs};
 
@@ -87,7 +83,7 @@ mod test {
                 0 => Self::Method {
                     args: FunctionCallArgs::arbitrary(g),
                     func: Var::arbitrary(g),
-                    method: Ident::arbitrary(g),
+                    method: with_thread_gen(Ident::arbitrary),
                 },
                 1 => Self::Function {
                     args: FunctionCallArgs::arbitrary(g),
