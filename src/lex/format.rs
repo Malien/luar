@@ -58,7 +58,7 @@ impl Token {
                 before: Space,
                 after: Space,
             },
-            Function | If | Local | Repeat | Return | Until | While => Formatting {
+            Function | If | Local | Return | While => Formatting {
                 before: Newline,
                 after: Space,
             },
@@ -70,7 +70,11 @@ impl Token {
                 before: Indent(Decrease),
                 after: Newline,
             },
-            Then | Do => Formatting {
+            Until => Formatting {
+                before: Indent(Decrease),
+                after: Space
+            },
+            Then | Do | Repeat => Formatting {
                 before: Space,
                 after: Indent(Increase),
             },

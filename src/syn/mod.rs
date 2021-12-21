@@ -333,6 +333,7 @@ peg::parser! {
             = assignment:assignment() { Statement::Assignment(assignment) }
             / decl:declaration() { Statement::LocalDeclaration(decl) }
             / while_loop:while_loop() { Statement::While(while_loop) }
+            / repeat_loop:repeat_loop() { Statement::Repeat(repeat_loop) }
 
         pub rule assignment() -> Assignment
             = names:varlist1() _:[Token::Assignment] values:exprlist1() {
@@ -394,6 +395,11 @@ peg::parser! {
         pub rule block() -> Vec<Statement>
             = statements:statement()* { statements }
 
+        pub rule repeat_loop() -> RepeatLoop
+            = _:[Token::Repeat] body:block() _:[Token::Until] condition:expression() {
+                RepeatLoop { body, condition }
+            }
+
     }
 }
 
@@ -405,6 +411,20 @@ mod tests {
     use crate::lex::Token;
 
     use super::lua_parser;
+
+    #[macro_export]
+    macro_rules! input_parsing_expectation {
+        ($type: tt, $name: tt, $input: expr, $expected: expr) => {
+            #[test]
+            fn $name() {
+                use logos::Logos;
+                let tokens: Vec<_> = crate::lex::Token::lexer($input).collect();
+                let parsed = crate::syn::lua_parser::$type(&tokens).unwrap();
+                assert_eq!(parsed, $expected)
+            }
+        };
+    }
+
 
     #[test]
     fn operator_precedence_1() {

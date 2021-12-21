@@ -30,7 +30,7 @@ fmt_tokens!(WhileLoop);
 
 #[cfg(test)]
 mod test {
-    use quickcheck::{Arbitrary, Gen};
+    use quickcheck::Arbitrary;
 
     use super::WhileLoop;
     use crate::{

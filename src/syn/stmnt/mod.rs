@@ -12,12 +12,15 @@ pub use declaration::*;
 mod while_loop;
 pub use while_loop::*;
 
+mod repeat_loop;
+pub use repeat_loop::*;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Assignment(Assignment),
     LocalDeclaration(Declaration),
     While(WhileLoop),
-    // Repeat,
+    Repeat(RepeatLoop),
     // If,
     // ElseIf,
     // Return,
@@ -31,6 +34,7 @@ impl ToTokenStream for Statement {
             Self::Assignment(assignment) => assignment.to_tokens(),
             Self::LocalDeclaration(decl) => decl.to_tokens(),
             Self::While(while_loop) => while_loop.to_tokens(),
+            Self::Repeat(repeat_loop) => repeat_loop.to_tokens(),
         }
     }
 }
@@ -43,18 +47,18 @@ mod test {
 
     use crate::lex::{ToTokenStream, Token};
     use crate::syn::lua_parser;
-    use crate::test_util::GenExt;
 
-    use super::{Assignment, Declaration, Statement, WhileLoop};
+    use super::{Assignment, Declaration, RepeatLoop, Statement, WhileLoop};
 
     impl Arbitrary for Statement {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             // let g = &mut g.next_iter();
-            match u8::arbitrary(g) % 3 {
+            match u8::arbitrary(g) % 4 {
                 0 => Statement::Assignment(Assignment::arbitrary(g)),
                 1 => Statement::LocalDeclaration(Declaration::arbitrary(g)),
                 2 => Statement::While(WhileLoop::arbitrary(g)),
-                _ => unreachable!()
+                3 => Statement::Repeat(RepeatLoop::arbitrary(g)),
+                _ => unreachable!(),
             }
         }
 
@@ -62,7 +66,8 @@ mod test {
             match self {
                 Self::Assignment(a) => Box::new(a.shrink().map(Self::Assignment)),
                 Self::LocalDeclaration(decl) => Box::new(decl.shrink().map(Self::LocalDeclaration)),
-                Self::While(while_loop) => Box::new(while_loop.shrink().map(Self::While))
+                Self::While(while_loop) => Box::new(while_loop.shrink().map(Self::While)),
+                Self::Repeat(repeat_loop) => Box::new(repeat_loop.shrink().map(Self::Repeat)),
             }
         }
     }
