@@ -9,11 +9,14 @@ pub use assignment::*;
 mod declaration;
 pub use declaration::*;
 
+mod while_loop;
+pub use while_loop::*;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Assignment(Assignment),
     LocalDeclaration(Declaration),
-    // While,
+    While(WhileLoop),
     // Repeat,
     // If,
     // ElseIf,
@@ -27,6 +30,7 @@ impl ToTokenStream for Statement {
         match self {
             Self::Assignment(assignment) => assignment.to_tokens(),
             Self::LocalDeclaration(decl) => decl.to_tokens(),
+            Self::While(while_loop) => while_loop.to_tokens(),
         }
     }
 }
@@ -41,14 +45,15 @@ mod test {
     use crate::syn::lua_parser;
     use crate::test_util::GenExt;
 
-    use super::{Assignment, Declaration, Statement};
+    use super::{Assignment, Declaration, Statement, WhileLoop};
 
     impl Arbitrary for Statement {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let g = &mut g.next_iter();
-            match u8::arbitrary(g) % 2 {
+            // let g = &mut g.next_iter();
+            match u8::arbitrary(g) % 3 {
                 0 => Statement::Assignment(Assignment::arbitrary(g)),
                 1 => Statement::LocalDeclaration(Declaration::arbitrary(g)),
+                2 => Statement::While(WhileLoop::arbitrary(g)),
                 _ => unreachable!()
             }
         }
@@ -57,6 +62,7 @@ mod test {
             match self {
                 Self::Assignment(a) => Box::new(a.shrink().map(Self::Assignment)),
                 Self::LocalDeclaration(decl) => Box::new(decl.shrink().map(Self::LocalDeclaration)),
+                Self::While(while_loop) => Box::new(while_loop.shrink().map(Self::While))
             }
         }
     }

@@ -13,6 +13,7 @@ mod syn;
 
 mod util;
 
+#[allow(unused)]
 static LUA_FUNCTION: &'static str = indoc! {"
     function remove_blanks (s)
         local b = strfind(s, ' ')

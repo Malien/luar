@@ -13,6 +13,7 @@ pub struct TableConstructor {
     pub ffield: Vec<(Ident, Expression)>,
 }
 
+#[allow(dead_code)]
 impl TableConstructor {
     pub fn empty() -> Self {
         Self::default()

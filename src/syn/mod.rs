@@ -332,6 +332,7 @@ peg::parser! {
         rule _statement() -> Statement
             = assignment:assignment() { Statement::Assignment(assignment) }
             / decl:declaration() { Statement::LocalDeclaration(decl) }
+            / while_loop:while_loop() { Statement::While(while_loop) }
 
         pub rule assignment() -> Assignment
             = names:varlist1() _:[Token::Assignment] values:exprlist1() {
@@ -385,6 +386,13 @@ peg::parser! {
             }
             / { Vec::new() }
 
+        pub rule while_loop() -> WhileLoop
+            = _:[Token::While] condition:expression() _:[Token::Do] body:block() _:[Token::End] { 
+                WhileLoop { condition, body }
+            }
+
+        pub rule block() -> Vec<Statement>
+            = statements:statement()* { statements }
 
     }
 }

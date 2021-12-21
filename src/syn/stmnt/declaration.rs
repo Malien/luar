@@ -89,8 +89,8 @@ mod test {
         ($name: tt, $input: expr, $expected: expr) => {
             #[test]
             fn $name() {
-                let tokens: Vec<_> = Token::lexer($input).collect();
-                let parsed = lua_parser::declaration(&tokens).unwrap();
+                let tokens: Vec<_> = crate::lex::Token::lexer($input).collect();
+                let parsed = crate::syn::lua_parser::declaration(&tokens).unwrap();
                 assert_eq!(parsed, $expected)
             }
         };

@@ -119,6 +119,7 @@ pub enum Token {
 }
 
 impl Token {
+    #[allow(dead_code)]
     pub fn is_err(&self) -> bool {
         if let Token::Error = self {
             true
