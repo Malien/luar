@@ -40,11 +40,6 @@ impl Ident {
         }
     }
 
-    #[deprecated]
-    pub unsafe fn new_unchecked(str: &str) -> Self {
-        Ident(str.to_string())
-    }
-
     pub fn new(str: &str) -> Self {
         Ident(str.to_string())
     }
@@ -66,7 +61,7 @@ impl std::fmt::Display for Ident {
 #[cfg(test)]
 impl Arbitrary for Ident {
     fn arbitrary(_: &mut quickcheck::Gen) -> Self {
-        unsafe { Ident::new_unchecked("foo") }
+        unsafe { Ident::new("foo") }
         // loop {
         //     if let Some(ident) = Ident::try_new(String::arbitrary(g)) {
         //         return ident;

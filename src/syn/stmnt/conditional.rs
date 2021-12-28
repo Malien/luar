@@ -155,4 +155,31 @@ mod test {
         },
         "if nil then\n\tlocal foo = nil\nelseif nil then\n\tlocal bar = nil\nelse\n\tlocal baz = nil\nend"
     );
+
+    test_display!(
+        elseif_elseif_clause,
+        Conditional {
+            condition: Expression::Nil,
+            body: vec![Statement::LocalDeclaration(Declaration {
+                names: NonEmptyVec::of_single(Ident::new("foo")),
+                initial_values: vec![Expression::Nil],
+            })],
+            tail: ConditionalTail::ElseIf(Box::new(Conditional {
+                condition: Expression::Nil,
+                body: vec![Statement::LocalDeclaration(Declaration {
+                    names: NonEmptyVec::of_single(Ident::new("bar")),
+                    initial_values: vec![Expression::Nil],
+                })],
+                tail: ConditionalTail::ElseIf(Box::new(Conditional {
+                    condition: Expression::Nil,
+                    body: vec![Statement::LocalDeclaration(Declaration {
+                        names: NonEmptyVec::of_single(Ident::new("baz")),
+                        initial_values: vec![Expression::Nil],
+                    })],
+                    tail: ConditionalTail::End
+                }))
+            }))
+        },
+        "if nil then\n\tlocal foo = nil\nelseif nil then\n\tlocal bar = nil\nelseif nil then\n\tlocal baz = nil\nend"
+    );
 }
