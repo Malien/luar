@@ -15,6 +15,9 @@ pub use while_loop::*;
 mod repeat_loop;
 pub use repeat_loop::*;
 
+mod conditional;
+pub use conditional::*;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Assignment(Assignment),

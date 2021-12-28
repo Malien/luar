@@ -62,7 +62,7 @@ impl Token {
                 before: Newline,
                 after: Space,
             },
-            Else | ElseIf => Formatting {
+            Else => Formatting {
                 before: Indent(Decrease),
                 after: Indent(Increase),
             },
@@ -70,9 +70,9 @@ impl Token {
                 before: Indent(Decrease),
                 after: Newline,
             },
-            Until => Formatting {
+            Until | ElseIf => Formatting {
                 before: Indent(Decrease),
-                after: Space
+                after: Space,
             },
             Then | Do | Repeat => Formatting {
                 before: Space,
@@ -129,10 +129,17 @@ pub fn format_tokens(
     tokens: &mut impl Iterator<Item = Token>,
     fmt: &mut std::fmt::Formatter,
 ) -> std::fmt::Result {
-    let mut indent = 0;
-    let mut current_format = FormattingStyle::Condensed;
-    for token in tokens {
-        format_single_token(token, &mut indent, &mut current_format, fmt)?;
+    if let Some(first_token) = tokens.next() {
+        let mut indent = 0;
+        let Formatting {
+            after: mut current_format,
+            ..
+        } = first_token.formatting();
+        first_token.fmt(fmt)?;
+
+        for token in tokens {
+            format_single_token(token, &mut indent, &mut current_format, fmt)?;
+        }
     }
     Ok(())
 }

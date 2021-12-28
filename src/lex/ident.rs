@@ -40,7 +40,12 @@ impl Ident {
         }
     }
 
+    #[deprecated]
     pub unsafe fn new_unchecked(str: &str) -> Self {
+        Ident(str.to_string())
+    }
+
+    pub fn new(str: &str) -> Self {
         Ident(str.to_string())
     }
 }
