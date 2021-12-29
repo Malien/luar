@@ -61,7 +61,7 @@ impl std::fmt::Display for Ident {
 #[cfg(test)]
 impl Arbitrary for Ident {
     fn arbitrary(_: &mut quickcheck::Gen) -> Self {
-        unsafe { Ident::new("foo") }
+        Ident::new("foo")
         // loop {
         //     if let Some(ident) = Ident::try_new(String::arbitrary(g)) {
         //         return ident;

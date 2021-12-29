@@ -24,8 +24,7 @@ pub enum Statement {
     LocalDeclaration(Declaration),
     While(WhileLoop),
     Repeat(RepeatLoop),
-    // If,
-    // ElseIf,
+    If(Conditional),
     // Return,
     // FunctionCall
 }
@@ -38,6 +37,7 @@ impl ToTokenStream for Statement {
             Self::LocalDeclaration(decl) => decl.to_tokens(),
             Self::While(while_loop) => while_loop.to_tokens(),
             Self::Repeat(repeat_loop) => repeat_loop.to_tokens(),
+            Self::If(conditional) => conditional.to_tokens(),
         }
     }
 }
@@ -51,16 +51,17 @@ mod test {
     use crate::lex::{ToTokenStream, Token};
     use crate::syn::lua_parser;
 
-    use super::{Assignment, Declaration, RepeatLoop, Statement, WhileLoop};
+    use super::{Assignment, Declaration, RepeatLoop, Statement, WhileLoop, Conditional};
 
     impl Arbitrary for Statement {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             // let g = &mut g.next_iter();
-            match u8::arbitrary(g) % 4 {
+            match u8::arbitrary(g) % 5 {
                 0 => Statement::Assignment(Assignment::arbitrary(g)),
                 1 => Statement::LocalDeclaration(Declaration::arbitrary(g)),
                 2 => Statement::While(WhileLoop::arbitrary(g)),
                 3 => Statement::Repeat(RepeatLoop::arbitrary(g)),
+                4 => Statement::If(Conditional::arbitrary(g)),
                 _ => unreachable!(),
             }
         }
@@ -71,6 +72,7 @@ mod test {
                 Self::LocalDeclaration(decl) => Box::new(decl.shrink().map(Self::LocalDeclaration)),
                 Self::While(while_loop) => Box::new(while_loop.shrink().map(Self::While)),
                 Self::Repeat(repeat_loop) => Box::new(repeat_loop.shrink().map(Self::Repeat)),
+                Self::If(conditional) => Box::new(conditional.shrink().map(Self::If)),
             }
         }
     }

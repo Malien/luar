@@ -105,7 +105,7 @@ mod test {
         WhileLoop {
             condition: Expression::Number(NumberLiteral(1f64)),
             body: vec![Statement::LocalDeclaration(Declaration {
-                names: NonEmptyVec::of_single(unsafe { Ident::new("foo") }),
+                names: NonEmptyVec::of_single(Ident::new("foo")),
                 initial_values: vec![Expression::Number(NumberLiteral(42f64))]
             })]
         }
@@ -121,11 +121,11 @@ mod test {
             condition: Expression::Number(NumberLiteral(1f64)),
             body: vec![
                 Statement::LocalDeclaration(Declaration {
-                    names: NonEmptyVec::of_single(unsafe { Ident::new("foo") }),
+                    names: NonEmptyVec::of_single(Ident::new("foo")),
                     initial_values: vec![Expression::Number(NumberLiteral(42f64))]
                 }),
                 Statement::LocalDeclaration(Declaration {
-                    names: NonEmptyVec::of_single(unsafe { Ident::new("bar") }),
+                    names: NonEmptyVec::of_single(Ident::new("bar")),
                     initial_values: vec![Expression::Number(NumberLiteral(69f64))]
                 }),
             ]

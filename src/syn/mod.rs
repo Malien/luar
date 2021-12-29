@@ -334,6 +334,7 @@ peg::parser! {
             / decl:declaration() { Statement::LocalDeclaration(decl) }
             / while_loop:while_loop() { Statement::While(while_loop) }
             / repeat_loop:repeat_loop() { Statement::Repeat(repeat_loop) }
+            / conditional:conditional() { Statement::If(conditional) }
 
         pub rule assignment() -> Assignment
             = names:varlist1() _:[Token::Assignment] values:exprlist1() {
@@ -388,7 +389,7 @@ peg::parser! {
             / { Vec::new() }
 
         pub rule while_loop() -> WhileLoop
-            = _:[Token::While] condition:expression() _:[Token::Do] body:block() _:[Token::End] { 
+            = _:[Token::While] condition:expression() _:[Token::Do] body:block() _:[Token::End] {
                 WhileLoop { condition, body }
             }
 
@@ -400,6 +401,17 @@ peg::parser! {
                 RepeatLoop { body, condition }
             }
 
+        pub rule conditional() -> Conditional
+            = _:[Token::If] condition:expression() _:[Token::Then] body:block() tail:conditional_tail() {
+                Conditional { condition, body, tail }
+            }
+
+        rule conditional_tail() -> ConditionalTail
+            = _:[Token::End] { ConditionalTail::End }
+            / _:[Token::Else] body:block() _:[Token::End] { ConditionalTail::Else(body) }
+            / _:[Token::ElseIf] condition:expression() _:[Token::Then] body:block() tail:conditional_tail() {
+                ConditionalTail::ElseIf(Box::new(Conditional { condition, body, tail }))
+            }
     }
 }
 
@@ -424,7 +436,6 @@ mod tests {
             }
         };
     }
-
 
     #[test]
     fn operator_precedence_1() {

@@ -82,11 +82,11 @@ mod test {
             condition: Expression::Nil,
             body: vec![
                 Statement::LocalDeclaration(Declaration {
-                    names: NonEmptyVec::of_single(unsafe { Ident::new("foo") }),
+                    names: NonEmptyVec::of_single(Ident::new("foo")),
                     initial_values: vec![Expression::Number(NumberLiteral(42f64))],
                 }),
                 Statement::LocalDeclaration(Declaration {
-                    names: NonEmptyVec::of_single(unsafe { Ident::new("bar") }),
+                    names: NonEmptyVec::of_single(Ident::new("bar")),
                     initial_values: vec![Expression::Number(NumberLiteral(69f64))],
                 }),
             ],
@@ -115,7 +115,7 @@ mod test {
         until 1",
         RepeatLoop {
             body: vec![Statement::LocalDeclaration(Declaration {
-                names: NonEmptyVec::of_single(unsafe { Ident::new_unchecked("foo") }),
+                names: NonEmptyVec::of_single(Ident::new("foo")),
                 initial_values: vec![Expression::Number(NumberLiteral(42f64))]
             })],
             condition: Expression::Number(NumberLiteral(1f64))
@@ -132,11 +132,11 @@ mod test {
         RepeatLoop {
             body: vec![
                 Statement::LocalDeclaration(Declaration {
-                    names: NonEmptyVec::of_single(unsafe { Ident::new_unchecked("foo") }),
+                    names: NonEmptyVec::of_single(Ident::new("foo")),
                     initial_values: vec![Expression::Number(NumberLiteral(42f64))]
                 }),
                 Statement::LocalDeclaration(Declaration {
-                    names: NonEmptyVec::of_single(unsafe { Ident::new_unchecked("bar") }),
+                    names: NonEmptyVec::of_single(Ident::new("bar")),
                     initial_values: vec![Expression::Number(NumberLiteral(69f64))]
                 })
             ],

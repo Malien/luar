@@ -100,7 +100,7 @@ mod test {
         single_declaration,
         "local a",
         Declaration {
-            names: NonEmptyVec::of_single(unsafe { Ident::new_unchecked("a") }),
+            names: NonEmptyVec::of_single(Ident::new("a")),
             initial_values: vec![]
         }
     );
@@ -111,8 +111,8 @@ mod test {
         Declaration {
             names: unsafe {
                 NonEmptyVec::new_unchecked(vec![
-                    Ident::new_unchecked("a"),
-                    Ident::new_unchecked("b"),
+                    Ident::new("a"),
+                    Ident::new("b"),
                 ])
             },
             initial_values: vec![]
@@ -130,7 +130,7 @@ mod test {
         single_initialization,
         "local a = 42",
         Declaration {
-            names: NonEmptyVec::of_single(unsafe { Ident::new_unchecked("a") }),
+            names: NonEmptyVec::of_single(Ident::new("a")),
             initial_values: vec![Expression::Number(NumberLiteral(42f64))]
         }
     );
@@ -141,8 +141,8 @@ mod test {
         Declaration {
             names: unsafe {
                 NonEmptyVec::new_unchecked(vec![
-                    Ident::new_unchecked("a"),
-                    Ident::new_unchecked("b"),
+                    Ident::new("a"),
+                    Ident::new("b"),
                 ])
             },
             initial_values: vec![
