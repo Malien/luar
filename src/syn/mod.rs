@@ -338,7 +338,7 @@ peg::parser! {
             / while_loop:while_loop() { Statement::While(while_loop) }
             / repeat_loop:repeat_loop() { Statement::Repeat(repeat_loop) }
             / conditional:conditional() { Statement::If(conditional) }
-            // / return_stmnt:return_stmnt() { Statement::Return(return_stmnt) }
+            / function_call:function_call() { Statement::FunctionCall(function_call) }
 
         pub rule assignment() -> Assignment
             = names:varlist1() _:[Token::Assignment] values:exprlist1() {

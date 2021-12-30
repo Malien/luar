@@ -18,6 +18,8 @@ pub use repeat_loop::*;
 mod conditional;
 pub use conditional::*;
 
+use super::expr::function_call::FunctionCall;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Assignment(Assignment),
@@ -25,7 +27,7 @@ pub enum Statement {
     While(WhileLoop),
     Repeat(RepeatLoop),
     If(Conditional),
-    // FunctionCall
+    FunctionCall(FunctionCall),
 }
 
 impl ToTokenStream for Statement {
@@ -37,6 +39,7 @@ impl ToTokenStream for Statement {
             Self::While(while_loop) => while_loop.to_tokens(),
             Self::Repeat(repeat_loop) => repeat_loop.to_tokens(),
             Self::If(conditional) => conditional.to_tokens(),
+            Self::FunctionCall(call) => call.to_tokens(),
         }
     }
 }
@@ -48,6 +51,7 @@ mod test {
     use quickcheck::Arbitrary;
 
     use crate::lex::{ToTokenStream, Token};
+    use crate::syn::expr::function_call::FunctionCall;
     use crate::syn::lua_parser;
 
     use super::{Assignment, Conditional, Declaration, RepeatLoop, Statement, WhileLoop};
@@ -55,12 +59,13 @@ mod test {
     impl Arbitrary for Statement {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             // let g = &mut g.next_iter();
-            match u8::arbitrary(g) % 5 {
+            match u8::arbitrary(g) % 6 {
                 0 => Statement::Assignment(Assignment::arbitrary(g)),
                 1 => Statement::LocalDeclaration(Declaration::arbitrary(g)),
                 2 => Statement::While(WhileLoop::arbitrary(g)),
                 3 => Statement::Repeat(RepeatLoop::arbitrary(g)),
                 4 => Statement::If(Conditional::arbitrary(g)),
+                5 => Statement::FunctionCall(FunctionCall::arbitrary(g)),
                 _ => unreachable!(),
             }
         }
@@ -72,6 +77,7 @@ mod test {
                 Self::While(while_loop) => Box::new(while_loop.shrink().map(Self::While)),
                 Self::Repeat(repeat_loop) => Box::new(repeat_loop.shrink().map(Self::Repeat)),
                 Self::If(conditional) => Box::new(conditional.shrink().map(Self::If)),
+                Self::FunctionCall(call) => Box::new(call.shrink().map(Self::FunctionCall))
             }
         }
     }
