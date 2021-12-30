@@ -1,15 +1,13 @@
 use crate::{
     fmt_tokens,
     lex::{DynTokens, ToTokenStream, Token},
-    syn::expr::Expression,
+    syn::{expr::Expression, Block},
 };
-
-use super::Statement;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WhileLoop {
     pub condition: Expression,
-    pub body: Vec<Statement>,
+    pub body: Block,
 }
 
 impl ToTokenStream for WhileLoop {
@@ -20,7 +18,7 @@ impl ToTokenStream for WhileLoop {
             std::iter::once(Token::While)
                 .chain(condition.to_tokens())
                 .chain(std::iter::once(Token::Do))
-                .chain(body.into_iter().flat_map(ToTokenStream::to_tokens))
+                .chain(body.to_tokens())
                 .chain(std::iter::once(Token::End)),
         )
     }
@@ -35,26 +33,15 @@ mod test {
     use super::WhileLoop;
     use crate::{
         lex::{Ident, NumberLiteral, ToTokenStream, Token},
-        syn::{expr::Expression, lua_parser, Declaration, Statement},
-        test_util::GenExt,
+        syn::{expr::Expression, lua_parser, Block, Declaration, Statement},
         util::NonEmptyVec,
     };
 
     impl Arbitrary for WhileLoop {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            if g.size() <= 1 {
-                return Self {
-                    condition: Expression::Nil,
-                    body: vec![],
-                };
-            }
-            let mut inner_gen = g.next_iter();
-            let body = std::iter::repeat_with(|| Arbitrary::arbitrary(&mut inner_gen))
-                .take(g.size())
-                .collect();
             Self {
                 condition: Arbitrary::arbitrary(g),
-                body
+                body: Arbitrary::arbitrary(g),
             }
         }
 
@@ -93,7 +80,7 @@ mod test {
         "while 1 do end",
         WhileLoop {
             condition: Expression::Number(NumberLiteral(1f64)),
-            body: vec![]
+            body: Block::default(),
         }
     );
 
@@ -104,10 +91,13 @@ mod test {
         end",
         WhileLoop {
             condition: Expression::Number(NumberLiteral(1f64)),
-            body: vec![Statement::LocalDeclaration(Declaration {
-                names: NonEmptyVec::of_single(Ident::new("foo")),
-                initial_values: vec![Expression::Number(NumberLiteral(42f64))]
-            })]
+            body: Block {
+                statements: vec![Statement::LocalDeclaration(Declaration {
+                    names: NonEmptyVec::of_single(Ident::new("foo")),
+                    initial_values: vec![Expression::Number(NumberLiteral(42f64))]
+                })],
+                ret: None
+            }
         }
     );
 
@@ -119,16 +109,19 @@ mod test {
         end",
         WhileLoop {
             condition: Expression::Number(NumberLiteral(1f64)),
-            body: vec![
-                Statement::LocalDeclaration(Declaration {
-                    names: NonEmptyVec::of_single(Ident::new("foo")),
-                    initial_values: vec![Expression::Number(NumberLiteral(42f64))]
-                }),
-                Statement::LocalDeclaration(Declaration {
-                    names: NonEmptyVec::of_single(Ident::new("bar")),
-                    initial_values: vec![Expression::Number(NumberLiteral(69f64))]
-                }),
-            ]
+            body: Block {
+                statements: vec![
+                    Statement::LocalDeclaration(Declaration {
+                        names: NonEmptyVec::of_single(Ident::new("foo")),
+                        initial_values: vec![Expression::Number(NumberLiteral(42f64))]
+                    }),
+                    Statement::LocalDeclaration(Declaration {
+                        names: NonEmptyVec::of_single(Ident::new("bar")),
+                        initial_values: vec![Expression::Number(NumberLiteral(69f64))]
+                    }),
+                ],
+                ret: None
+            }
         }
     );
 
@@ -143,7 +136,7 @@ mod test {
     fn parses_empty_statement_body_with_arbitrary_condition(condition: Expression) {
         let while_loop = WhileLoop {
             condition,
-            body: vec![],
+            body: Block::default(),
         };
         let tokens: Vec<_> = while_loop.clone().to_tokens().collect();
         let parsed = lua_parser::while_loop(&tokens).unwrap();
@@ -151,7 +144,7 @@ mod test {
     }
 
     #[quickcheck]
-    fn parses_simple_loop_with_arbitrary_body(body: Vec<Statement>) {
+    fn parses_simple_loop_with_arbitrary_body(body: Block) {
         let while_loop = WhileLoop {
             condition: Expression::Nil,
             body,

@@ -1,22 +1,20 @@
 use crate::{
     fmt_tokens,
     lex::{DynTokens, ToTokenStream, Token},
-    syn::expr::Expression,
+    syn::{expr::Expression, Block},
 };
-
-use super::Statement;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Conditional {
     pub condition: Expression,
-    pub body: Vec<Statement>,
+    pub body: Block,
     pub tail: ConditionalTail,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConditionalTail {
     End,
-    Else(Vec<Statement>),
+    Else(Block),
     ElseIf(Box<Conditional>),
 }
 
@@ -28,7 +26,7 @@ impl ToTokenStream for Conditional {
             std::iter::once(Token::If)
                 .chain(self.condition.to_tokens())
                 .chain(std::iter::once(Token::Then))
-                .chain(self.body.into_iter().flat_map(ToTokenStream::to_tokens))
+                .chain(self.body.to_tokens())
                 .chain(self.tail.to_tokens()),
         )
     }
@@ -41,7 +39,7 @@ impl ToTokenStream for ConditionalTail {
             ConditionalTail::End => Box::new(std::iter::once(Token::End)),
             ConditionalTail::Else(body) => Box::new(
                 std::iter::once(Token::Else)
-                    .chain(body.into_iter().flat_map(ToTokenStream::to_tokens))
+                    .chain(body.to_tokens())
                     .chain(std::iter::once(Token::End)),
             ),
             ConditionalTail::ElseIf(conditional) => {
@@ -55,7 +53,7 @@ impl ToTokenStream for ConditionalTail {
                     std::iter::once(Token::ElseIf)
                         .chain(condition.to_tokens())
                         .chain(std::iter::once(Token::Then))
-                        .chain(body.into_iter().flat_map(ToTokenStream::to_tokens))
+                        .chain(body.to_tokens())
                         .chain(tail.to_tokens()),
                 )
             }
@@ -72,8 +70,8 @@ mod test {
     use crate::{
         input_parsing_expectation,
         lex::{Ident, NumberLiteral, ToTokenStream},
-        syn::{expr::Expression, Declaration, Statement, lua_parser},
-        test_util::{arbitrary_recursive_vec, GenExt},
+        syn::{expr::Expression, lua_parser, Declaration, Statement, Block},
+        test_util::GenExt,
         util::NonEmptyVec,
     };
 
@@ -84,14 +82,14 @@ mod test {
             if g.size() <= 1 {
                 return Self {
                     condition: Expression::Nil,
-                    body: vec![],
+                    body: Block::default(),
                     tail: ConditionalTail::End,
                 };
             }
             let mut inner_gen = g.next_iter();
             Self {
                 condition: Expression::arbitrary(&mut inner_gen),
-                body: arbitrary_recursive_vec(&mut inner_gen),
+                body: Block::arbitrary(g),
                 tail: ConditionalTail::arbitrary(&mut inner_gen),
             }
         }
@@ -158,10 +156,10 @@ mod test {
         simple_clause,
         Conditional {
             condition: Expression::Nil,
-            body: vec![Statement::LocalDeclaration(Declaration {
+            body: Block { statements: vec![Statement::LocalDeclaration(Declaration {
                 names: NonEmptyVec::of_single(Ident::new("foo")),
                 initial_values: vec![Expression::Nil],
-            })],
+            })], ret: None },
             tail: ConditionalTail::End,
         },
         "if nil then\n\tlocal foo = nil\nend"
@@ -171,14 +169,14 @@ mod test {
         else_clause,
         Conditional {
             condition: Expression::Nil,
-            body: vec![Statement::LocalDeclaration(Declaration {
+            body: Block { statements: vec![Statement::LocalDeclaration(Declaration {
                 names: NonEmptyVec::of_single(Ident::new("foo")),
                 initial_values: vec![Expression::Nil],
-            })],
-            tail: ConditionalTail::Else(vec![Statement::LocalDeclaration(Declaration {
+            })], ret: None },
+            tail: ConditionalTail::Else(Block { statements: vec![Statement::LocalDeclaration(Declaration {
                 names: NonEmptyVec::of_single(Ident::new("bar")),
                 initial_values: vec![Expression::Nil],
-            })])
+            })], ret: None })
         },
         "if nil then\n\tlocal foo = nil\nelse\n\tlocal bar = nil\nend"
     );
@@ -187,16 +185,16 @@ mod test {
         elseif_end_clause,
         Conditional {
             condition: Expression::Nil,
-            body: vec![Statement::LocalDeclaration(Declaration {
+            body: Block { statements: vec![Statement::LocalDeclaration(Declaration {
                 names: NonEmptyVec::of_single(Ident::new("foo")),
                 initial_values: vec![Expression::Nil],
-            })],
+            })], ret: None },
             tail: ConditionalTail::ElseIf(Box::new(Conditional {
                 condition: Expression::Nil,
-                body: vec![Statement::LocalDeclaration(Declaration {
+                body: Block { statements: vec![Statement::LocalDeclaration(Declaration {
                     names: NonEmptyVec::of_single(Ident::new("bar")),
                     initial_values: vec![Expression::Nil],
-                })],
+                })], ret: None },
                 tail: ConditionalTail::End
             }))
         },
@@ -207,20 +205,20 @@ mod test {
         elseif_else_clause,
         Conditional {
             condition: Expression::Nil,
-            body: vec![Statement::LocalDeclaration(Declaration {
+            body: Block { statements: vec![Statement::LocalDeclaration(Declaration {
                 names: NonEmptyVec::of_single(Ident::new("foo")),
                 initial_values: vec![Expression::Nil],
-            })],
+            })], ret: None },
             tail: ConditionalTail::ElseIf(Box::new(Conditional {
                 condition: Expression::Nil,
-                body: vec![Statement::LocalDeclaration(Declaration {
+                body: Block { statements: vec![Statement::LocalDeclaration(Declaration {
                     names: NonEmptyVec::of_single(Ident::new("bar")),
                     initial_values: vec![Expression::Nil],
-                })],
-                tail: ConditionalTail::Else(vec![Statement::LocalDeclaration(Declaration {
+                })], ret: None },
+                tail: ConditionalTail::Else(Block { statements: vec![Statement::LocalDeclaration(Declaration {
                     names: NonEmptyVec::of_single(Ident::new("baz")),
                     initial_values: vec![Expression::Nil],
-                })])
+                })], ret: None })
             }))
         },
         "if nil then\n\tlocal foo = nil\nelseif nil then\n\tlocal bar = nil\nelse\n\tlocal baz = nil\nend"
@@ -230,22 +228,31 @@ mod test {
         elseif_elseif_clause,
         Conditional {
             condition: Expression::Nil,
-            body: vec![Statement::LocalDeclaration(Declaration {
-                names: NonEmptyVec::of_single(Ident::new("foo")),
-                initial_values: vec![Expression::Nil],
-            })],
+            body: Block { 
+                statements: vec![Statement::LocalDeclaration(Declaration {
+                    names: NonEmptyVec::of_single(Ident::new("foo")),
+                    initial_values: vec![Expression::Nil],
+                })], 
+                ret: None
+            },
             tail: ConditionalTail::ElseIf(Box::new(Conditional {
                 condition: Expression::Nil,
-                body: vec![Statement::LocalDeclaration(Declaration {
-                    names: NonEmptyVec::of_single(Ident::new("bar")),
-                    initial_values: vec![Expression::Nil],
-                })],
+                body: Block { 
+                    statements: vec![Statement::LocalDeclaration(Declaration {
+                        names: NonEmptyVec::of_single(Ident::new("bar")),
+                        initial_values: vec![Expression::Nil],
+                    })], 
+                    ret: None
+                },
                 tail: ConditionalTail::ElseIf(Box::new(Conditional {
                     condition: Expression::Nil,
-                    body: vec![Statement::LocalDeclaration(Declaration {
-                        names: NonEmptyVec::of_single(Ident::new("baz")),
-                        initial_values: vec![Expression::Nil],
-                    })],
+                    body: Block { 
+                        statements: vec![Statement::LocalDeclaration(Declaration {
+                            names: NonEmptyVec::of_single(Ident::new("baz")),
+                            initial_values: vec![Expression::Nil],
+                        })],
+                        ret: None
+                    },
                     tail: ConditionalTail::End
                 }))
             }))
@@ -258,7 +265,7 @@ mod test {
         parses_empty_if_clause,
         "if nil then end",
         Conditional {
-            body: vec![],
+            body: Block { statements: vec![], ret: None },
             condition: Expression::Nil,
             tail: ConditionalTail::End
         }
@@ -272,16 +279,19 @@ mod test {
             local bar = 69
         end",
         Conditional {
-            body: vec![
-                Statement::LocalDeclaration(Declaration {
-                    names: NonEmptyVec::of_single(Ident::new("foo")),
-                    initial_values: vec![Expression::Number(NumberLiteral(42f64))]
-                }),
-                Statement::LocalDeclaration(Declaration {
-                    names: NonEmptyVec::of_single(Ident::new("bar")),
-                    initial_values: vec![Expression::Number(NumberLiteral(69f64))]
-                })
-            ],
+            body: Block { 
+                statements: vec![
+                    Statement::LocalDeclaration(Declaration {
+                        names: NonEmptyVec::of_single(Ident::new("foo")),
+                        initial_values: vec![Expression::Number(NumberLiteral(42f64))]
+                    }),
+                    Statement::LocalDeclaration(Declaration {
+                        names: NonEmptyVec::of_single(Ident::new("bar")),
+                        initial_values: vec![Expression::Number(NumberLiteral(69f64))]
+                    })
+                ], 
+                ret: None
+            },
             condition: Expression::Nil,
             tail: ConditionalTail::End
         }
@@ -296,15 +306,15 @@ mod test {
             local bar = 69
         end",
         Conditional {
-            body: vec![Statement::LocalDeclaration(Declaration {
+            body: Block { statements: vec![Statement::LocalDeclaration(Declaration {
                 names: NonEmptyVec::of_single(Ident::new("foo")),
                 initial_values: vec![Expression::Number(NumberLiteral(42f64))]
-            })],
+            })], ret: None },
             condition: Expression::Nil,
-            tail: ConditionalTail::Else(vec![Statement::LocalDeclaration(Declaration {
+            tail: ConditionalTail::Else(Block { statements: vec![Statement::LocalDeclaration(Declaration {
                 names: NonEmptyVec::of_single(Ident::new("bar")),
                 initial_values: vec![Expression::Number(NumberLiteral(69f64))]
-            })]),
+            })], ret: None }),
         }
     );
 
@@ -317,16 +327,16 @@ mod test {
             local bar = 69
         end",
         Conditional {
-            body: vec![Statement::LocalDeclaration(Declaration {
+            body: Block { statements: vec![Statement::LocalDeclaration(Declaration {
                 names: NonEmptyVec::of_single(Ident::new("foo")),
                 initial_values: vec![Expression::Number(NumberLiteral(42f64))]
-            })],
+            })], ret: None },
             condition: Expression::Nil,
             tail: ConditionalTail::ElseIf(Box::new(Conditional {
-                body: vec![Statement::LocalDeclaration(Declaration {
+                body: Block { statements: vec![Statement::LocalDeclaration(Declaration {
                     names: NonEmptyVec::of_single(Ident::new("bar")),
                     initial_values: vec![Expression::Number(NumberLiteral(69f64))]
-                })],
+                })], ret: None },
                 condition: Expression::Nil,
                 tail: ConditionalTail::End
             })),
@@ -344,21 +354,21 @@ mod test {
             local baz = nil
         end",
         Conditional {
-            body: vec![Statement::LocalDeclaration(Declaration {
+            body: Block { statements: vec![Statement::LocalDeclaration(Declaration {
                 names: NonEmptyVec::of_single(Ident::new("foo")),
                 initial_values: vec![Expression::Number(NumberLiteral(42f64))]
-            })],
+            })], ret: None },
             condition: Expression::Nil,
             tail: ConditionalTail::ElseIf(Box::new(Conditional {
-                body: vec![Statement::LocalDeclaration(Declaration {
+                body: Block { statements: vec![Statement::LocalDeclaration(Declaration {
                     names: NonEmptyVec::of_single(Ident::new("bar")),
                     initial_values: vec![Expression::Number(NumberLiteral(69f64))]
-                })],
+                })], ret: None },
                 condition: Expression::Nil,
-                tail: ConditionalTail::Else(vec![Statement::LocalDeclaration(Declaration {
+                tail: ConditionalTail::Else(Block { statements: vec![Statement::LocalDeclaration(Declaration {
                     names: NonEmptyVec::of_single(Ident::new("baz")),
                     initial_values: vec![Expression::Nil]
-                })])
+                })], ret: None })
             })),
         }
     );

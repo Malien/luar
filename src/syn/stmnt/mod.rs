@@ -25,7 +25,6 @@ pub enum Statement {
     While(WhileLoop),
     Repeat(RepeatLoop),
     If(Conditional),
-    // Return,
     // FunctionCall
 }
 
@@ -51,7 +50,7 @@ mod test {
     use crate::lex::{ToTokenStream, Token};
     use crate::syn::lua_parser;
 
-    use super::{Assignment, Declaration, RepeatLoop, Statement, WhileLoop, Conditional};
+    use super::{Assignment, Conditional, Declaration, RepeatLoop, Statement, WhileLoop};
 
     impl Arbitrary for Statement {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {

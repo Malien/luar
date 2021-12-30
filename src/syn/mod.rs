@@ -7,6 +7,9 @@ pub use expr::op::*;
 pub mod stmnt;
 pub use stmnt::*;
 
+pub mod block;
+pub use block::*;
+
 use expr::*;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -335,6 +338,7 @@ peg::parser! {
             / while_loop:while_loop() { Statement::While(while_loop) }
             / repeat_loop:repeat_loop() { Statement::Repeat(repeat_loop) }
             / conditional:conditional() { Statement::If(conditional) }
+            // / return_stmnt:return_stmnt() { Statement::Return(return_stmnt) }
 
         pub rule assignment() -> Assignment
             = names:varlist1() _:[Token::Assignment] values:exprlist1() {
@@ -393,8 +397,8 @@ peg::parser! {
                 WhileLoop { condition, body }
             }
 
-        pub rule block() -> Vec<Statement>
-            = statements:statement()* { statements }
+        pub rule block() -> Block
+            = statements:statement()* ret:ret()? { Block { statements, ret: ret } }
 
         pub rule repeat_loop() -> RepeatLoop
             = _:[Token::Repeat] body:block() _:[Token::Until] condition:expression() {
@@ -412,6 +416,9 @@ peg::parser! {
             / _:[Token::ElseIf] condition:expression() _:[Token::Then] body:block() tail:conditional_tail() {
                 ConditionalTail::ElseIf(Box::new(Conditional { condition, body, tail }))
             }
+
+        pub rule ret() -> Return
+            = _:[Token::Return] expr:expression()? { Return(expr) }
     }
 }
 

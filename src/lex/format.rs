@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use super::Token;
 
 pub struct Formatting {
@@ -58,9 +56,13 @@ impl Token {
                 before: Space,
                 after: Space,
             },
-            Function | If | Local | Return | While => Formatting {
+            Function | Local => Formatting {
                 before: Newline,
                 after: Space,
+            },
+            If | Return | While => Formatting {
+                before: Newline,
+                after: StrictSpace,
             },
             Else => Formatting {
                 before: Indent(Decrease),
@@ -99,35 +101,35 @@ pub fn format_single_token(
     token: Token,
     indent: &mut i32,
     current_format: &mut FormattingStyle,
-    fmt: &mut std::fmt::Formatter,
+    buf: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
     use FormattingStyle::*;
     let Formatting { before, after } = token.formatting();
     match formatting_style_precedence(*current_format, before) {
         Condensed => {}
-        Space | StrictSpace => ' '.fmt(fmt)?,
+        Space | StrictSpace => buf.write_char(' ')?,
         Newline => {
-            '\n'.fmt(fmt)?;
+            buf.write_char('\n')?;
             for _ in 0..*indent {
-                '\t'.fmt(fmt)?;
+                buf.write_char('\t')?;
             }
         }
         Indent(change) => {
-            '\n'.fmt(fmt)?;
+            buf.write_char('\n')?;
             *indent += change as i32;
             for _ in 0..*indent {
-                '\t'.fmt(fmt)?;
+                buf.write_char('\t')?;
             }
         }
     };
     *current_format = after;
-    token.fmt(fmt)?;
+    write!(buf, "{}", token)?;
     Ok(())
 }
 
 pub fn format_tokens(
     tokens: &mut impl Iterator<Item = Token>,
-    fmt: &mut std::fmt::Formatter,
+    buf: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
     if let Some(first_token) = tokens.next() {
         let mut indent = 0;
@@ -135,10 +137,10 @@ pub fn format_tokens(
             after: mut current_format,
             ..
         } = first_token.formatting();
-        first_token.fmt(fmt)?;
+        write!(buf, "{}", first_token)?;
 
         for token in tokens {
-            format_single_token(token, &mut indent, &mut current_format, fmt)?;
+            format_single_token(token, &mut indent, &mut current_format, buf)?;
         }
     }
     Ok(())
