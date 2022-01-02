@@ -17,6 +17,9 @@ pub use function_declaration::*;
 pub mod ret;
 pub use ret::*;
 
+pub mod module;
+pub use module::*;
+
 #[derive(Debug, PartialEq, Clone)]
 enum VarLeftover {
     Nothing,
@@ -434,6 +437,15 @@ peg::parser! {
             = _:[Token::OpenRoundBracket] args:ident() ** [Token::Comma] _:[Token::CloseRoundBracket] {
                 args
             }
+
+        pub rule module() -> Module
+            = chunks:chunk()* ret:ret()? {
+                Module { chunks, ret }
+            }
+
+        rule chunk() -> Chunk
+            = statement:statement() { Chunk::Statement(statement) }
+            / decl:function_declaration() { Chunk::FnDecl(decl) }
     }
 }
 
@@ -463,7 +475,7 @@ mod tests {
     macro_rules! assert_parses {
         ($type: ident, $expected: expr) => {{
             let expected = $expected;
-            let tokens: Vec<_> = expected.clone().to_tokens().collect();
+            let tokens: Vec<_> = crate::lex::ToTokenStream::to_tokens(expected.clone()).collect();
             let parsed = crate::syn::lua_parser::$type(&tokens).unwrap();
             assert_eq!(expected, parsed);
         }};

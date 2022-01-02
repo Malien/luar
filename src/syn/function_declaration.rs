@@ -96,11 +96,10 @@ mod test {
 
     use crate::{
         assert_parses, input_parsing_expectation,
-        lex::{Ident, ToTokenStream},
+        lex::Ident,
         syn::{
             expr::{op::BinaryOperator, Expression, Var},
-            Block, Conditional, ConditionalTail, Declaration, FunctionName, Return,
-            Statement,
+            Block, Conditional, ConditionalTail, Declaration, FunctionName, Return, Statement,
         },
         util::NonEmptyVec,
     };
