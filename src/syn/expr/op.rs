@@ -66,7 +66,11 @@ impl ToTokenStream for UnaryOperator {
 
 #[cfg(test)]
 pub mod test {
+    use crate::{lex::Token, syn::lua_parser};
+
     use super::{BinaryOperator, UnaryOperator};
+    use indoc::indoc;
+    use logos::Logos;
     use quickcheck::{Arbitrary, Gen};
 
     impl Arbitrary for UnaryOperator {
@@ -99,5 +103,114 @@ pub mod test {
                 _ => unreachable!(),
             }
         }
+    }
+
+    #[test]
+    fn operator_precedence_1() {
+        /*
+        (
+            (
+                (
+                    (
+                        (
+                            not (
+                                (1)^(2)
+                            )
+                        ) * (
+                            - (3)
+                        )
+                    ) + (
+                        (4) / (5)
+                    )
+                ) .. (
+                    (6) - (7)
+                )
+            ) < (8)
+        ) and (
+            (9) > (10)
+        ) or (
+            (11) == (12)
+        )
+        */
+        static TEXT: &str = indoc! {"
+            not 1^2 * - 3 + 4 / 5 .. 6 - 7 < 8 and 9 > 10 or 11 == 12
+        "};
+        let tokens: Vec<_> = Token::lexer(TEXT).collect();
+        let expression = lua_parser::expression(&tokens).unwrap();
+        insta::assert_debug_snapshot!(expression);
+    }
+
+    #[test]
+    fn operator_precedence_2() {
+        /*
+        (
+            (1) <= (2)
+        ) and (
+            (
+                (3) + (
+                    (
+                        not (4)
+                    ) * (
+                        (5) ^ (6)
+                    )
+                )
+            ) >= (
+                (7) - (
+                    (
+                        - (8)
+                    ) / (9)
+                )
+            )
+        ) or (
+            (10) ~= (
+                (11) .. (12)
+            )
+        )
+        */
+        static TEXT: &str = indoc! {"
+            1 <= 2 and 3 + not 4 * 5 ^ 6 >= 7 - - 8 / 9 or 10 ~= 11 .. 12
+        "};
+        let tokens: Vec<_> = Token::lexer(TEXT).collect();
+        let expression = lua_parser::expression(&tokens).unwrap();
+        insta::assert_debug_snapshot!(expression);
+    }
+
+    #[test]
+    fn operator_precedence_3() {
+        /*
+        (
+            (
+                (1) <= (
+                    (
+                        (2) and (3)
+                    ) + (
+                        not (
+                            (
+                                (4) * (5)
+                            )
+                        ) ^ (6)
+                    )
+                )
+            ) >= (
+                (
+                    (7) - (
+                        (
+                            - (8)
+                        ) / (
+                            (
+                                (9) or (10)
+                            ) ~= (11)
+                        )
+                    )
+                ) .. (12)
+            )
+        )
+        */
+        static TEXT: &str = indoc! {"
+            1 <= ((2 and 3) + not (4 * 5)) ^ 6 >= 7 - - 8 / ((9 or 10) ~= 11) .. 12
+        "};
+        let tokens: Vec<_> = Token::lexer(TEXT).collect();
+        let expression = lua_parser::expression(&tokens).unwrap();
+        insta::assert_debug_snapshot!(expression);
     }
 }

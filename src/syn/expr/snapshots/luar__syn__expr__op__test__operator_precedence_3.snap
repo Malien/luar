@@ -1,5 +1,5 @@
 ---
-source: src/syn/mod.rs
+source: src/syn/expr/op.rs
 expression: expression
 ---
 BinaryOperator {
