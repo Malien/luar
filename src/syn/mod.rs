@@ -448,7 +448,7 @@ mod tests {
 
     #[macro_export]
     macro_rules! input_parsing_expectation {
-        ($type: tt, $name: tt, $input: expr, $expected: expr) => {
+        ($type: ident, $name: tt, $input: expr, $expected: expr) => {
             #[test]
             fn $name() {
                 use logos::Logos;
@@ -457,6 +457,16 @@ mod tests {
                 assert_eq!(parsed, $expected)
             }
         };
+    }
+
+    #[macro_export]
+    macro_rules! assert_parses {
+        ($type: ident, $expected: expr) => {{
+            let expected = $expected;
+            let tokens: Vec<_> = expected.clone().to_tokens().collect();
+            let parsed = crate::syn::lua_parser::$type(&tokens).unwrap();
+            assert_eq!(expected, parsed);
+        }};
     }
 
     #[test]

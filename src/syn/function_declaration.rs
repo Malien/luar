@@ -95,11 +95,11 @@ mod test {
     use quickcheck::{Arbitrary, Gen};
 
     use crate::{
-        input_parsing_expectation,
+        assert_parses, input_parsing_expectation,
         lex::{Ident, ToTokenStream},
         syn::{
             expr::{op::BinaryOperator, Expression, Var},
-            lua_parser, Block, Conditional, ConditionalTail, Declaration, FunctionName, Return,
+            Block, Conditional, ConditionalTail, Declaration, FunctionName, Return,
             Statement,
         },
         util::NonEmptyVec,
@@ -244,68 +244,54 @@ mod test {
         )
     }
 
+    fn parses(decl: FunctionDeclaration) {
+        assert_parses!(function_declaration, decl);
+    }
+
     #[test]
     fn parses_empty_decl() {
-        let expected = empty_decl!();
-        let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::function_declaration(&tokens).unwrap();
-        assert_eq!(expected, parsed);
+        parses(empty_decl!());
     }
 
     #[quickcheck]
     fn parses_arbitrary_plain_name(name: Var) {
-        let expected = FunctionDeclaration {
+        parses(FunctionDeclaration {
             name: FunctionName::Plain(name),
             args: vec![],
             body: Block::default(),
-        };
-        let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::function_declaration(&tokens).unwrap();
-        assert_eq!(expected, parsed);
+        });
     }
 
     #[quickcheck]
     fn parses_arbitrary_arglist(args: Vec<Ident>) {
-        let expected = FunctionDeclaration {
+        parses(FunctionDeclaration {
             name: FunctionName::Plain(Var::Named(Ident::new("foo"))),
             args,
             body: Block::default(),
-        };
-        let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::function_declaration(&tokens).unwrap();
-        assert_eq!(expected, parsed);
+        });
     }
 
     #[quickcheck]
     fn parses_arbitrary_method_name(name: Var, method: Ident) {
-        let expected = FunctionDeclaration {
+        parses(FunctionDeclaration {
             name: FunctionName::Method(name, method),
             args: vec![],
             body: Block::default(),
-        };
-        let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::function_declaration(&tokens).unwrap();
-        assert_eq!(expected, parsed);
+        });
     }
 
     #[test]
     fn parses_complex_fn() {
-        let expected = complex_decl!();
-        let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::function_declaration(&tokens).unwrap();
-        assert_eq!(expected, parsed);
+        parses(complex_decl!());
     }
 
     #[quickcheck]
     fn parses_arbitrary_body(body: Block) {
-        let expected = FunctionDeclaration {
+        parses(FunctionDeclaration {
             name: FunctionName::Plain(Var::Named(Ident::new("foo"))),
             args: vec![],
             body,
-        };
-        let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::function_declaration(&tokens).unwrap();
-        assert_eq!(expected, parsed);
+        });
     }
 
     input_parsing_expectation!(
@@ -331,8 +317,6 @@ mod test {
 
     #[quickcheck]
     fn parses_arbitrary_func_decl(expected: FunctionDeclaration) {
-        let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::function_declaration(&tokens).unwrap();
-        assert_eq!(expected, parsed);
+        parses(expected);
     }
 }
