@@ -10,6 +10,11 @@ impl<T> NonEmptyVec<T> {
         Self(vec![value])
     }
 
+    pub fn with_head(value: T, mut tail: Vec<T>) -> Self {
+        tail.insert(0, value);
+        Self(tail)
+    }
+
     pub fn try_new(vec: Vec<T>) -> Result<Self, VecIsEmptyError<T>> {
         if vec.is_empty() {
             Err(VecIsEmptyError(vec))

@@ -3,6 +3,7 @@ use crate::util::NonEmptyVec;
 
 pub mod expr;
 pub use expr::op::*;
+use expr::*;
 
 pub mod stmnt;
 pub use stmnt::*;
@@ -10,7 +11,11 @@ pub use stmnt::*;
 pub mod block;
 pub use block::*;
 
-use expr::*;
+pub mod function_declaration;
+pub use function_declaration::*;
+
+pub mod ret;
+pub use ret::*;
 
 #[derive(Debug, PartialEq, Clone)]
 enum VarLeftover {
@@ -209,11 +214,14 @@ peg::parser! {
             _: [Token::OpenRoundBracket] e:expression() _:[Token::CloseRoundBracket] { e }
         }
 
+        pub rule ident() -> Ident
+            = _:[Token::Ident(ident)] { ident }
+
         pub rule named() -> Var
-            = _:[Token::Ident(ident)] { Var::Named(ident) }
+            = ident:ident() { Var::Named(ident) }
 
         pub rule property_access() -> Var
-            = base:var() _:[Token::Dot] _:[Token::Ident(property) ] {
+            = base:var() _:[Token::Dot] property:ident() {
                 Var::PropertyAccess {
                     from: Box::new(base),
                     property
@@ -224,7 +232,7 @@ peg::parser! {
             = base:named() leftovers:_var() { accumulate_var_leftovers(base, leftovers) }
 
         rule _var() -> VarLeftover
-            = _:[Token::Dot] _:[Token::Ident(ident)] next:_var() {
+            = _:[Token::Dot] ident:ident() next:_var() {
                 VarLeftover::PropertyAccess {
                     from: Box::new(next),
                     property: ident
@@ -277,7 +285,7 @@ peg::parser! {
             }
 
         rule name_pair() -> (Ident, Expression)
-            = _:[Token::Ident(ident)] _:[Token::Assignment] expr:expression() { (ident, expr) }
+            = ident:ident() _:[Token::Assignment] expr:expression() { (ident, expr) }
 
         rule _ffieldlist_after_pair() -> Vec<(Ident, Expression)>
             = _: [Token::Comma] rest:_ffieldlist() { rest }
@@ -297,7 +305,7 @@ peg::parser! {
             }
 
         rule function_call_head() -> FunctionCallHead
-            = func:var() _:[Token::Colon] _:[Token::Ident(ident)] { FunctionCallHead::Method(func, ident) }
+            = func:var() _:[Token::Colon] ident:ident() { FunctionCallHead::Method(func, ident) }
             / func:var() { FunctionCallHead::Function(func) }
 
         rule function_call_args() -> FunctionCallArgs
@@ -367,7 +375,7 @@ peg::parser! {
             / { Vec::new() }
 
         pub rule declaration() -> Declaration
-            = _:[Token::Local] names:decllist() initial_values:initial_values() {
+            = _:[Token::Local] names:decllist1() initial_values:initial_values() {
                 Declaration { names, initial_values, }
             }
 
@@ -375,22 +383,11 @@ peg::parser! {
             = _:[Token::Assignment] values:exprlist1() { values.into() }
             / { Vec::new() }
 
-        rule decllist() -> NonEmptyVec<Ident>
-            = _:[Token::Ident(head)]() tail:_decllist() {
-                let mut tail = tail;
-                tail.push(head);
-                tail.reverse();
-                // SAFETY: I've pushed head into vec
-                unsafe { NonEmptyVec::new_unchecked(tail) }
+        rule decllist1() -> NonEmptyVec<Ident>
+            = decls:ident() ++ [Token::Comma] {
+                // SAFETY: It is guaranteed by peg, that decls contains at least one element
+                unsafe { NonEmptyVec::new_unchecked(decls) }
             }
-
-        rule _decllist() -> Vec<Ident>
-            = _:[Token::Comma] _:[Token::Ident(head)]() tail:_decllist() {
-                let mut tail = tail;
-                tail.push(head);
-                tail
-            }
-            / { Vec::new() }
 
         pub rule while_loop() -> WhileLoop
             = _:[Token::While] condition:expression() _:[Token::Do] body:block() _:[Token::End] {
@@ -419,6 +416,24 @@ peg::parser! {
 
         pub rule ret() -> Return
             = _:[Token::Return] expr:expression()? { Return(expr) }
+
+        pub rule function_declaration() -> FunctionDeclaration
+            = _:[Token::Function] name:function_name() args:function_args_decl() body:block() _:[Token::End] {
+                FunctionDeclaration {
+                    name,
+                    args,
+                    body,
+                }
+            }
+
+        rule function_name() -> FunctionName
+            = name:var() _:[Token::Colon] method:ident() { FunctionName::Method(name, method) }
+            / name:var() { FunctionName::Plain(name) }
+
+        rule function_args_decl() -> Vec<Ident>
+            = _:[Token::OpenRoundBracket] args:ident() ** [Token::Comma] _:[Token::CloseRoundBracket] {
+                args
+            }
     }
 }
 

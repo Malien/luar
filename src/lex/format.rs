@@ -1,8 +1,8 @@
 use super::Token;
 
 pub struct Formatting {
-    before: FormattingStyle,
-    after: FormattingStyle,
+    pub before: FormattingStyle,
+    pub after: FormattingStyle,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -26,6 +26,8 @@ pub fn formatting_style_precedence(
     right: FormattingStyle,
 ) -> FormattingStyle {
     use FormattingStyle::*;
+    use IndentationChange::*;
+
     match (left, right) {
         (Condensed, Space) => Condensed,
         (Space, Condensed) => Condensed,
@@ -33,6 +35,7 @@ pub fn formatting_style_precedence(
         (Condensed, StrictSpace) => StrictSpace,
         (StrictSpace, Condensed) => StrictSpace,
 
+        (Indent(Increase), Indent(Decrease)) => Newline,
         (Indent(c), _) => Indent(c),
         (_, Indent(c)) => Indent(c),
 

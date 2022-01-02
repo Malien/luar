@@ -3,10 +3,7 @@ use crate::{
     lex::{DynTokens, ToTokenStream},
 };
 
-use super::Statement;
-
-pub mod ret;
-pub use ret::*;
+use super::{Statement, Return};
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Block {
