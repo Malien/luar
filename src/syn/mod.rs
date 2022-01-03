@@ -3,7 +3,7 @@ use crate::util::NonEmptyVec;
 
 pub mod expr;
 pub use expr::op::*;
-use expr::*;
+pub use expr::*;
 
 pub mod stmnt;
 pub use stmnt::*;
@@ -63,6 +63,24 @@ fn compose_function_call(head: FunctionCallHead, args: FunctionCallArgs) -> Func
         FunctionCallHead::Function(func) => FunctionCall::Function { func, args },
         FunctionCallHead::Method(func, method) => FunctionCall::Method { func, method, args },
     }
+}
+
+pub type ParseError = peg::error::ParseError<usize>;
+
+#[cfg(test)]
+pub mod string_parser {
+    macro_rules! forward {
+        ($rule: ident, $ret: ty) => {
+            pub fn $rule(input: &str) -> Result<$ret, crate::syn::ParseError> {
+                use logos::Logos;
+                let tokens: Vec<_> = crate::lex::Token::lexer(input).collect();
+                crate::syn::lua_parser::$rule(&tokens)
+            }
+        };
+    }
+
+    forward!(expression, super::Expression);
+    forward!(module, super::Module);
 }
 
 peg::parser! {

@@ -83,12 +83,12 @@ impl Token {
                 before: Space,
                 after: Indent(Increase),
             },
-            Exp | OpenRoundBracket | CloseRoundBracket | OpenSquareBracket | CloseSquareBracket
+            Exp | OpenRoundBracket | OpenSquareBracket
             | Dot | Colon => Formatting {
                 before: Condensed,
                 after: Condensed,
             },
-            Comma | Semicolon => Formatting {
+            Comma | Semicolon | CloseRoundBracket | CloseSquareBracket => Formatting {
                 before: Condensed,
                 after: Space,
             },

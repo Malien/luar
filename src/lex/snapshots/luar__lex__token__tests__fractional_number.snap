@@ -18,40 +18,47 @@ expression: tokens
             4.0,
         ),
     ),
+    Minus,
     Number(
         NumberLiteral(
-            -4.67,
+            4.67,
         ),
     ),
+    Minus,
     Number(
         NumberLiteral(
-            -0.25,
+            0.25,
         ),
     ),
+    Minus,
     Number(
         NumberLiteral(
-            -8.0,
+            8.0,
         ),
     ),
+    Plus,
     Number(
         NumberLiteral(
             0.24000000000000002,
         ),
     ),
+    Plus,
     Number(
         NumberLiteral(
             5.0,
         ),
     ),
+    Plus,
     Number(
         NumberLiteral(
             4.27,
         ),
     ),
     Comma,
+    Minus,
     Number(
         NumberLiteral(
-            -0.12345678901234568,
+            0.12345678901234568,
         ),
     ),
 ]

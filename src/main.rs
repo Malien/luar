@@ -10,8 +10,9 @@ mod test_util;
 
 mod lex;
 mod syn;
-
+mod lang;
 mod util;
+mod error;
 
 #[allow(unused)]
 static LUA_FUNCTION: &'static str = indoc! {"
@@ -26,13 +27,7 @@ static LUA_FUNCTION: &'static str = indoc! {"
 "};
 
 fn main() {
-    // println!("{}", LUA_FUNCTION);
-    // let lexer = lex::Token::lexer(LUA_FUNCTION);
-    // for lexem in lexer {
-    //     println!("{:?}", lexem);
-    // }
-
-    let tokens: Vec<_> = lex::Token::lexer("{ foo = bar }").collect();
-    let parsed = syn::lua_parser::expression(&tokens).unwrap();
-    println!("{}\n{:?}", parsed, parsed);
+    let tokens: Vec<_> = lex::Token::lexer(LUA_FUNCTION).collect();
+    let parsed = syn::lua_parser::module(&tokens).unwrap();
+    println!("{}\n{:#?}", parsed, parsed);
 }

@@ -11,7 +11,7 @@ lazy_static! {
     static ref IDENT_REGEX: Regex = Regex::new(r"^[_a-zA-Z][_a-zA-Z0-9]*$").unwrap();
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Ident(String);
 
 #[derive(Debug, Error)]
@@ -49,6 +49,24 @@ impl ToTokenStream for Ident {
     type Tokens = iter::Once<Token>;
     fn to_tokens(self) -> Self::Tokens {
         iter::once(Token::Ident(self))
+    }
+}
+
+impl From<Ident> for String {
+    fn from(Ident(str): Ident) -> Self {
+        str
+    }
+}
+
+impl<'a> From<&'a Ident> for &'a String {
+    fn from(Ident(str): &'a Ident) -> Self {
+        str
+    }
+}
+
+impl<'a> AsRef<str> for &'a Ident {
+    fn as_ref(&self) -> &'a str {
+        self.0.as_ref()
     }
 }
 

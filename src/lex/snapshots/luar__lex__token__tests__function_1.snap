@@ -77,9 +77,10 @@ expression: tokens
             "b",
         ),
     ),
+    Minus,
     Number(
         NumberLiteral(
-            -1.0,
+            1.0,
         ),
     ),
     CloseRoundBracket,
@@ -101,6 +102,7 @@ expression: tokens
             "b",
         ),
     ),
+    Plus,
     Number(
         NumberLiteral(
             1.0,

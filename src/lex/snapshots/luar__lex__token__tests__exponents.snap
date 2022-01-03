@@ -18,16 +18,19 @@ expression: tokens
             500000000.0,
         ),
     ),
+    Minus,
     Number(
         NumberLiteral(
-            -60000000.0,
+            60000000.0,
         ),
     ),
+    Minus,
     Number(
         NumberLiteral(
-            -0.000000524,
+            0.000000524,
         ),
     ),
+    Plus,
     Number(
         NumberLiteral(
             8.0,
