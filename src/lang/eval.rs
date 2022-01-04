@@ -111,7 +111,8 @@ fn binary_op_eval(
     match op {
         And if lhs.is_falsy() => Ok(lhs),
         And => rhs.eval(context),
-        // Or => binary_or_eval(),
+        Or if lhs.is_truthy() => Ok(lhs),
+        Or => rhs.eval(context),
         // // Precedence level 1
         // Less,
         // Greater,
@@ -176,209 +177,223 @@ todo_eval!((), syn::FunctionDeclaration);
 
 #[cfg(test)]
 mod test {
-    use quickcheck::{Arbitrary, TestResult};
+    use quickcheck::TestResult;
 
     use super::Eval;
     use crate::error::LuaError;
-    use crate::lang::{ArithmeticError, EvalContext, EvalError, LuaValue, TypeError};
-    use crate::lex::{NumberLiteral, StringLiteral, Ident};
-    use crate::syn::{self, TableConstructor};
+    use crate::lang::{EvalContext, LuaValue};
+    use crate::lex::{Ident, NumberLiteral, StringLiteral, Token};
+    use crate::syn;
     use crate::test_util::Finite;
-    use crate::util::eq_with_nan;
 
-    #[test]
-    fn eval_nil() -> Result<(), EvalError> {
-        let mut context = EvalContext::new();
-        let expr = syn::Expression::Nil;
-        assert_eq!(expr.eval(&mut context)?, LuaValue::Nil);
-        Ok(())
-    }
+    mod expressions {
+        use quickcheck::Arbitrary;
 
-    #[quickcheck]
-    fn eval_number_literal(num: f64) -> Result<(), EvalError> {
-        let mut context = EvalContext::new();
-        let expr = syn::Expression::Number(NumberLiteral(num));
-        assert!(eq_with_nan(expr.eval(&mut context)?.unwrap_number(), num));
-        Ok(())
-    }
-
-    #[quickcheck]
-    fn eval_string_literal(str: String) -> Result<(), EvalError> {
-        let mut context = EvalContext::new();
-        let expr = syn::Expression::String(StringLiteral(str.clone()));
-        assert_eq!(expr.eval(&mut context)?.unwrap_string(), str);
-        Ok(())
-    }
-
-    fn negation_expr(num: f64) -> syn::Expression {
-        syn::Expression::UnaryOperator {
-            op: syn::UnaryOperator::Minus,
-            exp: Box::new(syn::Expression::Number(NumberLiteral(num))),
-        }
-    }
-
-    #[quickcheck]
-    fn eval_negation(Finite(num): Finite<f64>) -> Result<(), EvalError> {
-        let mut context = EvalContext::new();
-        let expr = negation_expr(num);
-        assert_eq!(expr.eval(&mut context)?.unwrap_number(), -num);
-        Ok(())
-    }
-
-    #[test]
-    fn eval_negation_on_nan() -> Result<(), EvalError> {
-        let mut context = EvalContext::new();
-        let expr = negation_expr(f64::NAN);
-        assert!(eq_with_nan(
-            expr.eval(&mut context)?.unwrap_number(),
-            f64::NAN
-        ));
-        Ok(())
-    }
-
-    #[test]
-    fn eval_negation_on_inf() -> Result<(), EvalError> {
-        let mut context = EvalContext::new();
-        let expr = negation_expr(f64::INFINITY);
-
-        assert!(eq_with_nan(
-            expr.eval(&mut context)?.unwrap_number(),
-            f64::NEG_INFINITY
-        ));
-        Ok(())
-    }
-
-    #[test]
-    fn eval_negation_on_neg_inf() -> Result<(), EvalError> {
-        let mut context = EvalContext::new();
-        let expr = negation_expr(f64::NEG_INFINITY);
-
-        assert!(eq_with_nan(
-            expr.eval(&mut context)?.unwrap_number(),
-            f64::INFINITY
-        ));
-        Ok(())
-    }
-
-    #[quickcheck]
-    fn eval_negation_on_convertible_str(num: f64) -> Result<(), EvalError> {
-        let mut context = EvalContext::new();
-        let expr = syn::Expression::UnaryOperator {
-            op: syn::UnaryOperator::Minus,
-            exp: Box::new(syn::Expression::String(StringLiteral(format!("{}", num)))),
+        use crate::{
+            error::LuaError,
+            lang::{ArithmeticError, Eval, EvalContext, EvalError, LuaValue, TypeError},
+            lex::{NumberLiteral, StringLiteral},
+            syn,
+            test_util::Finite,
+            util::eq_with_nan,
         };
 
-        assert!(eq_with_nan(expr.eval(&mut context)?.unwrap_number(), -num));
-        Ok(())
-    }
+        #[test]
+        fn eval_nil() -> Result<(), EvalError> {
+            let mut context = EvalContext::new();
+            let expr = syn::Expression::Nil;
+            assert_eq!(expr.eval(&mut context)?, LuaValue::Nil);
+            Ok(())
+        }
 
-    #[test]
-    fn eval_on_unsupported_type_errors() {
-        let mut context = EvalContext::new();
-        let unsupported = [
-            syn::Expression::Nil,
-            syn::Expression::String(StringLiteral("Definitely not a number".to_string())),
-            // syn::Expression::TableConstructor(TableConstructor::empty()),
-        ];
+        #[quickcheck]
+        fn eval_number_literal(num: f64) -> Result<(), EvalError> {
+            let mut context = EvalContext::new();
+            let expr = syn::Expression::Number(NumberLiteral(num));
+            assert!(eq_with_nan(expr.eval(&mut context)?.unwrap_number(), num));
+            Ok(())
+        }
 
-        for exp in unsupported {
+        #[quickcheck]
+        fn eval_string_literal(str: String) -> Result<(), EvalError> {
+            let mut context = EvalContext::new();
+            let expr = syn::Expression::String(StringLiteral(str.clone()));
+            assert_eq!(expr.eval(&mut context)?.unwrap_string(), str);
+            Ok(())
+        }
+
+        fn negation_expr(num: f64) -> syn::Expression {
+            syn::Expression::UnaryOperator {
+                op: syn::UnaryOperator::Minus,
+                exp: Box::new(syn::Expression::Number(NumberLiteral(num))),
+            }
+        }
+
+        #[quickcheck]
+        fn eval_negation(Finite(num): Finite<f64>) -> Result<(), EvalError> {
+            let mut context = EvalContext::new();
+            let expr = negation_expr(num);
+            assert_eq!(expr.eval(&mut context)?.unwrap_number(), -num);
+            Ok(())
+        }
+
+        #[test]
+        fn eval_negation_on_nan() -> Result<(), EvalError> {
+            let mut context = EvalContext::new();
+            let expr = negation_expr(f64::NAN);
+            assert!(eq_with_nan(
+                expr.eval(&mut context)?.unwrap_number(),
+                f64::NAN
+            ));
+            Ok(())
+        }
+
+        #[test]
+        fn eval_negation_on_inf() -> Result<(), EvalError> {
+            let mut context = EvalContext::new();
+            let expr = negation_expr(f64::INFINITY);
+
+            assert!(eq_with_nan(
+                expr.eval(&mut context)?.unwrap_number(),
+                f64::NEG_INFINITY
+            ));
+            Ok(())
+        }
+
+        #[test]
+        fn eval_negation_on_neg_inf() -> Result<(), EvalError> {
+            let mut context = EvalContext::new();
+            let expr = negation_expr(f64::NEG_INFINITY);
+
+            assert!(eq_with_nan(
+                expr.eval(&mut context)?.unwrap_number(),
+                f64::INFINITY
+            ));
+            Ok(())
+        }
+
+        #[quickcheck]
+        fn eval_negation_on_convertible_str(num: f64) -> Result<(), EvalError> {
+            let mut context = EvalContext::new();
             let expr = syn::Expression::UnaryOperator {
                 op: syn::UnaryOperator::Minus,
-                exp: Box::new(exp),
+                exp: Box::new(syn::Expression::String(StringLiteral(format!("{}", num)))),
             };
-            let res = expr.eval(&mut context);
-            println!("{:?}", res);
-            assert!(matches!(
-                res,
-                Err(EvalError::TypeError(TypeError::Arithmetic(
-                    ArithmeticError::UnaryMinus(_)
-                )))
-            ));
-        }
-    }
 
-    #[test]
-    fn eval_not_on_nil() -> Result<(), LuaError> {
-        let mut context = EvalContext::new();
-        let exp = syn::string_parser::expression("not nil")?;
-        assert_eq!(exp.eval(&mut context)?, LuaValue::Number(1f64));
-        Ok(())
-    }
-
-    #[derive(Debug, Clone)]
-    pub struct TruthyExpression(syn::Expression);
-
-    impl Arbitrary for TruthyExpression {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            Self(match u8::arbitrary(g) % 2 {
-                0 => syn::Expression::Number(Arbitrary::arbitrary(g)),
-                1 => syn::Expression::String(Arbitrary::arbitrary(g)),
-                _ => unreachable!(),
-            })
+            assert!(eq_with_nan(expr.eval(&mut context)?.unwrap_number(), -num));
+            Ok(())
         }
 
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            Box::new(self.0.shrink().map(Self))
-        }
-    }
+        #[test]
+        fn eval_unary_minus_on_unsupported_type_errors() {
+            let mut context = EvalContext::new();
+            let unsupported = [
+                syn::Expression::Nil,
+                syn::Expression::String(StringLiteral("Definitely not a number".to_string())),
+                // syn::Expression::TableConstructor(TableConstructor::empty()),
+            ];
 
-    #[quickcheck]
-    fn eval_not_on_truthy_vals(TruthyExpression(expr): TruthyExpression) -> Result<(), LuaError> {
-        let mut context = EvalContext::new();
-        let expr = syn::Expression::UnaryOperator {
-            op: syn::UnaryOperator::Not,
-            exp: Box::new(expr),
-        };
-        assert_eq!(expr.eval(&mut context)?, LuaValue::Nil);
-        Ok(())
-    }
-
-    #[derive(Debug, Clone)]
-    pub struct SimpleExpression(syn::Expression);
-
-    impl Arbitrary for SimpleExpression {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            Self(match u8::arbitrary(g) % 3 {
-                0 => syn::Expression::Nil,
-                1 => syn::Expression::Number(Arbitrary::arbitrary(g)),
-                2 => syn::Expression::String(Arbitrary::arbitrary(g)),
-                _ => unreachable!(),
-            })
+            for exp in unsupported {
+                let expr = syn::Expression::UnaryOperator {
+                    op: syn::UnaryOperator::Minus,
+                    exp: Box::new(exp),
+                };
+                let res = expr.eval(&mut context);
+                println!("{:?}", res);
+                assert!(matches!(
+                    res,
+                    Err(EvalError::TypeError(TypeError::Arithmetic(
+                        ArithmeticError::UnaryMinus(_)
+                    )))
+                ));
+            }
         }
 
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            Box::new(self.0.shrink().map(Self))
+        #[test]
+        fn eval_not_on_nil() -> Result<(), LuaError> {
+            let mut context = EvalContext::new();
+            let exp = syn::string_parser::expression("not nil")?;
+            assert_eq!(exp.eval(&mut context)?, LuaValue::Number(1f64));
+            Ok(())
         }
-    }
 
-    #[quickcheck]
-    fn eval_and_on_truthy(
-        TruthyExpression(lhs): TruthyExpression,
-        SimpleExpression(rhs): SimpleExpression,
-    ) -> Result<(), LuaError> {
-        let mut context = EvalContext::new();
-        let expected = rhs.eval(&mut context)?;
-        let expr = syn::Expression::BinaryOperator {
-            op: syn::BinaryOperator::And,
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-        };
+        #[derive(Debug, Clone)]
+        pub struct TruthyExpression(syn::Expression);
 
-        assert_eq!(expr.eval(&mut context)?, expected);
-        Ok(())
-    }
+        impl Arbitrary for TruthyExpression {
+            fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+                Self(match u8::arbitrary(g) % 2 {
+                    0 => syn::Expression::Number(Arbitrary::arbitrary(g)),
+                    1 => syn::Expression::String(Arbitrary::arbitrary(g)),
+                    _ => unreachable!(),
+                })
+            }
 
-    #[quickcheck]
-    fn eval_and_on_falsy(SimpleExpression(rhs): SimpleExpression) -> Result<(), LuaError> {
-        let mut context = EvalContext::new();
-        let expr = syn::Expression::BinaryOperator {
-            op: syn::BinaryOperator::And,
-            lhs: Box::new(syn::Expression::Nil),
-            rhs: Box::new(rhs),
-        };
+            fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+                Box::new(self.0.shrink().map(Self))
+            }
+        }
 
-        assert_eq!(expr.eval(&mut context)?, LuaValue::Nil);
-        Ok(())
+        #[quickcheck]
+        fn eval_not_on_truthy_vals(
+            TruthyExpression(expr): TruthyExpression,
+        ) -> Result<(), LuaError> {
+            let mut context = EvalContext::new();
+            let expr = syn::Expression::UnaryOperator {
+                op: syn::UnaryOperator::Not,
+                exp: Box::new(expr),
+            };
+            assert_eq!(expr.eval(&mut context)?, LuaValue::Nil);
+            Ok(())
+        }
+
+        #[derive(Debug, Clone)]
+        pub struct SimpleExpression(syn::Expression);
+
+        impl Arbitrary for SimpleExpression {
+            fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+                Self(match u8::arbitrary(g) % 3 {
+                    0 => syn::Expression::Nil,
+                    1 => syn::Expression::Number(Arbitrary::arbitrary(g)),
+                    2 => syn::Expression::String(Arbitrary::arbitrary(g)),
+                    _ => unreachable!(),
+                })
+            }
+
+            fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+                Box::new(self.0.shrink().map(Self))
+            }
+        }
+
+        #[quickcheck]
+        fn eval_and_on_truthy(
+            TruthyExpression(lhs): TruthyExpression,
+            SimpleExpression(rhs): SimpleExpression,
+        ) -> Result<(), LuaError> {
+            let mut context = EvalContext::new();
+            let expected = rhs.eval(&mut context)?;
+            let expr = syn::Expression::BinaryOperator {
+                op: syn::BinaryOperator::And,
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+            };
+
+            assert!(expr.eval(&mut context)?.total_eq(&expected));
+            Ok(())
+        }
+
+        #[quickcheck]
+        fn eval_and_on_falsy(SimpleExpression(rhs): SimpleExpression) -> Result<(), LuaError> {
+            let mut context = EvalContext::new();
+            let expr = syn::Expression::BinaryOperator {
+                op: syn::BinaryOperator::And,
+                lhs: Box::new(syn::Expression::Nil),
+                rhs: Box::new(rhs),
+            };
+
+            assert_eq!(expr.eval(&mut context)?, LuaValue::Nil);
+            Ok(())
+        }
     }
 
     #[quickcheck]
@@ -391,10 +406,35 @@ mod test {
         Ok(())
     }
 
+    #[test]
+    fn eval_nil() -> Result<(), LuaError> {
+        let module = syn::string_parser::module("return nil")?;
+        let mut context = EvalContext::new();
+        assert_eq!(module.eval(&mut context)?, LuaValue::Nil);
+        Ok(())
+    }
+
     #[quickcheck]
-    fn eval_and_truthy_module(lhs: LuaValue, rhs: LuaValue) -> Result<TestResult, LuaError> {
+    fn eval_number_literal(Finite(num): Finite<f64>) -> Result<(), LuaError> {
+        let module = syn::lua_parser::module(&[Token::Return, Token::Number(NumberLiteral(num))])?;
+        let mut context = EvalContext::new();
+        assert!(module.eval(&mut context)?.total_eq(&LuaValue::Number(num)));
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn eval_string_literal(str: String) -> Result<(), LuaError> {
+        let module =
+            syn::lua_parser::module(&[Token::Return, Token::String(StringLiteral(str.clone()))])?;
+        let mut context = EvalContext::new();
+        assert_eq!(module.eval(&mut context)?, LuaValue::String(str));
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn eval_and_truthy(lhs: LuaValue, rhs: LuaValue) -> Result<TestResult, LuaError> {
         if lhs.is_falsy() {
-            return Ok(TestResult::discard())
+            return Ok(TestResult::discard());
         }
         let module = syn::string_parser::module("return lhs and rhs")?;
         let mut context = EvalContext::new();
@@ -406,7 +446,7 @@ mod test {
     }
 
     #[quickcheck]
-    fn eval_and_falsy_module(rhs: LuaValue) -> Result<TestResult, LuaError> {
+    fn eval_and_falsy(rhs: LuaValue) -> Result<TestResult, LuaError> {
         let module = syn::string_parser::module("return lhs and rhs")?;
         let mut context = EvalContext::new();
         context.set("lhs", LuaValue::Nil);
@@ -414,5 +454,69 @@ mod test {
         let res = module.eval(&mut context)?;
         assert_eq!(res, LuaValue::Nil);
         Ok(TestResult::passed())
+    }
+
+    #[test]
+    #[ignore = "This relies on fn def, fn call and assignment which are not implemented yet"]
+    fn and_short_circuits() -> Result<(), LuaError> {
+        let module = syn::string_parser::module(
+            "side_effect_committed = nil
+
+            function side_effecty_fn()
+                side_effect_committed = 1
+            end
+
+            res = nil and side_effecty_fn()
+            return side_effect_committed",
+        )?;
+        let mut context = EvalContext::new();
+        assert_eq!(module.eval(&mut context)?, LuaValue::Nil);
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn eval_or_truthy(lhs: LuaValue, rhs: LuaValue) -> Result<TestResult, LuaError> {
+        if lhs.is_falsy() {
+            return Ok(TestResult::discard());
+        }
+        let module = syn::string_parser::module("return lhs or rhs")?;
+        println!("{:#?}", module);
+        let mut context = EvalContext::new();
+        context.set("lhs", lhs.clone());
+        context.set("rhs", rhs);
+        let res = module.eval(&mut context)?;
+        assert!(LuaValue::total_eq(&res, &lhs));
+        Ok(TestResult::passed())
+    }
+
+    #[quickcheck]
+    fn eval_or_falsy(rhs: LuaValue) -> Result<TestResult, LuaError> {
+        let module = syn::string_parser::module("return lhs or rhs")?;
+        let mut context = EvalContext::new();
+        context.set("lhs", LuaValue::Nil);
+        context.set("rhs", rhs.clone());
+        let res = module.eval(&mut context)?;
+        assert!(LuaValue::total_eq(&res, &rhs));
+        Ok(TestResult::passed())
+    }
+
+    #[test]
+    #[ignore = "This relies on fn def, fn call and assignment which are not implemented yet"]
+    fn or_short_circuits() -> Result<(), LuaError> {
+        let module = syn::string_parser::module(
+            "
+            side_effect_committed = nil
+
+            function side_effecty_fn()
+                side_effect_committed = 1
+            end
+
+            res = 1 or side_effecty_fn()
+            return side_effect_committed
+        ",
+        )?;
+        let mut context = EvalContext::new();
+        assert_eq!(module.eval(&mut context)?, LuaValue::Nil);
+        Ok(())
     }
 }
