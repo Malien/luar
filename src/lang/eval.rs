@@ -1,4 +1,6 @@
-use super::{ArithmeticError, EvalContext, EvalError, LuaValue, TypeError};
+use super::{
+    ArithmeticError, EvalContext, EvalContextExt, EvalError, LuaValue, TypeError,
+};
 use crate::{
     lex::{NumberLiteral, StringLiteral},
     syn::{self, Assignment},
@@ -164,7 +166,10 @@ impl Eval for syn::Statement {
         match self {
             Self::Assignment(Assignment { names, values }) => {
                 let (stored, throwaway) = values.split_at(names.len());
-                let stored = stored.into_iter().map(|expr| expr.eval(context)).collect::<Result<Vec<_>, _>>()?;
+                let stored = stored
+                    .into_iter()
+                    .map(|expr| expr.eval(context))
+                    .collect::<Result<Vec<_>, _>>()?;
                 for expr in throwaway {
                     expr.eval(context)?;
                 }
@@ -185,6 +190,50 @@ fn assign_to_var(context: &mut impl EvalContext, var: &syn::Var, value: LuaValue
     }
 }
 
+impl Eval for syn::FunctionCall {
+    type Return = LuaValue;
+
+    fn eval(&self, context: &mut impl EvalContext) -> Result<Self::Return, EvalError> {
+        match self {
+            Self::Function { func, args } => args.eval(context).and_then(|args| {
+                let fn_value = retrieve_from_var(context, func).clone();
+                call_value(context, &fn_value, &args)
+            }),
+            Self::Method { .. } => todo!(),
+        }
+    }
+}
+
+fn call_value(
+    context: &mut impl EvalContext,
+    func: &LuaValue,
+    args: &[LuaValue],
+) -> Result<LuaValue, EvalError> {
+    if let LuaValue::Function(func) = func {
+        func.call(context, args)
+    } else {
+        Err(EvalError::TypeError(TypeError::IsNotCallable(func.clone())))
+    }
+}
+
+fn retrieve_from_var<'a>(context: &'a impl EvalContext, var: &syn::Var) -> &'a LuaValue {
+    match var {
+        syn::Var::Named(ident) => context.get(ident),
+        _ => todo!(),
+    }
+}
+
+impl Eval for syn::FunctionCallArgs {
+    type Return = Vec<LuaValue>;
+
+    fn eval(&self, context: &mut impl EvalContext) -> Result<Self::Return, EvalError> {
+        match self {
+            Self::Arglist(exprs) => exprs.into_iter().map(|expr| expr.eval(context)).collect(),
+            Self::Table(table) => table.eval(context).map(|table| vec![table]),
+        }
+    }
+}
+
 macro_rules! todo_eval {
     ($ret: ty, $name: ty) => {
         impl Eval for $name {
@@ -199,20 +248,22 @@ macro_rules! todo_eval {
 
 // todo_eval!(LuaValue, syn::Var);
 todo_eval!(LuaValue, syn::TableConstructor);
-todo_eval!(LuaValue, syn::FunctionCall);
+// todo_eval!(LuaValue, syn::FunctionCall);
 // todo_eval!((), syn::Statement);
 todo_eval!((), syn::FunctionDeclaration);
 
 #[cfg(test)]
 mod test {
+    use std::cell::RefCell;
     use std::collections::HashSet;
+    use std::rc::Rc;
 
     use itertools::Itertools;
     use quickcheck::TestResult;
 
     use super::Eval;
     use crate::error::LuaError;
-    use crate::lang::{EvalContext, GlobalContext, LuaValue};
+    use crate::lang::{EvalContextExt, GlobalContext, LuaFunction, LuaValue};
     use crate::lex::{Ident, NumberLiteral, StringLiteral, Token};
     use crate::syn;
     use crate::test_util::Finite;
@@ -571,6 +622,7 @@ mod test {
     }
 
     #[quickcheck]
+    #[allow(unstable_name_collisions)]
     fn eval_multiple_assignment(
         idents: HashSet<Ident>,
         values: NonEmptyVec<LuaValue>,
@@ -618,4 +670,41 @@ mod test {
 
         Ok(TestResult::passed())
     }
+
+    #[test]
+    fn eval_fn_call() -> Result<(), LuaError> {
+        let module = syn::string_parser::module("return myfn()")?;
+        let called = Rc::new(RefCell::new(false));
+        let myfn = LuaFunction::new({
+            let called = Rc::clone(&called);
+            move |_, _| {
+                let mut called = called.borrow_mut();
+                *called = true;
+                Ok(LuaValue::Nil)
+            }
+        });
+        let mut context = GlobalContext::new();
+        context.set("myfn", LuaValue::Function(myfn));
+        module.eval(&mut context)?;
+        let called = called.borrow();
+        assert!(*called);
+        Ok(())
+    }
+    
+    // TODO: Test returns
+    // TODO: Test multiple returns
+    // TODO: Test err when value is not callableÍ
+
+    // #[quickcheck]
+    // fn eval_fn_call(ret: LuaValue) -> Result<(), LuaError> {
+    //     let module = syn::string_parser::module("return myfn()")?;
+    //     let myfn = LuaFunction::new({
+    //         let ret = ret.clone();
+    //         move |_, _| ret.clone()
+    //     });
+    //     let mut context = GlobalContext::new();
+    //     context.set("myfn", LuaValue::Function(myfn));
+    //     assert!(module.eval(&mut context)?.total_eq(&ret));
+    //     Ok(())
+    // }
 }

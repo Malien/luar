@@ -2,12 +2,14 @@ use std::fmt;
 
 use crate::util::eq_with_nan;
 
+use super::LuaFunction;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum LuaValue {
     Nil,
     Number(f64),
     String(String),
-    // Function,
+    Function(LuaFunction),
     // Table,
     // CFunction,
     // UserData,
@@ -51,6 +53,7 @@ impl fmt::Display for LuaValue {
             Self::Nil => fmt::Display::fmt("nil", f),
             Self::Number(num) => fmt::Display::fmt(num, f),
             Self::String(str) => fmt::Debug::fmt(str, f),
+            Self::Function(function) => fmt::Debug::fmt(function, f),
             // Self::Function => fmt::Display::fmt("<function>", f),
             // Self::Table => fmt::Display::fmt("<table>", f),
             // Self::CFunction => fmt::Display::fmt("<cfunction>", f),
@@ -79,6 +82,7 @@ impl quickcheck::Arbitrary for LuaValue {
             LuaValue::String(str) => {
                 Box::new(std::iter::once(LuaValue::Nil).chain(str.shrink().map(LuaValue::String)))
             }
+            LuaValue::Function(_) => Box::new(std::iter::once(LuaValue::Nil))
         }
     }
 }

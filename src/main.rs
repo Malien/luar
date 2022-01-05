@@ -8,11 +8,11 @@ extern crate quickcheck_macros;
 #[cfg(test)]
 mod test_util;
 
-mod lex;
-mod syn;
-mod lang;
+pub mod lex;
+pub mod syn;
+pub mod lang;
 mod util;
-mod error;
+pub mod error;
 
 #[allow(unused)]
 static LUA_FUNCTION: &'static str = indoc! {"

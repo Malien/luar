@@ -9,3 +9,6 @@ pub use context::*;
 
 mod eval_error;
 pub use eval_error::*;
+
+mod function;
+pub use function::*;

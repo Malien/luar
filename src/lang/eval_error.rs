@@ -1,8 +1,7 @@
-use std::fmt;
 use std::error::Error;
+use std::fmt;
 
 use super::LuaValue;
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum EvalError {
@@ -12,6 +11,7 @@ pub enum EvalError {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeError {
     Arithmetic(ArithmeticError),
+    IsNotCallable(LuaValue),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,7 +36,10 @@ impl fmt::Display for TypeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt("Type Error: ", f)?;
         match self {
-            Self::Arithmetic(err) => fmt::Display::fmt(err, f)
+            Self::Arithmetic(err) => fmt::Display::fmt(err, f),
+            Self::IsNotCallable(value) => {
+                write!(f, "Attempting to call {}, which is not callable", value)
+            }
         }
     }
 }
@@ -44,11 +47,11 @@ impl fmt::Display for TypeError {
 impl fmt::Display for ArithmeticError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::UnaryMinus(value) => write!(f, "Cannot apply unary minus operator to {}", value)
+            Self::UnaryMinus(value) => write!(f, "Cannot apply unary minus operator to {}", value),
         }
     }
 }
 
-impl Error for EvalError { }
-impl Error for TypeError { }
-impl Error for ArithmeticError { }
+impl Error for EvalError {}
+impl Error for TypeError {}
+impl Error for ArithmeticError {}
