@@ -26,6 +26,11 @@ impl<T> NonEmptyVec<T> {
     pub unsafe fn new_unchecked(vec: Vec<T>) -> Self {
         NonEmptyVec(vec)
     }
+
+    pub fn first(&self) -> &'_ T {
+        // Can be unwrap_unchecked() but I'm scared tbh.
+        self.0.first().unwrap()
+    }
 }
 
 impl<T> Deref for NonEmptyVec<T> {
