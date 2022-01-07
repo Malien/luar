@@ -66,6 +66,14 @@ impl LuaValue {
     pub fn is_function(&self) -> bool {
         matches!(self, Self::Function(_))
     }
+
+    pub fn first_value(self) -> Self {
+        if let Self::MultiValue(values) = self {
+            values.move_first()
+        } else {
+            self
+        }
+    }
 }
 
 impl fmt::Display for LuaValue {

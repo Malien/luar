@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{ops::Deref, iter::FromIterator};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NonEmptyVec<T>(Vec<T>);
@@ -22,6 +22,15 @@ impl<T> NonEmptyVec<T> {
             Ok(NonEmptyVec(vec))
         }
     }
+    
+    pub fn from_iter<A: IntoIterator<Item = T>>(iter: A) -> Result<Self, VecIsEmptyError<T>> {
+        let vec: Vec<_> = iter.into_iter().collect();
+        Self::try_new(vec)
+    }
+
+    pub unsafe fn from_iter_unchecked<A: IntoIterator<Item = T>>(iter: A) -> Self {
+        Self(iter.into_iter().collect())
+    }
 
     pub unsafe fn new_unchecked(vec: Vec<T>) -> Self {
         NonEmptyVec(vec)
@@ -30,6 +39,25 @@ impl<T> NonEmptyVec<T> {
     pub fn first(&self) -> &'_ T {
         // Can be unwrap_unchecked() but I'm scared tbh.
         self.0.first().unwrap()
+    }
+
+    pub fn last(&self) -> &'_ T {
+        // Can be unwrap_unchecked() but I'm scared tbh.
+        self.0.last().unwrap()
+    }
+
+    pub fn unwrap(self) -> Vec<T> {
+        self.0
+    }
+
+    pub fn move_first(self) -> T {
+        // Can be unwrap_unchecked() but I'm scared tbh.
+        self.into_iter().next().unwrap()
+    }
+
+    pub fn pop(mut self) -> (T, Vec<T>) {
+        // Can be unwrap_unchecked() but I'm scared tbh.
+        (self.0.pop().unwrap(), self.0)
     }
 }
 

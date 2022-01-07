@@ -2,7 +2,10 @@ use lazy_static::lazy_static;
 #[cfg(test)]
 use quickcheck::Arbitrary;
 use regex::Regex;
-use std::{iter, str::FromStr};
+use std::{
+    iter::{self, FlatMap, Once},
+    str::FromStr,
+};
 use thiserror::Error;
 
 use super::{ToTokenStream, Token};
@@ -102,5 +105,20 @@ impl Arbitrary for Ident {
 
     fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
         Box::new(self.0.shrink().filter_map(Ident::try_new))
+    }
+}
+
+impl ToTokenStream for Vec<Ident> {
+    // I hate how this is forcing FlatMap to take a function pointer
+    // rather than be specialized with exact function type. Gimme impl
+    // Iterator, or at least let me name types of specific functions!
+    type Tokens = FlatMap<
+        std::vec::IntoIter<Ident>,
+        Once<Token>,
+        fn(Ident) -> <Ident as ToTokenStream>::Tokens,
+    >;
+
+    fn to_tokens(self) -> Self::Tokens {
+        self.into_iter().flat_map(ToTokenStream::to_tokens)
     }
 }
