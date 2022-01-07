@@ -1,6 +1,6 @@
-use std::fmt;
+use std::fmt::{self, Write};
 
-use crate::util::eq_with_nan;
+use crate::util::{eq_with_nan, NonEmptyVec};
 
 use super::LuaFunction;
 
@@ -10,9 +10,10 @@ pub enum LuaValue {
     Number(f64),
     String(String),
     Function(LuaFunction),
+    MultiValue(NonEmptyVec<LuaValue>),
     // Table,
     // CFunction,
-    // UserData,
+    // UserData
 }
 
 impl LuaValue {
@@ -42,8 +43,28 @@ impl LuaValue {
             (Self::Nil, Self::Nil) => true,
             (Self::Number(lhs), Self::Number(rhs)) => eq_with_nan(*lhs, *rhs),
             (Self::String(lhs), Self::String(rhs)) => lhs == rhs,
-            _ => false
+            (Self::Function(lhs), Self::Function(rhs)) => lhs == rhs,
+            (Self::MultiValue(lhs), Self::MultiValue(rhs)) if lhs.len() == rhs.len() => {
+                lhs.into_iter().zip(rhs).all(|(lhs, rhs)| lhs.total_eq(rhs))
+            }
+            _ => false,
         }
+    }
+
+    pub fn is_nil(&self) -> bool {
+        matches!(self, Self::Nil)
+    }
+
+    pub fn is_number(&self) -> bool {
+        matches!(self, Self::Number(_))
+    }
+
+    pub fn is_string(&self) -> bool {
+        matches!(self, Self::String(_))
+    }
+
+    pub fn is_function(&self) -> bool {
+        matches!(self, Self::Function(_))
     }
 }
 
@@ -54,7 +75,13 @@ impl fmt::Display for LuaValue {
             Self::Number(num) => fmt::Display::fmt(num, f),
             Self::String(str) => fmt::Debug::fmt(str, f),
             Self::Function(function) => fmt::Debug::fmt(function, f),
-            // Self::Function => fmt::Display::fmt("<function>", f),
+            Self::MultiValue(values) => {
+                for value in values {
+                    fmt::Display::fmt(value, f)?;
+                    f.write_char('\t')?;
+                }
+                Ok(())
+            }
             // Self::Table => fmt::Display::fmt("<table>", f),
             // Self::CFunction => fmt::Display::fmt("<cfunction>", f),
             // Self::UserData => fmt::Display::fmt("<unserdata>", f),
@@ -82,7 +109,14 @@ impl quickcheck::Arbitrary for LuaValue {
             LuaValue::String(str) => {
                 Box::new(std::iter::once(LuaValue::Nil).chain(str.shrink().map(LuaValue::String)))
             }
-            LuaValue::Function(_) => Box::new(std::iter::once(LuaValue::Nil))
+            LuaValue::Function(_) => Box::new(std::iter::once(LuaValue::Nil)),
+            LuaValue::MultiValue(values) => Box::new(values.shrink().map(|values| {
+                if values.len() == 1 {
+                    values.into_iter().next().unwrap()
+                } else {
+                    LuaValue::MultiValue(values)
+                }
+            })),
         }
     }
 }

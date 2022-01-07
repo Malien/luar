@@ -12,3 +12,5 @@ pub use eval_error::*;
 
 mod function;
 pub use function::*;
+
+pub mod ast;
