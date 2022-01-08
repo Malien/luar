@@ -1,9 +1,15 @@
-use crate::{lang::{Eval, LuaValue, EvalContext, EvalError}, syn::{Module, Chunk}};
+use crate::{
+    lang::{Eval, EvalContext, EvalError, LuaValue},
+    syn::{Chunk, Module},
+};
 
 impl Eval for Module {
     type Return = LuaValue;
 
-    fn eval(&self, context: &mut impl EvalContext) -> Result<LuaValue, EvalError> {
+    fn eval<Context>(&self, context: &mut Context) -> Result<LuaValue, EvalError>
+    where
+        Context: EvalContext + ?Sized,
+    {
         for chunk in &*self.chunks {
             chunk.eval(context)?;
         }
@@ -17,7 +23,10 @@ impl Eval for Module {
 impl Eval for Chunk {
     type Return = ();
 
-    fn eval(&self, context: &mut impl EvalContext) -> Result<(), EvalError> {
+    fn eval<Context>(&self, context: &mut Context) -> Result<(), EvalError>
+    where
+        Context: EvalContext + ?Sized,
+    {
         match self {
             Chunk::Statement(stmnt) => stmnt.eval(context),
             Chunk::FnDecl(decl) => decl.eval(context),

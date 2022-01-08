@@ -1,13 +1,18 @@
 use crate::{
-    lang::{Eval, EvalContext, EvalContextExt, EvalError, LuaValue},
+    lang::{Eval, EvalContext, EvalError, LuaValue},
     syn::{Assignment, Statement, Var},
     util::NonEmptyVec,
 };
 
+use super::assign_to_var;
+
 impl Eval for Statement {
     type Return = ();
 
-    fn eval(&self, context: &mut impl EvalContext) -> Result<Self::Return, EvalError> {
+    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, EvalError> 
+    where
+        Context: EvalContext + ?Sized,
+    {
         match self {
             Self::Assignment(Assignment { names, values }) => {
                 // TODO: do not allocate space for values which are not going to be assigned
@@ -35,20 +40,13 @@ impl Eval for Statement {
     }
 }
 
-fn multiple_assignment<'a>(
-    context: &mut impl EvalContext,
+fn multiple_assignment<'a, Context: EvalContext + ?Sized>(
+    context: &mut Context,
     names: impl IntoIterator<Item = &'a Var>,
     values: impl Iterator<Item = LuaValue>,
 ) {
     for (name, value) in names.into_iter().zip(values) {
         assign_to_var(context, name, value.first_value())
-    }
-}
-
-fn assign_to_var(context: &mut impl EvalContext, var: &Var, value: LuaValue) {
-    match var {
-        Var::Named(ident) => context.set(ident.clone(), value),
-        _ => todo!(),
     }
 }
 
@@ -139,6 +137,7 @@ mod test {
     }
 
     #[quickcheck]
+    #[allow(unstable_name_collisions)]
     fn multiple_expanded_assignment(
         idents: NonEmptyVec<Ident>,
         mut left_values: Vec<LuaValue>,
@@ -201,6 +200,7 @@ mod test {
             .collect()
     }
 
+    #[allow(unstable_name_collisions)]
     fn multiple_expanded_assignment_in_the_middle_module(
         idents: impl Iterator<Item = Ident>,
         left_idents: impl Iterator<Item = Ident>,

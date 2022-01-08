@@ -3,12 +3,17 @@ use super::{EvalContext, EvalError};
 pub trait Eval {
     type Return;
 
-    fn eval(&self, context: &mut impl EvalContext) -> Result<Self::Return, EvalError>;
+    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, EvalError>
+    where
+        Context: EvalContext + ?Sized;
 }
 
 impl<T: Eval> Eval for Box<T> {
     type Return = T::Return;
-    fn eval(&self, context: &mut impl EvalContext) -> Result<Self::Return, EvalError> {
+    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, EvalError>
+    where
+        Context: EvalContext + ?Sized,
+    {
         T::eval(self, context)
     }
 }

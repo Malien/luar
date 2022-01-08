@@ -1,4 +1,4 @@
-use std::{ops::Deref, iter::FromIterator};
+use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NonEmptyVec<T>(Vec<T>);

@@ -1,21 +1,23 @@
+use crate::syn::Var;
+
+use super::{EvalContext, EvalContextExt, LuaValue};
+
+mod block;
+mod expr;
+mod fn_call;
+mod fn_decl;
 mod module;
 mod ret;
-mod expr;
 mod stmnt;
-mod fn_call;
+mod table;
 mod var;
 
-macro_rules! todo_eval {
-    ($ret: ty, $name: ty) => {
-        impl crate::lang::Eval for $name {
-            type Return = $ret;
-
-            fn eval(&self, _: &mut impl crate::lang::EvalContext) -> Result<Self::Return, crate::lang::EvalError> {
-                todo!();
-            }
-        }
-    };
+pub fn assign_to_var<Context>(context: &mut Context, var: &Var, value: LuaValue)
+where
+    Context: EvalContext + ?Sized,
+{
+    match var {
+        Var::Named(ident) => context.set(ident.clone(), value),
+        _ => todo!(),
+    }
 }
-
-todo_eval!(crate::lang::LuaValue, crate::syn::TableConstructor);
-todo_eval!((), crate::syn::FunctionDeclaration);

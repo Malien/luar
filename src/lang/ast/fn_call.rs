@@ -6,7 +6,10 @@ use crate::{
 impl Eval for FunctionCall {
     type Return = LuaValue;
 
-    fn eval(&self, context: &mut impl EvalContext) -> Result<Self::Return, EvalError> {
+    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, EvalError>
+    where
+        Context: EvalContext + ?Sized,
+    {
         match self {
             Self::Function { func, args } => args.eval(context).and_then(|args| {
                 let fn_value = func.eval(context)?;
@@ -17,13 +20,16 @@ impl Eval for FunctionCall {
     }
 }
 
-fn call_value(
-    context: &mut impl EvalContext,
+fn call_value<'a, Context>(
+    context: &mut Context,
     func: &LuaValue,
     args: &[LuaValue],
-) -> Result<LuaValue, EvalError> {
+) -> Result<LuaValue, EvalError>
+where
+    Context: EvalContext + ?Sized,
+{
     if let LuaValue::Function(func) = func {
-        func.call(context, args)
+        func.call(context.as_dyn_mut(), args)
     } else {
         Err(EvalError::TypeError(TypeError::IsNotCallable(func.clone())))
     }
@@ -32,7 +38,10 @@ fn call_value(
 impl Eval for FunctionCallArgs {
     type Return = Vec<LuaValue>;
 
-    fn eval(&self, context: &mut impl EvalContext) -> Result<Self::Return, EvalError> {
+    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, EvalError>
+    where
+        Context: EvalContext + ?Sized,
+    {
         match self {
             Self::Arglist(exprs) => exprs.into_iter().map(|expr| expr.eval(context)).collect(),
             Self::Table(table) => table.eval(context).map(|table| vec![table]),

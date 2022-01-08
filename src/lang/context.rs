@@ -5,6 +5,8 @@ use super::LuaValue;
 pub trait EvalContext {
     fn get_str<'a>(&'a self, ident: &str) -> &'a LuaValue;
     fn set_str(&mut self, ident: String, value: LuaValue);
+    fn as_dyn(&self) -> &'_ dyn EvalContext;
+    fn as_dyn_mut(&mut self) -> &'_ mut dyn EvalContext;
 }
 
 pub trait EvalContextExt: EvalContext {
@@ -16,7 +18,7 @@ pub trait EvalContextExt: EvalContext {
     }
 }
 
-impl<T: EvalContext> EvalContextExt for T {}
+impl<T: EvalContext + ?Sized> EvalContextExt for T {}
 
 pub struct GlobalContext {
     values: HashMap<String, LuaValue>,
@@ -39,6 +41,13 @@ impl EvalContext for GlobalContext {
 
     fn set_str(&mut self, ident: String, value: LuaValue) {
         self.values.insert(ident, value);
+    }
+
+    fn as_dyn(&self) -> &'_ dyn EvalContext {
+        self
+    }
+    fn as_dyn_mut(&mut self) -> &'_ mut dyn EvalContext {
+        self
     }
 }
 
@@ -63,6 +72,13 @@ where
         } else {
             self.parent.set_str(ident, value);
         }
+    }
+
+    fn as_dyn(&self) -> &'_ dyn EvalContext {
+        self
+    }
+    fn as_dyn_mut(&mut self) -> &'_ mut dyn EvalContext {
+        self
     }
 }
 

@@ -1,18 +1,21 @@
 use crate::{
     lang::{Eval, EvalContext, EvalError, LuaValue},
-    syn::Return,
+    syn::Block,
 };
 
-impl Eval for Return {
+impl Eval for Block {
     type Return = LuaValue;
 
     fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, EvalError>
     where
         Context: EvalContext + ?Sized,
     {
-        match self.0 {
-            Some(ref expr) => expr.eval(context),
-            None => Ok(LuaValue::Nil),
+        for statement in &self.statements {
+            statement.eval(context)?;
         }
+        self.ret
+            .as_ref()
+            .map(|ret| ret.eval(context))
+            .unwrap_or(Ok(LuaValue::Nil))
     }
 }

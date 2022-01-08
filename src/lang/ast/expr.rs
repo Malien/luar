@@ -7,7 +7,10 @@ use crate::{
 impl Eval for Expression {
     type Return = LuaValue;
 
-    fn eval(&self, context: &mut impl EvalContext) -> Result<Self::Return, EvalError> {
+    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, EvalError>
+    where
+        Context: EvalContext + ?Sized,
+    {
         match self {
             Expression::Nil => Ok(LuaValue::Nil),
             Expression::Number(NumberLiteral(num)) => Ok(LuaValue::Number(*num)),
@@ -46,12 +49,15 @@ fn str_unary_minus(str: String) -> Result<LuaValue, ArithmeticError> {
         .map_err(|_| ArithmeticError::UnaryMinus(LuaValue::String(str)))
 }
 
-fn binary_op_eval(
+fn binary_op_eval<Context>(
     op: BinaryOperator,
     lhs: &impl Eval<Return = LuaValue>,
     rhs: &impl Eval<Return = LuaValue>,
-    context: &mut impl EvalContext,
-) -> Result<LuaValue, EvalError> {
+    context: &mut Context,
+) -> Result<LuaValue, EvalError>
+where
+    Context: EvalContext + ?Sized,
+{
     use BinaryOperator::*;
 
     let lhs = lhs.eval(context)?;
@@ -87,8 +93,8 @@ mod test {
 
     use crate::{
         error::LuaError,
-        lang::{GlobalContext, LuaValue, Eval, EvalContextExt},
-        lex::{Ident, Token, StringLiteral, NumberLiteral},
+        lang::{Eval, EvalContextExt, GlobalContext, LuaValue},
+        lex::{Ident, NumberLiteral, StringLiteral, Token},
         syn::{lua_parser, string_parser},
         test_util::Finite,
     };
