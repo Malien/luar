@@ -219,7 +219,6 @@ dependencies = [
  "itertools",
  "lazy_static",
  "logos",
- "non-empty-vec",
  "num",
  "peg",
  "quickcheck",
@@ -233,12 +232,6 @@ name = "memchr"
 version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
-
-[[package]]
-name = "non-empty-vec"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ceeba69aa8d4c53cdceeac8f17eb2656bb88b468bbe6c0889d34edfdea26ec8b"
 
 [[package]]
 name = "num"

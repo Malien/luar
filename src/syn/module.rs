@@ -49,7 +49,6 @@ mod test {
 
     use crate::{
         assert_parses,
-        lex::Token,
         syn::{lua_parser, FunctionDeclaration, Return, Statement},
     };
 
@@ -132,15 +131,12 @@ mod test {
         parses(Module { chunks, ret: None })
     }
 
-    #[test]
-    fn parses_just_return() {
-        assert_eq!(
-            lua_parser::module(&[Token::Return]).unwrap(),
-            Module {
-                chunks: vec![],
-                ret: Some(Return(None))
-            }
-        );
+    #[quickcheck]
+    fn parses_just_arbitrary_return(ret: Return) {
+        parses(Module {
+            chunks: vec![],
+            ret: Some(ret),
+        })
     }
 
     #[quickcheck]

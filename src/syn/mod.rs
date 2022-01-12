@@ -436,7 +436,10 @@ peg::parser! {
             }
 
         pub rule ret() -> Return
-            = _:[Token::Return] expr:expression()? { Return(expr) }
+            = _:[Token::Return] exprs:expression() ++ [Token::Comma] { 
+                // SAFETY: ++ matches non empty sequence
+                Return(unsafe { NonEmptyVec::new_unchecked(exprs) })
+            }
 
         pub rule function_declaration() -> FunctionDeclaration
             = _:[Token::Function] name:function_name() args:function_args_decl() body:block() _:[Token::End] {

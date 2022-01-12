@@ -32,6 +32,12 @@ impl<T> NonEmptyVec<T> {
         Self(iter.into_iter().collect())
     }
 
+    // Panics if vec is empty
+    pub fn new(vec: Vec<T>) -> Self {
+        assert!(vec.len() != 0);
+        Self(vec)
+    }
+
     pub unsafe fn new_unchecked(vec: Vec<T>) -> Self {
         NonEmptyVec(vec)
     }
@@ -117,4 +123,11 @@ impl<T> From<NonEmptyVec<T>> for Vec<T> {
     fn from(v: NonEmptyVec<T>) -> Self {
         v.0
     }
+}
+
+#[macro_export]
+macro_rules! ne_vec {
+    ($($x:expr),+ $(,)?) => (
+        unsafe { NonEmptyVec::new_unchecked(vec![$($x),+]) }
+    );
 }

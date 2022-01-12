@@ -4,17 +4,31 @@ use crate::{
     fmt_tokens,
     lex::{DynTokens, ToTokenStream, Token},
     syn::expr::Expression,
+    util::{FlatIntersperseExt, NonEmptyVec},
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Return(pub Option<Expression>);
+pub struct Return(pub NonEmptyVec<Expression>);
 
 impl ToTokenStream for Return {
-    type Tokens = Chain<Once<Token>, Flatten<std::option::IntoIter<DynTokens>>>;
+    type Tokens = DynTokens;
 
     fn to_tokens(self) -> Self::Tokens {
-        std::iter::once(Token::Return)
-            .chain(self.0.map(ToTokenStream::to_tokens).into_iter().flatten())
+        // I hate this!
+        Box::new(
+            std::iter::once(Token::Return).chain(
+                self.0
+                    .into_iter()
+                    .map(ToTokenStream::to_tokens)
+                    .flat_intersperse(Token::Comma),
+            ),
+        )
+    }
+}
+
+impl Return {
+    pub fn single(expression: Expression) -> Self {
+        Self(NonEmptyVec::of_single(expression))
     }
 }
 
@@ -22,11 +36,12 @@ fmt_tokens!(Return);
 
 #[cfg(test)]
 mod test {
-    use quickcheck::{empty_shrinker, Arbitrary, Gen};
+    use quickcheck::{Arbitrary, Gen};
 
     use crate::{
-        lex::{ToTokenStream, Token},
+        lex::{format::format_tokens, ToTokenStream, Token},
         syn::{expr::Expression, lua_parser, Return},
+        util::{FlatIntersperseExt, NonEmptyVec},
     };
 
     impl Arbitrary for Return {
@@ -34,38 +49,52 @@ mod test {
             Self(Arbitrary::arbitrary(g))
         }
         fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            match self {
-                Return(None) => empty_shrinker(),
-                Return(Some(expression)) => Box::new(
-                    std::iter::once(Return(None)).chain(expression.shrink().map(Some).map(Return)),
-                ),
-            }
+            Box::new(self.0.shrink().map(Return))
         }
-    }
-
-    #[test]
-    fn correctly_displays_empty_return() {
-        assert_eq!(format!("{}", Return(None)), "return");
     }
 
     #[quickcheck]
     fn correctly_displays_return(expression: Expression) {
         assert_eq!(
-            format!("{}", Return(Some(expression.clone()))),
+            format!("{}", Return::single(expression.clone())),
             format!("return {}", expression)
         );
     }
 
-    #[test]
-    fn parses_empty_return() {
-        let parsed = lua_parser::ret(&[Token::Return]).unwrap();
-        assert_eq!(parsed, Return(None));
+    #[quickcheck]
+    fn correctly_displays_multiple_return(expressions: NonEmptyVec<Expression>) {
+        let mut buf = String::new();
+        let mut tokens = expressions
+            .clone()
+            .into_iter()
+            .map(ToTokenStream::to_tokens)
+            .flat_intersperse(Token::Comma);
+        format_tokens(&mut tokens, &mut buf).unwrap();
+        assert_eq!(
+            format!("{}", Return(expressions)),
+            format!("return {}", buf)
+        );
     }
 
     #[quickcheck]
     fn parses_arbitrary_expression_return(expression: Expression) {
-        let expected = Return(Some(expression));
+        let expected = Return::single(expression);
         let tokens: Vec<_> = expected.clone().to_tokens().collect();
+        let parsed = lua_parser::ret(&tokens).unwrap();
+        assert_eq!(parsed, expected);
+    }
+
+    #[quickcheck]
+    fn parses_arbitrary_multiple_return(expressions: NonEmptyVec<Expression>) {
+        let expected = Return(expressions.clone());
+        let tokens: Vec<_> = std::iter::once(Token::Return)
+            .chain(
+                expressions
+                    .into_iter()
+                    .map(ToTokenStream::to_tokens)
+                    .flat_intersperse(Token::Comma),
+            )
+            .collect();
         let parsed = lua_parser::ret(&tokens).unwrap();
         assert_eq!(parsed, expected);
     }

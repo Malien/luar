@@ -206,19 +206,19 @@ mod test {
                         }),
                         body: Block {
                             statements: vec![],
-                            ret: Some(Return(Some(Expression::BinaryOperator {
+                            ret: Some(Return::single(Expression::BinaryOperator {
                                 lhs: Box::new(Expression::Variable(Var::Named(Ident::new("x")))),
                                 op: BinaryOperator::Minus,
                                 rhs: Box::new(Expression::Variable(Var::Named(Ident::new("y")))),
-                            }))),
+                            })),
                         },
                         tail: ConditionalTail::End,
                     })],
-                    ret: Some(Return(Some(Expression::BinaryOperator {
+                    ret: Some(Return::single(Expression::BinaryOperator {
                         lhs: Box::new(Expression::Variable(Var::Named(Ident::new("x")))),
                         op: BinaryOperator::Plus,
                         rhs: Box::new(Expression::Variable(Var::Named(Ident::new("y")))),
-                    }))),
+                    })),
                 },
             }
         };

@@ -3,7 +3,7 @@ use crate::{
     lex::{DynTokens, ToTokenStream},
 };
 
-use super::{Statement, Return};
+use super::{Return, Statement};
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Block {
@@ -33,8 +33,9 @@ mod test {
     use quickcheck::{Arbitrary, Gen};
 
     use crate::{
-        lex::{format::format_tokens, ToTokenStream, Token},
-        syn::{lua_parser, Return, Statement},
+        assert_parses,
+        lex::{format::format_tokens, ToTokenStream},
+        syn::{Return, Statement},
         test_util::GenExt,
     };
 
@@ -90,24 +91,6 @@ mod test {
     }
 
     #[quickcheck]
-    fn displays_correctly_statements_with_return(statements: Vec<Statement>) {
-        let expected = Block {
-            statements: statements.clone(),
-            ret: Some(Return(None)),
-        };
-        let mut output = String::new();
-        format_tokens(
-            &mut statements
-                .into_iter()
-                .flat_map(ToTokenStream::to_tokens)
-                .chain(std::iter::once(Token::Return)),
-            &mut output,
-        )
-        .unwrap();
-        assert_eq!(format!("{}", expected), output);
-    }
-
-    #[quickcheck]
     fn displays_correctly_statements_with_arbitrary_return(
         statements: Vec<Statement>,
         ret: Return,
@@ -128,47 +111,28 @@ mod test {
         assert_eq!(format!("{}", expected), output);
     }
 
+    fn parse(expected: Block) {
+        assert_parses!(block, expected)
+    }
+
     #[quickcheck]
     fn parses_arbitrary_statements_block(statements: Vec<Statement>) {
-        let expected = Block {
+        parse(Block {
             statements,
             ret: None,
-        };
-        let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::block(&tokens).unwrap();
-        assert_eq!(parsed, expected);
+        })
     }
 
     #[quickcheck]
-    fn parses_arbitrary_statements_block_with_empty_return(statements: Vec<Statement>) {
-        let expected = Block {
-            statements,
-            ret: Some(Return(None)),
-        };
-        let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        eprintln!("\nparsing: {:?}\n", tokens);
-        let parsed = lua_parser::block(&tokens).unwrap();
-        assert_eq!(parsed, expected);
-    }
-
-    #[test]
-    fn parses_just_return() {
-        let tokens = [Token::Return];
-        let parsed = lua_parser::block(&tokens).unwrap();
-        assert_eq!(
-            parsed,
-            Block {
-                statements: vec![],
-                ret: Some(Return(None))
-            }
-        );
+    fn parses_arbitrary_return_block(ret: Return) {
+        parse(Block {
+            statements: vec![],
+            ret: Some(ret),
+        })
     }
 
     #[quickcheck]
     fn parses_arbitrary_block(expected: Block) {
-        let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        eprintln!("\nparsing: {:?}\n", tokens);
-        let parsed = lua_parser::block(&tokens).unwrap();
-        assert_eq!(parsed, expected);
+        parse(expected)
     }
 }
