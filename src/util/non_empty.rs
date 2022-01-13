@@ -22,7 +22,7 @@ impl<T> NonEmptyVec<T> {
             Ok(NonEmptyVec(vec))
         }
     }
-    
+
     pub fn from_iter<A: IntoIterator<Item = T>>(iter: A) -> Result<Self, VecIsEmptyError<T>> {
         let vec: Vec<_> = iter.into_iter().collect();
         Self::try_new(vec)
@@ -77,8 +77,9 @@ impl<T> Deref for NonEmptyVec<T> {
 #[cfg(test)]
 impl<T: quickcheck::Arbitrary> quickcheck::Arbitrary for NonEmptyVec<T> {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let size = std::cmp::max(g.size(), 1);
-        let vec = (0..size).map(|_| T::arbitrary(g)).collect();
+        let gen_size = std::cmp::max(g.size(), 1);
+        let vec_size = usize::arbitrary(g) % gen_size + 1;
+        let vec = (0..vec_size).map(|_| T::arbitrary(g)).collect();
         Self(vec)
     }
 

@@ -91,11 +91,12 @@ impl Arbitrary for Ident {
         if g.size() == 0 {
             return Ident::new("_");
         }
-        let mut buf = Vec::with_capacity(g.size());
+        let size = usize::arbitrary(g) % g.size() + 1;
+        let mut buf = Vec::with_capacity(size);
         let beginning_bytes = &VALID_IDENT_BYTES[10..];
         // Could use unsafe version unwrap_unchecked()
         buf.push(*g.choose(beginning_bytes).unwrap());
-        for _ in 1..g.size() {
+        for _ in 1..size {
             buf.push(*g.choose(VALID_IDENT_BYTES).unwrap());
         }
         // Could use unsafe version from_utf8_unchecked(Vec<u8>)
