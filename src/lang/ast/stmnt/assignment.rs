@@ -29,24 +29,17 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(next) = self.values.next() {
-                if self.hold.is_some() {
-                    return self.hold.replace(next);
-                } else {
-                    self.hold = Some(next);
-                }
-            } else {
-                if let Some(ref mut tail) = self.tail {
-                    return tail.next();
-                }
-                if let Some(hold) = self.hold.take() {
-                    if let LuaValue::MultiValue(values) = hold {
-                        self.tail = Some(values.into_iter());
+            match (self.values.next(), &mut self.hold, &mut self.tail) {
+                (Some(next), Some(hold), _) => return Some(std::mem::replace(hold, next)),
+                (Some(next), hold, _) => *hold = Some(next),
+                (None, _, Some(tail)) => return tail.next(),
+                (None, hold, tail) => {
+                    let hold_value = hold.take();
+                    if let Some(LuaValue::MultiValue(values)) = hold_value {
+                        *tail = Some(values.into_iter());
                     } else {
-                        return Some(hold);
+                        return hold_value;
                     }
-                } else {
-                    return None;
                 }
             }
         }
@@ -222,7 +215,10 @@ mod test {
         }
     }
 
-    fn put_dummy_values<'a>(context: &mut impl EvalContext, idents: impl IntoIterator<Item = &'a Ident>) {
+    fn put_dummy_values<'a>(
+        context: &mut impl EvalContext,
+        idents: impl IntoIterator<Item = &'a Ident>,
+    ) {
         for ident in idents {
             context.set(ident.clone(), LuaValue::Number(42f64));
         }
