@@ -158,14 +158,14 @@ mod test {
                 local {} = \"local\"
                 return {}
             end
-            return {}, myfn()",
+            return myfn(), {}",
             ident, ident, ident, ident
         ))?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
         let expected = LuaValue::MultiValue(ne_vec![
-            LuaValue::String(String::from("global")),
             LuaValue::String(String::from("local")),
+            LuaValue::String(String::from("global")),
         ]);
         assert_eq!(res, expected);
 

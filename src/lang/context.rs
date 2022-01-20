@@ -7,6 +7,7 @@ pub trait EvalContext {
     fn set_str(&mut self, ident: String, value: LuaValue);
     fn as_dyn(&self) -> &'_ dyn EvalContext;
     fn as_dyn_mut(&mut self) -> &'_ mut dyn EvalContext;
+    fn declare_local(&mut self, ident: String, initial_value: LuaValue);
 }
 
 pub trait EvalContextExt: EvalContext {
@@ -38,7 +39,6 @@ impl EvalContext for GlobalContext {
     fn get_str<'a>(&'a self, ident: &str) -> &'a LuaValue {
         self.values.get(ident).unwrap_or(&self.global_nil)
     }
-
     fn set_str(&mut self, ident: String, value: LuaValue) {
         self.values.insert(ident, value);
     }
@@ -48,6 +48,12 @@ impl EvalContext for GlobalContext {
     }
     fn as_dyn_mut(&mut self) -> &'_ mut dyn EvalContext {
         self
+    }
+
+    fn declare_local(&mut self, ident: String, initial_value: LuaValue) {
+        self.values
+            .entry(ident.to_string())
+            .or_insert(initial_value);
     }
 }
 
@@ -79,6 +85,12 @@ where
     }
     fn as_dyn_mut(&mut self) -> &'_ mut dyn EvalContext {
         self
+    }
+
+    fn declare_local(&mut self, ident: String, initial_value: LuaValue) {
+        self.values
+            .entry(ident)
+            .or_insert(initial_value);
     }
 }
 
