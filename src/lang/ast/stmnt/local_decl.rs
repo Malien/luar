@@ -89,4 +89,47 @@ mod test {
         assert!(context.get(&ident).total_eq(&value1));
         Ok(())
     }
+
+    #[quickcheck]
+    fn set_global_values_behave_like_local_declarations(
+        ident: Ident,
+        value1: LuaValue,
+        value2: LuaValue,
+    ) -> Result<(), LuaError> {
+        let module = string_parser::module(&format!(
+            "{} = value1
+            local {} = value2
+            return {}",
+            ident, ident, ident
+        ))?;
+        let mut context = GlobalContext::new();
+        context.set("value1", value1.clone());
+        context.set("value2", value2);
+        module.eval(&mut context)?;
+        assert!(context.get(&ident).total_eq(&value1));
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn set_global_value_cannot_be_undeclared(
+        ident: Ident,
+        value1: LuaValue,
+        value2: LuaValue,
+    ) -> Result<(), LuaError> {
+        let module = string_parser::module(&format!(
+            "{} = value1
+            {} = nil
+            local {} = value2
+            return {}",
+            ident, ident, ident, ident
+        ))?;
+        let mut context = GlobalContext::new();
+        context.set("value1", value1);
+        context.set("value2", value2);
+        module.eval(&mut context)?;
+        assert!(context.get(&ident).is_nil());
+        Ok(())
+    }
+
+    // TODO: test that assignment behaves exactly like regular assignment
 }
