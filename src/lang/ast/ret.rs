@@ -43,23 +43,25 @@ mod test {
             .collect();
         let module = Module {
             chunks: vec![],
-            ret: Some(Return(unsafe {
-                NonEmptyVec::new_unchecked(
-                    idents
-                        .iter()
-                        .cloned()
-                        .map(Var::Named)
-                        .map(Expression::Variable)
-                        .collect(),
-                )
-            })),
+            ret: Some(Return(NonEmptyVec::new(
+                idents
+                    .iter()
+                    .cloned()
+                    .map(Var::Named)
+                    .map(Expression::Variable)
+                    .collect(),
+            ))),
         };
         let mut context = GlobalContext::new();
         for (val, ident) in values.iter().zip(idents) {
             context.set(ident, val.clone());
         }
         let res = module.eval(&mut context)?;
-        assert!(res.total_eq(&LuaValue::MultiValue(values)));
+        if values.len() == 1 {
+            assert!(res.total_eq(values.first()));
+        } else {
+            assert!(res.total_eq(&LuaValue::MultiValue(values)));
+        }
         Ok(())
     }
 }

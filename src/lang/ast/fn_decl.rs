@@ -126,7 +126,11 @@ mod test {
             context.set(ident, value.clone());
         }
         let res = module.eval(&mut context)?;
-        assert!(res.total_eq(&LuaValue::MultiValue(values)));
+        if values.len() == 1 {
+            assert!(res.total_eq(values.first()));
+        } else {
+            assert!(res.total_eq(&LuaValue::MultiValue(values)));
+        }
         Ok(())
     }
 
