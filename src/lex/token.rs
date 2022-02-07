@@ -19,7 +19,7 @@ use super::{Ident, NumberLiteral, StringLiteral};
 #[derive(Clone, Debug, PartialEq, Logos)]
 pub enum Token {
     #[error]
-    #[regex(r"[ \t\n\f]", logos::skip)]
+    #[regex(r"[ \t\n\f\r]", logos::skip)]
     #[regex("--.*", logos::skip)]
     Error,
     #[token("and")]

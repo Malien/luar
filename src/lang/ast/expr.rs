@@ -36,17 +36,10 @@ fn unary_op_eval(op: UnaryOperator, value: LuaValue) -> Result<LuaValue, Arithme
 }
 
 fn unary_minus_eval(value: LuaValue) -> Result<LuaValue, ArithmeticError> {
-    match value {
-        LuaValue::Number(num) => Ok(LuaValue::Number(-num)),
-        LuaValue::String(str) => str_unary_minus(str),
-        value => Err(ArithmeticError::UnaryMinus(value)),
+    match value.as_number() {
+        Some(num) => Ok(LuaValue::Number(-num)),
+        None => Err(ArithmeticError::UnaryMinus(value)),
     }
-}
-
-fn str_unary_minus(str: String) -> Result<LuaValue, ArithmeticError> {
-    str.parse::<f64>()
-        .map(|num| LuaValue::Number(-num))
-        .map_err(|_| ArithmeticError::UnaryMinus(LuaValue::String(str)))
 }
 
 fn binary_op_eval<Context>(

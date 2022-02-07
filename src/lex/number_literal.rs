@@ -1,7 +1,11 @@
 use num::pow;
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
-use std::{fmt::Formatter, iter, str::{Chars, FromStr}};
+use std::{
+    fmt::Formatter,
+    iter,
+    str::{Chars, FromStr},
+};
 use thiserror::Error;
 
 use super::{ToTokenStream, Token};
@@ -188,11 +192,13 @@ impl Arbitrary for NumberLiteral {
 
 #[cfg(test)]
 mod tests {
-    use num::{abs, pow};
+    use num::pow;
     use quickcheck::TestResult;
-    use std::cmp::Ordering;
 
-    use crate::test_util::{Finite, NonShrinkable};
+    use crate::{
+        test_util::{Finite, NonShrinkable},
+        util::close_relative_eq,
+    };
 
     use super::NumberLiteral;
 
@@ -320,7 +326,7 @@ mod tests {
 
     fn assert_eq_f64(expected: f64, got: NumberLiteral) {
         assert!(
-            close_relative_cmp(got.0, expected),
+            close_relative_eq(got.0, expected),
             "Expected {:?}, got {:?}",
             NumberLiteral(expected),
             got
@@ -330,34 +336,10 @@ mod tests {
     fn assert_eq_f64_with_exponent(expected: f64, got: NumberLiteral, exponent: u8) {
         let decade = pow(10f64, exponent as usize);
         assert!(
-            close_relative_cmp(got.0, expected * decade),
+            close_relative_eq(got.0, expected * decade),
             "Expected {:?}, got {:?}",
             NumberLiteral(expected * decade),
             got
         );
-    }
-
-    fn partial_min<T: PartialOrd>(v1: T, v2: T) -> Option<T> {
-        PartialOrd::partial_cmp(&v1, &v2).map(|order| match order {
-            Ordering::Less | Ordering::Equal => v1,
-            Ordering::Greater => v2,
-        })
-    }
-
-    fn close_relative_cmp(a: f64, b: f64) -> bool {
-        let absolute_value = partial_min(abs(a), abs(b)).unwrap();
-        let magnitude = if absolute_value < 10f64 {
-            1f64
-        } else {
-            absolute_value
-        };
-        close_cmp(a, b, 0.0000001 * magnitude)
-    }
-
-    fn close_cmp(a: f64, b: f64, eps: f64) -> bool {
-        if a.is_infinite() && b.is_infinite() {
-            return true;
-        }
-        abs(a - b) < eps
     }
 }

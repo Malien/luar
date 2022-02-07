@@ -1,6 +1,9 @@
 mod flat_intersperse;
 mod non_empty;
 
+use std::cmp::Ordering;
+use num::abs;
+
 pub use flat_intersperse::*;
 pub use non_empty::*;
 
@@ -12,4 +15,28 @@ pub fn eq_with_nan(a: f64, b: f64) -> bool {
     } else {
         a == b
     }
+}
+
+pub fn close_relative_eq(a: f64, b: f64) -> bool {
+    let absolute_value = partial_min(abs(a), abs(b)).unwrap();
+    let magnitude = if absolute_value < 10f64 {
+        1f64
+    } else {
+        absolute_value
+    };
+    close_eq(a, b, 0.0000001 * magnitude)
+}
+
+fn partial_min<T: PartialOrd>(v1: T, v2: T) -> Option<T> {
+    PartialOrd::partial_cmp(&v1, &v2).map(|order| match order {
+        Ordering::Less | Ordering::Equal => v1,
+        Ordering::Greater => v2,
+    })
+}
+
+fn close_eq(a: f64, b: f64, eps: f64) -> bool {
+    if a.is_infinite() && b.is_infinite() {
+        return true;
+    }
+    abs(a - b) < eps
 }

@@ -74,6 +74,15 @@ impl LuaValue {
             self
         }
     }
+
+    pub fn as_number(&self) -> Option<f64> {
+        match self {
+            LuaValue::Number(num) => Some(*num),
+            LuaValue::String(str) => str.parse().ok(),
+            _ => None
+        }
+    }
+
 }
 
 impl fmt::Display for LuaValue {

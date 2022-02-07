@@ -67,7 +67,6 @@ fn compose_function_call(head: FunctionCallHead, args: FunctionCallArgs) -> Func
 
 pub type ParseError = peg::error::ParseError<usize>;
 
-#[cfg(test)]
 pub mod string_parser {
     macro_rules! forward {
         ($rule: ident, $ret: ty) => {
