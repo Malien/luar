@@ -6,6 +6,7 @@ use super::LuaValue;
 #[derive(Debug, Clone, PartialEq)]
 pub enum EvalError {
     TypeError(TypeError),
+    AssertionError,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,6 +29,7 @@ impl fmt::Display for EvalError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::TypeError(err) => fmt::Display::fmt(err, f),
+            Self::AssertionError => f.write_str("Assertion failed")
         }
     }
 }

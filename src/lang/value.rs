@@ -83,6 +83,22 @@ impl LuaValue {
         }
     }
 
+    pub fn true_value() -> LuaValue {
+        LuaValue::Number(1f64)
+    }
+
+    pub fn false_value() -> LuaValue {
+        LuaValue::Nil
+    }
+
+    pub fn from_bool(cond: bool) -> LuaValue {
+        if cond {
+            LuaValue::true_value()
+        } else {
+            LuaValue::false_value()
+        }
+    }
+
 }
 
 impl fmt::Display for LuaValue {

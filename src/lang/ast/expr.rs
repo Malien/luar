@@ -64,8 +64,8 @@ where
         // Greater,
         // LessOrEquals,
         // GreaterOrEquals,
-        // NotEquals,
-        // Equals,
+        Equals => Ok(LuaValue::from_bool(lhs == rhs.eval(context)?)),
+        NotEquals => Ok(LuaValue::from_bool(lhs != rhs.eval(context)?)),
         // // Precedence level 2
         // Concat,
         // // Precedence level 3
@@ -205,7 +205,6 @@ mod test {
                     exp: Box::new(exp),
                 };
                 let res = expr.eval(&mut context);
-                println!("{:?}", res);
                 assert!(matches!(
                     res,
                     Err(EvalError::TypeError(TypeError::Arithmetic(
@@ -386,7 +385,6 @@ mod test {
             return Ok(TestResult::discard());
         }
         let module = string_parser::module("return lhs or rhs")?;
-        println!("{:#?}", module);
         let mut context = GlobalContext::new();
         context.set("lhs", lhs.clone());
         context.set("rhs", rhs);
@@ -423,6 +421,48 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         assert_eq!(module.eval(&mut context)?, LuaValue::Nil);
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn value_is_equal_to_itself(value: LuaValue) -> Result<TestResult, LuaError> {
+        if let LuaValue::Number(num) = value {
+            if num.is_nan() {
+                // NaN does not equal itself
+                return Ok(TestResult::discard());
+            }
+        }
+
+        let module = string_parser::module("return value == value")?;
+        let mut context = GlobalContext::new();
+        let res = module.eval(&mut context)?;
+        assert_eq!(LuaValue::true_value(), res);
+        Ok(TestResult::passed())
+    }
+
+    #[quickcheck]
+    fn different_values_do_not_equal_themselves(
+        lhs: LuaValue,
+        rhs: LuaValue,
+    ) -> Result<(), LuaError> {
+        let expected = LuaValue::from_bool(lhs == rhs);
+        let module = string_parser::module("return lhs == rhs")?;
+        let mut context = GlobalContext::new();
+        context.set("lhs", lhs);
+        context.set("rhs", rhs);
+        let res = module.eval(&mut context)?;
+        assert_eq!(expected, res);
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn not_eqals_is_the_negation_of_equality(lhs: LuaValue, rhs: LuaValue) -> Result<(), LuaError> {
+        let module = string_parser::module("return (not (lhs ~= rhs)) == (lhs == rhs)")?;
+        let mut context = GlobalContext::new();
+        context.set("lhs", lhs);
+        context.set("rhs", rhs);
+        let res = module.eval(&mut context)?;
+        assert_eq!(LuaValue::true_value(), res);
         Ok(())
     }
 }
