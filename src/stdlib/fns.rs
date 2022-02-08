@@ -29,6 +29,11 @@ mod test {
         let str = num.to_string();
         let res = tonumber(&[LuaValue::String(str)]);
         assert!(res.is_number());
-        assert!(close_relative_eq(res.unwrap_number(), num));
+        let resnum = res.unwrap_number();
+        if num.is_nan() {
+            assert!(resnum.is_nan())
+        } else {
+            assert!(close_relative_eq(resnum, num));
+        }
     }
 }

@@ -30,7 +30,7 @@ static LUA_FUNCTION: &'static str = indoc! {"
     end
 "};
 
-static ACKERMAN_BENCH: &str = include_str!("../benchmarks/ack.lua");
+// static ACKERMAN_BENCH: &str = include_str!("../benchmarks/ack.lua");
 
 fn main() -> Result<(), Box<dyn Error>> {
     // let tokens: Vec<_> = lex::Token::lexer(LUA_FUNCTION).collect();

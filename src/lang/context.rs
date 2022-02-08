@@ -57,12 +57,12 @@ impl EvalContext for GlobalContext {
     }
 }
 
-pub struct LocalContext<'a, Parent> {
+pub struct LocalContext<'a, Parent: ?Sized> {
     values: HashMap<String, LuaValue>,
     parent: &'a mut Parent,
 }
 
-impl<'b, Parent> EvalContext for LocalContext<'b, Parent>
+impl<'b, Parent: ?Sized> EvalContext for LocalContext<'b, Parent>
 where
     Parent: EvalContext,
 {
@@ -88,13 +88,11 @@ where
     }
 
     fn declare_local(&mut self, ident: String, initial_value: LuaValue) {
-        self.values
-            .entry(ident)
-            .or_insert(initial_value);
+        self.values.entry(ident).or_insert(initial_value);
     }
 }
 
-impl<'a, Parent> LocalContext<'a, Parent> {
+impl<'a, Parent: ?Sized> LocalContext<'a, Parent> {
     pub fn new(parent: &'a mut Parent) -> Self {
         Self {
             values: HashMap::new(),

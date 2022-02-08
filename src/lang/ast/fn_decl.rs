@@ -1,5 +1,5 @@
 use crate::{
-    lang::{Eval, EvalContext, LuaFunction, LuaValue},
+    lang::{ControlFlow, Eval, EvalContext, LuaFunction, LuaValue},
     syn::{FunctionDeclaration, FunctionName},
 };
 
@@ -16,7 +16,7 @@ impl Eval for FunctionDeclaration {
             FunctionName::Plain(var) => {
                 let function = LuaFunction::new({
                     let body = self.body.clone();
-                    move |context, _| body.eval(context)
+                    move |context, _| body.eval(context).map(ControlFlow::function_return)
                 });
                 assign_to_var(context, var, LuaValue::Function(function));
             }
