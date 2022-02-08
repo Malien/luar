@@ -69,14 +69,39 @@ where
         // // Precedence level 2
         // Concat,
         // // Precedence level 3
-        // Plus,
-        // Minus,
+        Plus => binary_number_op(
+            lhs,
+            rhs.eval(context)?,
+            BinaryOperator::Plus,
+            std::ops::Add::add,
+        ),
+        Minus => binary_number_op(
+            lhs,
+            rhs.eval(context)?,
+            BinaryOperator::Minus,
+            std::ops::Sub::sub,
+        ),
         // // Precedence level 4
         // Mul,
         // Div,
         // // Precedence level 5
         // Exp,
         _ => todo!(),
+    }
+}
+
+fn binary_number_op(
+    lhs: LuaValue,
+    rhs: LuaValue,
+    op: BinaryOperator,
+    op_fn: impl FnOnce(f64, f64) -> f64,
+) -> Result<LuaValue, EvalError> {
+    if let (Some(lhs), Some(rhs)) = (lhs.as_number(), rhs.as_number()) {
+        Ok(LuaValue::Number(op_fn(lhs, rhs)))
+    } else {
+        Err(EvalError::TypeError(TypeError::Arithmetic(
+            ArithmeticError::Binary { lhs, rhs, op },
+        )))
     }
 }
 
@@ -464,5 +489,103 @@ mod test {
         let res = module.eval(&mut context)?;
         assert_eq!(LuaValue::true_value(), res);
         Ok(())
+    }
+
+    #[quickcheck]
+    fn binary_plus_on_convertible_values_is_the_sum_of_those_values(
+        lhs: f64,
+        rhs: f64,
+    ) -> Result<(), LuaError> {
+        let module = string_parser::module("return lhs + rhs")?;
+        let mut context = GlobalContext::new();
+
+        context.set("lhs", LuaValue::Number(lhs));
+        context.set("rhs", LuaValue::Number(rhs));
+        let res = module.eval(&mut context)?;
+        assert!(res.total_eq(&LuaValue::Number(lhs + rhs)));
+
+        context.set("lhs", LuaValue::String(lhs.to_string()));
+        context.set("rhs", LuaValue::Number(rhs));
+        let res = module.eval(&mut context)?;
+        assert!(res.total_eq(&LuaValue::Number(lhs + rhs)));
+
+        context.set("lhs", LuaValue::Number(lhs));
+        context.set("rhs", LuaValue::String(rhs.to_string()));
+        let res = module.eval(&mut context)?;
+        assert!(res.total_eq(&LuaValue::Number(lhs + rhs)));
+
+        context.set("lhs", LuaValue::String(lhs.to_string()));
+        context.set("rhs", LuaValue::String(rhs.to_string()));
+        let res = module.eval(&mut context)?;
+        assert!(res.total_eq(&LuaValue::Number(lhs + rhs)));
+
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn binary_plus_on_incompatible_types_is_not_supported(
+        lhs: LuaValue,
+        rhs: LuaValue,
+    ) -> Result<TestResult, LuaError> {
+        if let (Some(_), Some(_)) = (lhs.as_number(), rhs.as_number()) {
+            return Ok(TestResult::discard());
+        }
+        let module = string_parser::module("return lhs + rhs")?;
+        let mut context = GlobalContext::new();
+        context.set("lhs", lhs);
+        context.set("rhs", rhs);
+        let res = module.eval(&mut context);
+        assert!(res.is_err());
+
+        Ok(TestResult::passed())
+    }
+
+    #[quickcheck]
+    fn binary_minus_on_convertible_values_is_the_difference_of_those_values(
+        lhs: f64,
+        rhs: f64,
+    ) -> Result<(), LuaError> {
+        let module = string_parser::module("return lhs - rhs")?;
+        let mut context = GlobalContext::new();
+
+        context.set("lhs", LuaValue::Number(lhs));
+        context.set("rhs", LuaValue::Number(rhs));
+        let res = module.eval(&mut context)?;
+        assert!(res.total_eq(&LuaValue::Number(lhs - rhs)));
+
+        context.set("lhs", LuaValue::String(lhs.to_string()));
+        context.set("rhs", LuaValue::Number(rhs));
+        let res = module.eval(&mut context)?;
+        assert!(res.total_eq(&LuaValue::Number(lhs - rhs)));
+
+        context.set("lhs", LuaValue::Number(lhs));
+        context.set("rhs", LuaValue::String(rhs.to_string()));
+        let res = module.eval(&mut context)?;
+        assert!(res.total_eq(&LuaValue::Number(lhs - rhs)));
+
+        context.set("lhs", LuaValue::String(lhs.to_string()));
+        context.set("rhs", LuaValue::String(rhs.to_string()));
+        let res = module.eval(&mut context)?;
+        assert!(res.total_eq(&LuaValue::Number(lhs - rhs)));
+
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn binary_minus_on_incompatible_types_is_not_supported(
+        lhs: LuaValue,
+        rhs: LuaValue,
+    ) -> Result<TestResult, LuaError> {
+        if let (Some(_), Some(_)) = (lhs.as_number(), rhs.as_number()) {
+            return Ok(TestResult::discard());
+        }
+        let module = string_parser::module("return lhs - rhs")?;
+        let mut context = GlobalContext::new();
+        context.set("lhs", lhs);
+        context.set("rhs", rhs);
+        let res = module.eval(&mut context);
+        assert!(res.is_err());
+
+        Ok(TestResult::passed())
     }
 }

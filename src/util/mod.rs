@@ -17,6 +17,7 @@ pub fn eq_with_nan(a: f64, b: f64) -> bool {
     }
 }
 
+#[allow(dead_code)]
 pub fn close_relative_eq(a: f64, b: f64) -> bool {
     let absolute_value = partial_min(abs(a), abs(b)).unwrap();
     let magnitude = if absolute_value < 10f64 {

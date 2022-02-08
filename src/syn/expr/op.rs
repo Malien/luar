@@ -1,6 +1,6 @@
 use std::iter;
 
-use crate::lex::{ToTokenStream, Token};
+use crate::{lex::{ToTokenStream, Token}, fmt_tokens};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum BinaryOperator {
@@ -63,6 +63,9 @@ impl ToTokenStream for UnaryOperator {
         })
     }
 }
+
+fmt_tokens!(BinaryOperator);
+fmt_tokens!(UnaryOperator);
 
 #[cfg(test)]
 pub mod test {
