@@ -1,5 +1,6 @@
 use crate::{
-    lang::{ControlFlow, Eval, EvalContext, LuaFunction, LuaValue},
+    lang::{ControlFlow, Eval, EvalContext, LocalContext, LuaFunction, LuaValue},
+    lex::Ident,
     syn::{FunctionDeclaration, FunctionName},
 };
 
@@ -16,13 +17,35 @@ impl Eval for FunctionDeclaration {
             FunctionName::Plain(var) => {
                 let function = LuaFunction::new({
                     let body = self.body.clone();
-                    move |context, _| body.eval(context).map(ControlFlow::function_return)
+                    let arg_names = self.args.clone();
+                    move |context, args| {
+                        let mut local_context = LocalContext::new(context);
+                        declare_arguments(&mut local_context, &arg_names, args);
+                        // TODO: There is an unnecessary local context declared inside of the block eval method
+                        body.eval(&mut local_context)
+                            .map(ControlFlow::function_return)
+                    }
                 });
                 assign_to_var(context, var, LuaValue::Function(function));
             }
             _ => todo!(),
         }
         Ok(())
+    }
+}
+
+fn declare_arguments<Context>(context: &mut Context, names: &[Ident], args: &[LuaValue])
+where
+    Context: EvalContext + ?Sized,
+{
+    let iter = names.into_iter().cloned().zip(
+        args.iter()
+            .cloned()
+            .chain(std::iter::repeat_with(|| LuaValue::Nil)),
+    );
+
+    for (name, value) in iter {
+        context.declare_local(name.into(), value);
     }
 }
 
@@ -169,6 +192,59 @@ mod test {
         ]);
         assert_eq!(res, expected);
 
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn arguments_passed_in_are_defined_as_local_variables_inside_fn(
+        value: LuaValue,
+    ) -> Result<(), LuaError> {
+        let module = string_parser::module(
+            "function myfn(arg)
+                return arg
+            end
+            return myfn(value), arg",
+        )?;
+        let mut context = GlobalContext::new();
+        context.set("value", value.clone());
+        let res = module.eval(&mut context)?;
+        let expected = LuaValue::MultiValue(ne_vec![value, LuaValue::Nil]);
+        assert_eq!(res, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn not_passed_arguments_are_set_to_nil() -> Result<(), LuaError> {
+        let module = string_parser::module(
+            "function myfn(a, b, c, d)
+                return a, b, c, d
+            end
+            return myfn(1, 2)",
+        )?;
+        let mut context = GlobalContext::new();
+        let res = module.eval(&mut context)?;
+        let expected = LuaValue::MultiValue(ne_vec![
+            LuaValue::Number(1f64),
+            LuaValue::Number(2f64),
+            LuaValue::Nil,
+            LuaValue::Nil
+        ]);
+        assert_eq!(res, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn passing_more_arguments_than_stated_just_gets_arglist_truncated() -> Result<(), LuaError> {
+        let module = string_parser::module(
+            "function myfn(a, b)
+                return a, b
+            end
+            return myfn(1, 2, 3, 4)"
+        )?;
+        let mut context = GlobalContext::new();
+        let res = module.eval(&mut context)?;
+        let expected = LuaValue::MultiValue(ne_vec![LuaValue::Number(1f64), LuaValue::Number(2f64)]);
+        assert_eq!(res, expected);
         Ok(())
     }
 }
