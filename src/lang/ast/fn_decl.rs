@@ -119,7 +119,7 @@ mod test {
         let res_fn = fn_module.eval(&mut context);
 
         let is_same = match (res_block, res_fn) {
-            (Err(l), Err(r)) => l == r,
+            (Err(_), Err(_)) => true,
             (Ok(l), Ok(r)) => l.total_eq(&r),
             _ => false,
         };

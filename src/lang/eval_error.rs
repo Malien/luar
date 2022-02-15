@@ -1,19 +1,25 @@
 use std::error::Error;
 use std::fmt;
 
-use super::LuaValue;
+use super::{LuaType, LuaValue};
 use crate::syn;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug)]
 pub enum EvalError {
     TypeError(TypeError),
     AssertionError,
+    IO(std::io::Error),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeError {
     Arithmetic(ArithmeticError),
     IsNotCallable(LuaValue),
+    ArgumentType {
+        position: usize,
+        expected: LuaType,
+        got: LuaType,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -31,6 +37,7 @@ impl fmt::Display for EvalError {
         match self {
             Self::TypeError(err) => fmt::Display::fmt(err, f),
             Self::AssertionError => f.write_str("Assertion failed"),
+            Self::IO(err) => write!(f, "IO Error: {}", err)
         }
     }
 }
@@ -42,6 +49,17 @@ impl fmt::Display for TypeError {
             Self::Arithmetic(err) => fmt::Display::fmt(err, f),
             Self::IsNotCallable(value) => {
                 write!(f, "Attempting to call {}, which is not callable", value)
+            }
+            Self::ArgumentType {
+                position,
+                expected,
+                got,
+            } => {
+                write!(
+                    f,
+                    "Invalid argument type at position {}, expected {}, got {}",
+                    position, expected, got
+                )
             }
         }
     }

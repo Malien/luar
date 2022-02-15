@@ -17,3 +17,6 @@ pub mod ast;
 
 mod ctrl_flow;
 pub use ctrl_flow::*;
+
+mod lua_type;
+pub use lua_type::*;
