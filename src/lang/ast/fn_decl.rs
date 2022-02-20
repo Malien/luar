@@ -209,7 +209,7 @@ mod test {
         context.set("value", value.clone());
         let res = module.eval(&mut context)?;
         let expected = LuaValue::MultiValue(ne_vec![value, LuaValue::Nil]);
-        assert_eq!(res, expected);
+        assert!(res.total_eq(&expected));
         Ok(())
     }
 

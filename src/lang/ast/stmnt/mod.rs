@@ -6,6 +6,7 @@ use crate::{
 mod assignment;
 mod conditional;
 mod local_decl;
+mod while_loop;
 
 impl Eval for Statement {
     type Return = ControlFlow;
@@ -19,6 +20,7 @@ impl Eval for Statement {
             Self::LocalDeclaration(decl) => decl.eval(context).map(|_| ControlFlow::Continue),
             Self::FunctionCall(func_call) => func_call.eval(context).map(|_| ControlFlow::Continue),
             Self::If(conditional) => conditional.eval(context),
+            Self::While(while_loop) => while_loop.eval(context),
             _ => todo!(),
         }
     }
