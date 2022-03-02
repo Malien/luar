@@ -1,16 +1,14 @@
-use std::fmt::{self, Write};
+use std::fmt;
 
-use crate::util::NonEmptyVec;
+use crate::lang::{LuaFunction, LuaNumber};
 
-use super::{LuaFunction, LuaNumber};
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LuaValue {
     Nil,
     Number(LuaNumber),
     String(String),
     Function(LuaFunction),
-    MultiValue(NonEmptyVec<LuaValue>),
+    // MultiValue(NonEmptyVec<LuaValue>),
     // Table,
     // CFunction,
     // UserData
@@ -26,6 +24,10 @@ impl LuaValue {
 
     pub fn number(value: impl Into<LuaNumber>) -> LuaValue {
         Self::Number(value.into())
+    }
+
+    pub fn string(value: impl Into<String>) -> Self {
+        Self::String(value.into())
     }
 
     pub fn unwrap_number(self) -> LuaNumber {
@@ -48,9 +50,9 @@ impl LuaValue {
             (Self::Number(lhs), Self::Number(rhs)) => lhs.total_eq(rhs),
             (Self::String(lhs), Self::String(rhs)) => lhs == rhs,
             (Self::Function(lhs), Self::Function(rhs)) => lhs == rhs,
-            (Self::MultiValue(lhs), Self::MultiValue(rhs)) if lhs.len() == rhs.len() => {
-                lhs.into_iter().zip(rhs).all(|(lhs, rhs)| lhs.total_eq(rhs))
-            }
+            // (Self::MultiValue(lhs), Self::MultiValue(rhs)) if lhs.len() == rhs.len() => {
+            //     lhs.into_iter().zip(rhs).all(|(lhs, rhs)| lhs.total_eq(rhs))
+            // }
             _ => false,
         }
     }
@@ -69,14 +71,6 @@ impl LuaValue {
 
     pub fn is_function(&self) -> bool {
         matches!(self, Self::Function(_))
-    }
-
-    pub fn first_value(self) -> Self {
-        if let Self::MultiValue(values) = self {
-            values.move_first()
-        } else {
-            self
-        }
     }
 
     pub fn as_number(&self) -> Option<LuaNumber> {
@@ -111,13 +105,13 @@ impl fmt::Display for LuaValue {
             Self::Number(num) => fmt::Display::fmt(num, f),
             Self::String(str) => fmt::Debug::fmt(str, f),
             Self::Function(function) => fmt::Debug::fmt(function, f),
-            Self::MultiValue(values) => {
-                for value in values {
-                    fmt::Display::fmt(value, f)?;
-                    f.write_char('\t')?;
-                }
-                Ok(())
-            }
+            // Self::MultiValue(values) => {
+            //     for value in values {
+            //         fmt::Display::fmt(value, f)?;
+            //         f.write_char('\t')?;
+            //     }
+            //     Ok(())
+            // }
             // Self::Table => fmt::Display::fmt("<table>", f),
             // Self::CFunction => fmt::Display::fmt("<cfunction>", f),
             // Self::UserData => fmt::Display::fmt("<unserdata>", f),
@@ -146,13 +140,13 @@ impl quickcheck::Arbitrary for LuaValue {
                 Box::new(std::iter::once(LuaValue::Nil).chain(str.shrink().map(LuaValue::String)))
             }
             LuaValue::Function(_) => Box::new(std::iter::once(LuaValue::Nil)),
-            LuaValue::MultiValue(values) => Box::new(values.shrink().map(|values| {
-                if values.len() == 1 {
-                    values.into_iter().next().unwrap()
-                } else {
-                    LuaValue::MultiValue(values)
-                }
-            })),
+            // LuaValue::MultiValue(values) => Box::new(values.shrink().map(|values| {
+            //     if values.len() == 1 {
+            //         values.into_iter().next().unwrap()
+            //     } else {
+            //         LuaValue::MultiValue(values)
+            //     }
+            // })),
         }
     }
 }

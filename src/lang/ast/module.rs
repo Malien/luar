@@ -1,12 +1,12 @@
 use crate::{
-    lang::{ControlFlow, Eval, EvalContext, EvalError, LuaValue},
+    lang::{ControlFlow, Eval, EvalContext, EvalError, ReturnValue},
     syn::{Chunk, Module},
 };
 
 impl Eval for Module {
-    type Return = LuaValue;
+    type Return = ReturnValue;
 
-    fn eval<Context>(&self, context: &mut Context) -> Result<LuaValue, EvalError>
+    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, EvalError>
     where
         Context: EvalContext + ?Sized,
     {
@@ -17,7 +17,7 @@ impl Eval for Module {
         }
         match self.ret {
             Some(ref ret) => ret.eval(context),
-            None => Ok(LuaValue::Nil),
+            None => Ok(ReturnValue::Nil),
         }
     }
 }

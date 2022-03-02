@@ -1,5 +1,5 @@
 use crate::{
-    lang::{ast::assign_to_var, Eval, EvalContext, EvalError, LuaValue},
+    lang::{ast::{assign_to_var, tail_values}, Eval, EvalContext, EvalError, LuaValue},
     syn::{Assignment, Expression, Var},
 };
 
@@ -15,37 +15,6 @@ impl Eval for Assignment {
     }
 }
 
-pub struct TailValuesIter<I> {
-    values: I,
-    hold: Option<LuaValue>,
-    tail: Option<std::vec::IntoIter<LuaValue>>,
-}
-
-impl<I> Iterator for TailValuesIter<I>
-where
-    I: Iterator<Item = LuaValue>,
-{
-    type Item = LuaValue;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            match (self.values.next(), &mut self.hold, &mut self.tail) {
-                (Some(next), Some(hold), _) => return Some(std::mem::replace(hold, next)),
-                (Some(next), hold, _) => *hold = Some(next),
-                (None, _, Some(tail)) => return tail.next(),
-                (None, hold, tail) => {
-                    let hold_value = hold.take();
-                    if let Some(LuaValue::MultiValue(values)) = hold_value {
-                        *tail = Some(values.into_iter());
-                    } else {
-                        return hold_value;
-                    }
-                }
-            }
-        }
-    }
-}
-
 pub fn assignment_values<'a, Context: EvalContext + ?Sized>(
     context: &mut Context,
     values: impl IntoIterator<Item = &'a Expression>,
@@ -54,18 +23,8 @@ pub fn assignment_values<'a, Context: EvalContext + ?Sized>(
         .into_iter()
         .map(|expr| expr.eval(context))
         .collect::<Result<Vec<_>, _>>()
-        .map(|values| tail_values(values).chain(std::iter::repeat_with(|| LuaValue::Nil)))
-}
-
-pub fn tail_values<I>(values: I) -> TailValuesIter<I::IntoIter>
-where
-    I: IntoIterator<Item = LuaValue>,
-{
-    TailValuesIter {
-        values: values.into_iter(),
-        hold: None,
-        tail: None,
-    }
+        .map(tail_values)
+        .map(|values| values.chain(std::iter::repeat_with(|| LuaValue::Nil)))
 }
 
 fn multiple_assignment<'a, Context: EvalContext + ?Sized>(
@@ -74,7 +33,7 @@ fn multiple_assignment<'a, Context: EvalContext + ?Sized>(
     values: impl Iterator<Item = LuaValue>,
 ) {
     for (name, value) in names.into_iter().zip(values) {
-        assign_to_var(context, name, value.first_value())
+        assign_to_var(context, name, value)
     }
 }
 
@@ -87,63 +46,13 @@ mod test {
 
     use crate::{
         error::LuaError,
-        lang::{Eval, EvalContext, EvalContextExt, GlobalContext, LuaFunction, LuaValue},
+        lang::{
+            Eval, EvalContext, EvalContextExt, GlobalContext, LuaFunction, LuaValue, ReturnValue,
+        },
         lex::{Ident, Token},
-        ne_vec,
         syn::{lua_parser, Module, ParseError},
         util::NonEmptyVec,
     };
-
-    use super::tail_values;
-
-    #[test]
-    fn tail_values_empty() {
-        let values = std::iter::empty();
-        let mut tail_values = tail_values(values);
-        assert!(tail_values.next().is_none());
-    }
-
-    #[test]
-    fn tail_values_iter_simple_values() {
-        let values = vec![
-            LuaValue::Nil,
-            LuaValue::number(42),
-            LuaValue::String("hello".into()),
-        ];
-        let tail_values: Vec<_> = tail_values(values.clone()).collect();
-        assert_eq!(values, tail_values);
-    }
-
-    #[test]
-    fn tail_values_expand_end_multi_value() {
-        let multi_value = LuaValue::MultiValue(ne_vec![
-            LuaValue::Nil,
-            LuaValue::String("hello".into()),
-            LuaValue::number(69),
-        ]);
-        let values = vec![LuaValue::Nil, LuaValue::number(42), multi_value];
-        let tail_values: Vec<_> = tail_values(values).collect();
-        let expected = vec![
-            LuaValue::Nil,
-            LuaValue::number(42),
-            LuaValue::Nil,
-            LuaValue::String("hello".into()),
-            LuaValue::number(69),
-        ];
-        assert_eq!(tail_values, expected);
-    }
-
-    #[test]
-    fn tail_values_does_not_expand_multi_value_in_the_middle() {
-        let multi_value = LuaValue::MultiValue(ne_vec![
-            LuaValue::Nil,
-            LuaValue::String("hello".into()),
-            LuaValue::number(69),
-        ]);
-        let values = vec![LuaValue::Nil, multi_value, LuaValue::number(42)];
-        let tail_values: Vec<_> = tail_values(values.clone()).collect();
-        assert_eq!(tail_values, values);
-    }
 
     #[quickcheck]
     fn eval_single_assignment(ident: Ident, v1: LuaValue, v2: LuaValue) -> Result<(), LuaError> {
@@ -180,7 +89,7 @@ mod test {
     }
 
     fn multi_return_fn(ret: NonEmptyVec<LuaValue>) -> LuaValue {
-        let ret_value = LuaValue::MultiValue(ret);
+        let ret_value = ReturnValue::MultiValue(ret);
         let lua_fn = LuaFunction::new(move |_, _| Ok(ret_value.clone()));
         LuaValue::Function(lua_fn)
     }

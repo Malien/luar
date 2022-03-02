@@ -29,7 +29,7 @@ fn multiple_local_assignment<Context: EvalContext + ?Sized>(
     values: impl Iterator<Item = LuaValue>,
 ) {
     for (name, value) in names.into_iter().zip(values) {
-        context.declare_local(name.into(), value.first_value());
+        context.declare_local(name.into(), value);
     }
 }
 

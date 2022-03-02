@@ -26,7 +26,6 @@ pub fn print<W: Write>(writer: &mut W, args: &[LuaValue]) -> Result<LuaValue, Ev
                 .map(|_| ()),
             LuaValue::Number(num) => write!(writer, "{}\n", num),
             LuaValue::Function(func) => write!(writer, "function: {:p}\n", func.addr()),
-            _ => todo!(),
         };
         if let Err(err) = res {
             return Err(EvalError::IO(err));
@@ -41,7 +40,7 @@ mod test {
 
     use super::{print, tonumber};
     use crate::{
-        lang::{LuaFunction, LuaValue, LuaNumber},
+        lang::{LuaFunction, LuaValue, LuaNumber, ReturnValue},
         util::close_relative_eq,
     };
 
@@ -105,7 +104,7 @@ mod test {
 
     #[quickcheck]
     fn printing_function_prints_it_address() {
-        let func = LuaFunction::new(|_, _| Ok(LuaValue::Nil));
+        let func = LuaFunction::new(|_, _| Ok(ReturnValue::Nil));
         let addr = func.addr();
         let mut buf = Cursor::new(Vec::new());
         let res = print(&mut buf, &[LuaValue::Function(func)]).unwrap();

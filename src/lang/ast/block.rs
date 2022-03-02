@@ -41,7 +41,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        assert!(res.is_truthy());
+        assert!(res.assert_single().is_truthy());
         Ok(())
     }
 
@@ -58,7 +58,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        assert!(res.is_truthy());
+        assert!(res.assert_single().is_truthy());
         Ok(())
     }
 }

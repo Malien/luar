@@ -1,9 +1,9 @@
 use std::{collections::HashMap, rc::Rc};
 
-use super::LuaValue;
+use super::{LuaValue, LuaKeyValue};
 
 #[derive(Debug, Clone, Default)]
-pub struct TableValue(HashMap<LuaValue, LuaValue>);
+pub struct TableValue(HashMap<LuaKeyValue, LuaValue>);
 
 pub struct TableRef(Rc<TableValue>);
 
@@ -16,21 +16,19 @@ impl TableValue {
         self.0.len() == 0
     }
 
-    pub fn get(&self, key: &LuaValue) -> &LuaValue {
-        assert!(key != &LuaValue::Nil);
+    pub fn get(&self, key: &LuaKeyValue) -> &LuaValue {
         self.0.get(key).unwrap_or(&LuaValue::Nil)
     }
 
-    pub fn set(&mut self, key: LuaValue, value: LuaValue) {
-        assert!(key != LuaValue::Nil);
+    pub fn set(&mut self, key: LuaKeyValue, value: LuaValue) {
         self.0.insert(key, value);
     }
 }
 
-impl std::ops::Index<&LuaValue> for TableValue {
+impl std::ops::Index<&LuaKeyValue> for TableValue {
     type Output = LuaValue;
 
-    fn index(&self, index: &LuaValue) -> &Self::Output {
+    fn index(&self, index: &LuaKeyValue) -> &Self::Output {
         self.get(index)
     }
 }
@@ -39,9 +37,9 @@ impl std::ops::Index<&LuaValue> for TableValue {
 mod test {
     use quickcheck::TestResult;
 
-    use crate::lang::{LuaFunction, LuaNumber, LuaValue};
+    use crate::lang::{LuaFunction, LuaNumber, LuaValue, ReturnValue};
 
-    use super::TableValue;
+    use super::{TableValue, LuaKeyValue};
 
     #[test]
     fn new_table_is_empty() {
@@ -59,7 +57,7 @@ mod test {
         if num.as_f64().is_nan() {
             return TestResult::discard();
         }
-        let num = LuaValue::Number(num);
+        let num = LuaKeyValue::Number(num);
         let mut table = TableValue::new();
         table.set(num.clone(), LuaValue::number(1));
         assert_eq!(table[&num], LuaValue::number(1));
@@ -68,29 +66,21 @@ mod test {
 
     #[quickcheck]
     fn setting_string_key_can_be_retrieved_with_the_same_key(str: String) {
-        let key = LuaValue::String(str);
+        let key = LuaKeyValue::String(str);
         let mut table = TableValue::new();
         table.set(key.clone(), LuaValue::number(1));
         assert_eq!(table.get(&key), &LuaValue::number(1));
     }
 
-    #[quickcheck]
-    #[should_panic]
-    fn setting_nil_key_is_not_supported() {
-        let mut table = TableValue::new();
-        table.set(LuaValue::Nil, LuaValue::number(42));
-    }
-
     #[test]
     fn setting_function_key_can_be_retrieved_only_with_the_same_fn_ref() {
         let mut table = TableValue::new();
-        let func = LuaFunction::new(|_, _| Ok(LuaValue::Nil));
-        let func = LuaValue::Function(func);
+        let func = LuaFunction::new(|_, _| Ok(ReturnValue::Nil));
+        let func = LuaKeyValue::Function(func);
         table.set(func.clone(), LuaValue::number(42));
         assert_eq!(table.get(&func), &LuaValue::number(42));
-        let func2 = LuaFunction::new(|_, _| Ok(LuaValue::Nil));
-        let func2 = LuaValue::Function(func2);
-        assert_eq!(table.get(&func2),& LuaValue::Nil);
+        let func2 = LuaFunction::new(|_, _| Ok(ReturnValue::Nil));
+        let func2 = LuaKeyValue::Function(func2);
+        assert_eq!(table.get(&func2), &LuaValue::Nil);
     }
-
 }

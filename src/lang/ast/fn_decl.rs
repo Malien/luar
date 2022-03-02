@@ -55,7 +55,7 @@ mod test {
 
     use crate::{
         error::LuaError,
-        lang::{Eval, EvalContextExt, GlobalContext, LuaValue},
+        lang::{Eval, EvalContextExt, GlobalContext, LuaValue, ReturnValue},
         lex::Ident,
         ne_vec,
         syn::{
@@ -84,7 +84,7 @@ mod test {
         context.set("value", ret_value.clone());
         let res = module.eval(&mut context)?;
         assert!(context.get("myfn").is_function());
-        assert!(res.total_eq(&ret_value));
+        assert!(res.assert_single().total_eq(&ret_value));
 
         Ok(())
     }
@@ -150,9 +150,9 @@ mod test {
         }
         let res = module.eval(&mut context)?;
         if values.len() == 1 {
-            assert!(res.total_eq(values.first()));
+            assert!(res.first_value().total_eq(values.first()));
         } else {
-            assert!(res.total_eq(&LuaValue::MultiValue(values)));
+            assert!(res.total_eq(&ReturnValue::MultiValue(values)));
         }
         Ok(())
     }
@@ -169,7 +169,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        assert!(res.is_truthy());
+        assert!(res.assert_single().is_truthy());
         Ok(())
     }
 
@@ -186,9 +186,9 @@ mod test {
         ))?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        let expected = LuaValue::MultiValue(ne_vec![
-            LuaValue::String(String::from("local")),
-            LuaValue::String(String::from("global")),
+        let expected = ReturnValue::MultiValue(ne_vec![
+            LuaValue::string("local"),
+            LuaValue::string("global"),
         ]);
         assert_eq!(res, expected);
 
@@ -208,7 +208,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("value", value.clone());
         let res = module.eval(&mut context)?;
-        let expected = LuaValue::MultiValue(ne_vec![value, LuaValue::Nil]);
+        let expected = ReturnValue::MultiValue(ne_vec![value, LuaValue::Nil]);
         assert!(res.total_eq(&expected));
         Ok(())
     }
@@ -223,7 +223,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        let expected = LuaValue::MultiValue(ne_vec![
+        let expected = ReturnValue::MultiValue(ne_vec![
             LuaValue::number(1),
             LuaValue::number(2),
             LuaValue::Nil,
@@ -243,7 +243,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        let expected = LuaValue::MultiValue(ne_vec![LuaValue::number(1), LuaValue::number(2)]);
+        let expected = ReturnValue::MultiValue(ne_vec![LuaValue::number(1), LuaValue::number(2)]);
         assert_eq!(res, expected);
         Ok(())
     }

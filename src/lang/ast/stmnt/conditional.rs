@@ -16,7 +16,7 @@ impl Eval for Conditional {
             tail,
         } = self;
 
-        if condition.eval(context)?.is_truthy() {
+        if condition.eval(context)?.first_value().is_truthy() {
             body.eval(context)
         } else {
             match tail {
@@ -33,7 +33,7 @@ mod test {
 
     use crate::{
         error::LuaError,
-        lang::{Eval, GlobalContext, LuaValue},
+        lang::{Eval, GlobalContext, LuaValue, ReturnValue},
         ne_vec,
         syn::string_parser,
     };
@@ -48,7 +48,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        assert!(res.is_falsy());
+        assert!(res.assert_single().is_falsy());
         Ok(())
     }
 
@@ -62,7 +62,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        assert!(res.is_truthy());
+        assert!(res.assert_single().is_truthy());
         Ok(())
     }
 
@@ -78,7 +78,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        assert_eq!(res, LuaValue::String("true branch".to_string()));
+        assert_eq!(res, ReturnValue::string("true branch"));
         Ok(())
     }
 
@@ -94,7 +94,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        assert_eq!(res, LuaValue::String("false branch".to_string()));
+        assert_eq!(res, ReturnValue::string("false branch"));
         Ok(())
     }
 
@@ -117,7 +117,7 @@ mod test {
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
         let expected =
-            LuaValue::MultiValue(ne_vec![LuaValue::String("if branch".into()), LuaValue::Nil]);
+            ReturnValue::MultiValue(ne_vec![LuaValue::string("if branch"), LuaValue::Nil]);
         assert_eq!(res, expected);
         Ok(())
     }
@@ -137,7 +137,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        assert_eq!(res, LuaValue::String("elseif branch".to_string()));
+        assert_eq!(res, ReturnValue::string("elseif branch"));
         Ok(())
     }
 
@@ -154,7 +154,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        assert_eq!(res, LuaValue::Nil);
+        assert_eq!(res, ReturnValue::Nil);
         Ok(())
     }
 
@@ -173,7 +173,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        assert_eq!(res, LuaValue::String("else branch".into()));
+        assert_eq!(res, ReturnValue::string("else branch"));
         Ok(())
     }
 }

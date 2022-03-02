@@ -1,4 +1,4 @@
-use crate::lang::{EvalContext, EvalContextExt, EvalError, GlobalContext, LuaFunction, LuaValue};
+use crate::lang::{EvalContext, EvalContextExt, EvalError, GlobalContext, LuaFunction, LuaValue, ReturnValue};
 
 pub mod fns;
 
@@ -20,7 +20,7 @@ fn define_fn(
 ) {
     ctx.set(
         name,
-        LuaValue::Function(LuaFunction::new(move |_, args| fun(args))),
+        LuaValue::Function(LuaFunction::new(move |_, args| fun(args).map(ReturnValue::from))),
     )
 }
 
@@ -31,22 +31,22 @@ fn define_total_fn(
 ) {
     ctx.set(
         name,
-        LuaValue::Function(LuaFunction::new(move |_, args| Ok(fun(args)))),
+        LuaValue::Function(LuaFunction::new(move |_, args| Ok(fun(args).into()))),
     );
 }
 
 #[cfg(test)]
 mod test {
     use crate::error::LuaError;
-    use crate::lang::{Eval, EvalContext, EvalContextExt, EvalError, LuaFunction, LuaValue};
+    use crate::lang::{Eval, EvalContext, EvalContextExt, EvalError, LuaFunction, LuaValue, ReturnValue};
     use crate::syn;
 
     use super::std_context;
 
-    fn lua_assert(_: &mut dyn EvalContext, args: &[LuaValue]) -> Result<LuaValue, EvalError> {
+    fn lua_assert(_: &mut dyn EvalContext, args: &[LuaValue]) -> Result<ReturnValue, EvalError> {
         match args.first() {
             None | Some(LuaValue::Nil) => Err(EvalError::AssertionError),
-            _ => Ok(LuaValue::Nil),
+            _ => Ok(ReturnValue::Nil),
         }
     }
 

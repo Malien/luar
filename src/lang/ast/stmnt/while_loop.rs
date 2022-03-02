@@ -11,7 +11,7 @@ impl Eval for WhileLoop {
         Context: crate::lang::EvalContext + ?Sized,
     {
         let Self { condition, body } = self;
-        while condition.eval(context)?.is_truthy() {
+        while condition.eval(context)?.first_value().is_truthy() {
             if let ControlFlow::Return(ret_value) = body.eval(context)? {
                 return Ok(ControlFlow::Return(ret_value));
             }
@@ -24,7 +24,7 @@ impl Eval for WhileLoop {
 mod test {
     use crate::{
         error::LuaError,
-        lang::{Eval, GlobalContext, LuaValue, EvalContextExt},
+        lang::{Eval, GlobalContext, LuaValue, EvalContextExt, ReturnValue},
         syn::string_parser, ne_vec,
     };
 
@@ -38,7 +38,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        assert!(res.is_falsy());
+        assert!(res.assert_single().is_falsy());
         Ok(())
     }
 
@@ -52,7 +52,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        assert!(res.is_truthy());
+        assert!(res.assert_single().is_truthy());
         Ok(())
     }
 
@@ -69,7 +69,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("i", LuaValue::number(times));
         let res = module.eval(&mut context)?;
-        let expected = LuaValue::MultiValue(ne_vec![
+        let expected = ReturnValue::MultiValue(ne_vec![
             LuaValue::number(0),
             LuaValue::number(times)
         ]);
@@ -86,7 +86,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        assert!(res.is_truthy());
+        assert!(res.assert_single().is_truthy());
         Ok(())
     }
 }

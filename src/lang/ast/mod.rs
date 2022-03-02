@@ -12,6 +12,9 @@ mod stmnt;
 mod table;
 mod var;
 
+mod tail_values;
+pub use tail_values::*;
+
 pub fn assign_to_var<Context>(context: &mut Context, var: &Var, value: LuaValue)
 where
     Context: EvalContext + ?Sized,

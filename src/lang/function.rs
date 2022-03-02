@@ -1,15 +1,15 @@
 use std::{fmt, rc::Rc, hash::Hash};
 
-use super::{EvalContext, EvalError, LuaValue};
+use super::{EvalContext, EvalError, LuaValue, ReturnValue};
 
-pub type InnerFn = dyn Fn(&mut dyn EvalContext, &[LuaValue]) -> Result<LuaValue, EvalError>;
+pub type InnerFn = dyn Fn(&mut dyn EvalContext, &[LuaValue]) -> Result<ReturnValue, EvalError>;
 
 #[derive(Clone)]
 pub struct LuaFunction(Rc<InnerFn>);
 
 impl LuaFunction {
     pub fn new(
-        func: impl Fn(&mut dyn EvalContext, &[LuaValue]) -> Result<LuaValue, EvalError> + 'static,
+        func: impl Fn(&mut dyn EvalContext, &[LuaValue]) -> Result<ReturnValue, EvalError> + 'static,
     ) -> Self {
         Self(Rc::new(func))
     }
@@ -18,7 +18,7 @@ impl LuaFunction {
         &self,
         context: &mut dyn EvalContext,
         args: &[LuaValue],
-    ) -> Result<LuaValue, EvalError> {
+    ) -> Result<ReturnValue, EvalError> {
         self.0(context, args)
     }
 
