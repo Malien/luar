@@ -41,7 +41,7 @@ mod test {
 
     use super::{print, tonumber};
     use crate::{
-        lang::{LuaFunction, LuaValue},
+        lang::{LuaFunction, LuaValue, LuaNumber},
         util::close_relative_eq,
     };
 
@@ -52,7 +52,7 @@ mod test {
 
     #[quickcheck]
     fn tonumber_on_number_returns_self(num: f64) {
-        assert!(tonumber(&[LuaValue::Number(num)]).total_eq(&LuaValue::Number(num)));
+        assert!(tonumber(&[LuaValue::number(num)]).total_eq(&LuaValue::number(num)));
     }
 
     #[quickcheck]
@@ -60,7 +60,7 @@ mod test {
         let str = num.to_string();
         let res = tonumber(&[LuaValue::String(str)]);
         assert!(res.is_number());
-        let resnum = res.unwrap_number();
+        let resnum = res.unwrap_number().as_f64();
         if num.is_nan() {
             assert!(resnum.is_nan())
         } else {
@@ -95,7 +95,7 @@ mod test {
     }
 
     #[quickcheck]
-    fn printing_number_prints_string_repr(num: f64) {
+    fn printing_number_prints_string_repr(num: LuaNumber) {
         let mut buf = Cursor::new(Vec::new());
         let res = print(&mut buf, &[LuaValue::Number(num)]).unwrap();
         assert_eq!(res, LuaValue::Nil);

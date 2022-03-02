@@ -107,7 +107,7 @@ mod test {
     fn tail_values_iter_simple_values() {
         let values = vec![
             LuaValue::Nil,
-            LuaValue::Number(42f64),
+            LuaValue::number(42),
             LuaValue::String("hello".into()),
         ];
         let tail_values: Vec<_> = tail_values(values.clone()).collect();
@@ -119,16 +119,16 @@ mod test {
         let multi_value = LuaValue::MultiValue(ne_vec![
             LuaValue::Nil,
             LuaValue::String("hello".into()),
-            LuaValue::Number(69f64),
+            LuaValue::number(69),
         ]);
-        let values = vec![LuaValue::Nil, LuaValue::Number(42f64), multi_value];
+        let values = vec![LuaValue::Nil, LuaValue::number(42), multi_value];
         let tail_values: Vec<_> = tail_values(values).collect();
         let expected = vec![
             LuaValue::Nil,
-            LuaValue::Number(42f64),
+            LuaValue::number(42),
             LuaValue::Nil,
             LuaValue::String("hello".into()),
-            LuaValue::Number(69f64),
+            LuaValue::number(69),
         ];
         assert_eq!(tail_values, expected);
     }
@@ -138,9 +138,9 @@ mod test {
         let multi_value = LuaValue::MultiValue(ne_vec![
             LuaValue::Nil,
             LuaValue::String("hello".into()),
-            LuaValue::Number(69f64),
+            LuaValue::number(69),
         ]);
-        let values = vec![LuaValue::Nil, multi_value, LuaValue::Number(42f64)];
+        let values = vec![LuaValue::Nil, multi_value, LuaValue::number(42)];
         let tail_values: Vec<_> = tail_values(values.clone()).collect();
         assert_eq!(tail_values, values);
     }
@@ -220,7 +220,7 @@ mod test {
         idents: impl IntoIterator<Item = &'a Ident>,
     ) {
         for ident in idents {
-            context.set(ident.clone(), LuaValue::Number(42f64));
+            context.set(ident.clone(), LuaValue::number(42));
         }
     }
 

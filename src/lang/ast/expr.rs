@@ -13,31 +13,43 @@ impl Eval for Expression {
     {
         match self {
             Expression::Nil => Ok(LuaValue::Nil),
-            Expression::Number(NumberLiteral(num)) => Ok(LuaValue::Number(*num)),
+            Expression::Number(NumberLiteral(num)) => Ok(LuaValue::Number((*num).into())),
             Expression::String(StringLiteral(str)) => Ok(LuaValue::String(str.clone())),
             Expression::Variable(var) => var.eval(context),
             Expression::TableConstructor(tbl) => tbl.eval(context),
             Expression::FunctionCall(call) => call.eval(context),
-            Expression::UnaryOperator { op, exp } => exp.as_ref().eval(context).and_then(|val| {
-                unary_op_eval(*op, val)
-                    .map_err(|err| EvalError::TypeError(TypeError::Arithmetic(err)))
-            }),
+            Expression::UnaryOperator { op, exp } => eval_unary_op_expr(exp.as_ref(), *op, context),
             Expression::BinaryOperator { lhs, op, rhs } => binary_op_eval(*op, lhs, rhs, context),
         }
     }
 }
 
+fn eval_unary_op_expr<Context>(
+    expr: &Expression,
+    op: UnaryOperator,
+    context: &mut Context,
+) -> Result<LuaValue, EvalError>
+where
+    Context: EvalContext + ?Sized,
+{
+    expr.eval(context).and_then(|value| {
+        unary_op_eval(op, value)
+            .map_err(TypeError::Arithmetic)
+            .map_err(EvalError::TypeError)
+    })
+}
+
 fn unary_op_eval(op: UnaryOperator, value: LuaValue) -> Result<LuaValue, ArithmeticError> {
     match op {
         UnaryOperator::Minus => unary_minus_eval(value),
-        UnaryOperator::Not if value.is_falsy() => Ok(LuaValue::Number(1f64)),
+        UnaryOperator::Not if value.is_falsy() => Ok(LuaValue::number(1)),
         UnaryOperator::Not => Ok(LuaValue::Nil),
     }
 }
 
 fn unary_minus_eval(value: LuaValue) -> Result<LuaValue, ArithmeticError> {
     match value.as_number() {
-        Some(num) => Ok(LuaValue::Number(-num)),
+        Some(num) => Ok(LuaValue::number(-num.as_f64())),
         None => Err(ArithmeticError::UnaryMinus(value)),
     }
 }
@@ -97,7 +109,8 @@ fn binary_number_op(
     op_fn: impl FnOnce(f64, f64) -> f64,
 ) -> Result<LuaValue, EvalError> {
     if let (Some(lhs), Some(rhs)) = (lhs.as_number(), rhs.as_number()) {
-        Ok(LuaValue::Number(op_fn(lhs, rhs)))
+        let res = op_fn(lhs.as_f64(), rhs.as_f64());
+        Ok(LuaValue::number(res))
     } else {
         Err(EvalError::TypeError(TypeError::Arithmetic(
             ArithmeticError::Binary { lhs, rhs, op },
@@ -141,7 +154,8 @@ mod test {
         fn eval_number_literal(num: f64) -> Result<(), EvalError> {
             let mut context = GlobalContext::new();
             let expr = syn::Expression::Number(NumberLiteral(num));
-            assert!(eq_with_nan(expr.eval(&mut context)?.unwrap_number(), num));
+            let res = expr.eval(&mut context)?.unwrap_number().as_f64();
+            assert!(eq_with_nan(res, num));
             Ok(())
         }
 
@@ -164,7 +178,8 @@ mod test {
         fn eval_negation(Finite(num): Finite<f64>) -> Result<(), EvalError> {
             let mut context = GlobalContext::new();
             let expr = negation_expr(num);
-            assert_eq!(expr.eval(&mut context)?.unwrap_number(), -num);
+            let res = expr.eval(&mut context)?.unwrap_number().as_f64();
+            assert_eq!(res, -num);
             Ok(())
         }
 
@@ -172,10 +187,8 @@ mod test {
         fn eval_negation_on_nan() -> Result<(), EvalError> {
             let mut context = GlobalContext::new();
             let expr = negation_expr(f64::NAN);
-            assert!(eq_with_nan(
-                expr.eval(&mut context)?.unwrap_number(),
-                f64::NAN
-            ));
+            let res = expr.eval(&mut context)?.unwrap_number().as_f64();
+            assert!(eq_with_nan(res, f64::NAN));
             Ok(())
         }
 
@@ -183,11 +196,8 @@ mod test {
         fn eval_negation_on_inf() -> Result<(), EvalError> {
             let mut context = GlobalContext::new();
             let expr = negation_expr(f64::INFINITY);
-
-            assert!(eq_with_nan(
-                expr.eval(&mut context)?.unwrap_number(),
-                f64::NEG_INFINITY
-            ));
+            let res = expr.eval(&mut context)?.unwrap_number().as_f64();
+            assert!(eq_with_nan(res, f64::NEG_INFINITY));
             Ok(())
         }
 
@@ -195,11 +205,8 @@ mod test {
         fn eval_negation_on_neg_inf() -> Result<(), EvalError> {
             let mut context = GlobalContext::new();
             let expr = negation_expr(f64::NEG_INFINITY);
-
-            assert!(eq_with_nan(
-                expr.eval(&mut context)?.unwrap_number(),
-                f64::INFINITY
-            ));
+            let res = expr.eval(&mut context)?.unwrap_number().as_f64();
+            assert!(eq_with_nan(res, f64::INFINITY));
             Ok(())
         }
 
@@ -210,8 +217,8 @@ mod test {
                 op: syn::UnaryOperator::Minus,
                 exp: Box::new(syn::Expression::String(StringLiteral(format!("{}", num)))),
             };
-
-            assert!(eq_with_nan(expr.eval(&mut context)?.unwrap_number(), -num));
+            let res = expr.eval(&mut context)?.unwrap_number().as_f64();
+            assert!(eq_with_nan(res, -num));
             Ok(())
         }
 
@@ -243,7 +250,7 @@ mod test {
         fn eval_not_on_nil() -> Result<(), LuaError> {
             let mut context = GlobalContext::new();
             let exp = syn::string_parser::expression("not nil")?;
-            assert_eq!(exp.eval(&mut context)?, LuaValue::Number(1f64));
+            assert_eq!(exp.eval(&mut context)?, LuaValue::number(1));
             Ok(())
         }
 
@@ -348,7 +355,7 @@ mod test {
     fn eval_number_literal(Finite(num): Finite<f64>) -> Result<(), LuaError> {
         let module = lua_parser::module(&[Token::Return, Token::Number(NumberLiteral(num))])?;
         let mut context = GlobalContext::new();
-        assert!(module.eval(&mut context)?.total_eq(&LuaValue::Number(num)));
+        assert!(module.eval(&mut context)?.total_eq(&LuaValue::number(num)));
         Ok(())
     }
 
@@ -452,7 +459,7 @@ mod test {
     #[quickcheck]
     fn value_is_equal_to_itself(value: LuaValue) -> Result<TestResult, LuaError> {
         if let LuaValue::Number(num) = value {
-            if num.is_nan() {
+            if num.as_f64().is_nan() {
                 // NaN does not equal itself
                 return Ok(TestResult::discard());
             }
@@ -499,25 +506,25 @@ mod test {
         let module = string_parser::module("return lhs + rhs")?;
         let mut context = GlobalContext::new();
 
-        context.set("lhs", LuaValue::Number(lhs));
-        context.set("rhs", LuaValue::Number(rhs));
+        context.set("lhs", LuaValue::number(lhs));
+        context.set("rhs", LuaValue::number(rhs));
         let res = module.eval(&mut context)?;
-        assert!(res.total_eq(&LuaValue::Number(lhs + rhs)));
+        assert!(res.total_eq(&LuaValue::number(lhs + rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
-        context.set("rhs", LuaValue::Number(rhs));
+        context.set("rhs", LuaValue::number(rhs));
         let res = module.eval(&mut context)?;
-        assert!(res.total_eq(&LuaValue::Number(lhs + rhs)));
+        assert!(res.total_eq(&LuaValue::number(lhs + rhs)));
 
-        context.set("lhs", LuaValue::Number(lhs));
+        context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::String(rhs.to_string()));
         let res = module.eval(&mut context)?;
-        assert!(res.total_eq(&LuaValue::Number(lhs + rhs)));
+        assert!(res.total_eq(&LuaValue::number(lhs + rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
         context.set("rhs", LuaValue::String(rhs.to_string()));
         let res = module.eval(&mut context)?;
-        assert!(res.total_eq(&LuaValue::Number(lhs + rhs)));
+        assert!(res.total_eq(&LuaValue::number(lhs + rhs)));
 
         Ok(())
     }
@@ -548,25 +555,25 @@ mod test {
         let module = string_parser::module("return lhs - rhs")?;
         let mut context = GlobalContext::new();
 
-        context.set("lhs", LuaValue::Number(lhs));
-        context.set("rhs", LuaValue::Number(rhs));
+        context.set("lhs", LuaValue::number(lhs));
+        context.set("rhs", LuaValue::number(rhs));
         let res = module.eval(&mut context)?;
-        assert!(res.total_eq(&LuaValue::Number(lhs - rhs)));
+        assert!(res.total_eq(&LuaValue::number(lhs - rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
-        context.set("rhs", LuaValue::Number(rhs));
+        context.set("rhs", LuaValue::number(rhs));
         let res = module.eval(&mut context)?;
-        assert!(res.total_eq(&LuaValue::Number(lhs - rhs)));
+        assert!(res.total_eq(&LuaValue::number(lhs - rhs)));
 
-        context.set("lhs", LuaValue::Number(lhs));
+        context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::String(rhs.to_string()));
         let res = module.eval(&mut context)?;
-        assert!(res.total_eq(&LuaValue::Number(lhs - rhs)));
+        assert!(res.total_eq(&LuaValue::number(lhs - rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
         context.set("rhs", LuaValue::String(rhs.to_string()));
         let res = module.eval(&mut context)?;
-        assert!(res.total_eq(&LuaValue::Number(lhs - rhs)));
+        assert!(res.total_eq(&LuaValue::number(lhs - rhs)));
 
         Ok(())
     }

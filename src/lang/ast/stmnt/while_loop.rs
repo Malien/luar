@@ -67,11 +67,11 @@ mod test {
             return i, count_executed"
         )?;
         let mut context = GlobalContext::new();
-        context.set("i", LuaValue::Number(times as f64));
+        context.set("i", LuaValue::number(times));
         let res = module.eval(&mut context)?;
         let expected = LuaValue::MultiValue(ne_vec![
-            LuaValue::Number(0f64),
-            LuaValue::Number(times as f64)
+            LuaValue::number(0),
+            LuaValue::number(times)
         ]);
         assert_eq!(res, expected);
         Ok(())

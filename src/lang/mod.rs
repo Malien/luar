@@ -20,3 +20,9 @@ pub use ctrl_flow::*;
 
 mod lua_type;
 pub use lua_type::*;
+
+mod table;
+pub use table::*;
+
+mod number;
+pub use number::*;

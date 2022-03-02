@@ -1,13 +1,13 @@
 use std::fmt::{self, Write};
 
-use crate::util::{eq_with_nan, NonEmptyVec};
+use crate::util::NonEmptyVec;
 
-use super::LuaFunction;
+use super::{LuaFunction, LuaNumber};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum LuaValue {
     Nil,
-    Number(f64),
+    Number(LuaNumber),
     String(String),
     Function(LuaFunction),
     MultiValue(NonEmptyVec<LuaValue>),
@@ -24,7 +24,11 @@ impl LuaValue {
         !self.is_falsy()
     }
 
-    pub fn unwrap_number(self) -> f64 {
+    pub fn number(value: impl Into<LuaNumber>) -> LuaValue {
+        Self::Number(value.into())
+    }
+
+    pub fn unwrap_number(self) -> LuaNumber {
         if let Self::Number(num) = self {
             return num;
         }
@@ -41,7 +45,7 @@ impl LuaValue {
     pub fn total_eq(&self, other: &LuaValue) -> bool {
         match (self, other) {
             (Self::Nil, Self::Nil) => true,
-            (Self::Number(lhs), Self::Number(rhs)) => eq_with_nan(*lhs, *rhs),
+            (Self::Number(lhs), Self::Number(rhs)) => lhs.total_eq(rhs),
             (Self::String(lhs), Self::String(rhs)) => lhs == rhs,
             (Self::Function(lhs), Self::Function(rhs)) => lhs == rhs,
             (Self::MultiValue(lhs), Self::MultiValue(rhs)) if lhs.len() == rhs.len() => {
@@ -75,16 +79,16 @@ impl LuaValue {
         }
     }
 
-    pub fn as_number(&self) -> Option<f64> {
+    pub fn as_number(&self) -> Option<LuaNumber> {
         match self {
             LuaValue::Number(num) => Some(*num),
             LuaValue::String(str) => str.parse().ok(),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn true_value() -> LuaValue {
-        LuaValue::Number(1f64)
+        LuaValue::number(1)
     }
 
     pub fn false_value() -> LuaValue {
@@ -98,7 +102,6 @@ impl LuaValue {
             LuaValue::false_value()
         }
     }
-
 }
 
 impl fmt::Display for LuaValue {
@@ -127,7 +130,7 @@ impl quickcheck::Arbitrary for LuaValue {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         match u8::arbitrary(g) % 3 {
             0 => LuaValue::Nil,
-            1 => LuaValue::Number(f64::arbitrary(g)),
+            1 => LuaValue::Number(LuaNumber::arbitrary(g)),
             2 => LuaValue::String(String::arbitrary(g)),
             _ => todo!(),
         }

@@ -224,8 +224,8 @@ mod test {
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
         let expected = LuaValue::MultiValue(ne_vec![
-            LuaValue::Number(1f64),
-            LuaValue::Number(2f64),
+            LuaValue::number(1),
+            LuaValue::number(2),
             LuaValue::Nil,
             LuaValue::Nil
         ]);
@@ -239,11 +239,11 @@ mod test {
             "function myfn(a, b)
                 return a, b
             end
-            return myfn(1, 2, 3, 4)"
+            return myfn(1, 2, 3, 4)",
         )?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
-        let expected = LuaValue::MultiValue(ne_vec![LuaValue::Number(1f64), LuaValue::Number(2f64)]);
+        let expected = LuaValue::MultiValue(ne_vec![LuaValue::number(1), LuaValue::number(2)]);
         assert_eq!(res, expected);
         Ok(())
     }
