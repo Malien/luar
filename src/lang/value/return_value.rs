@@ -5,7 +5,7 @@ use crate::{
     util::NonEmptyVec,
 };
 
-use super::LuaValue;
+use super::{LuaValue, TableRef};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ReturnValue {
@@ -14,6 +14,7 @@ pub enum ReturnValue {
     String(String),
     Function(LuaFunction),
     MultiValue(NonEmptyVec<LuaValue>),
+    Table(TableRef),
 }
 
 impl From<LuaValue> for ReturnValue {
@@ -23,6 +24,7 @@ impl From<LuaValue> for ReturnValue {
             LuaValue::Number(num) => Self::Number(num),
             LuaValue::String(str) => Self::String(str),
             LuaValue::Function(func) => Self::Function(func),
+            LuaValue::Table(table) => Self::Table(table),
         }
     }
 }
@@ -34,6 +36,7 @@ impl ReturnValue {
             ReturnValue::Number(num) => LuaValue::Number(num),
             ReturnValue::String(str) => LuaValue::String(str),
             ReturnValue::Function(func) => LuaValue::Function(func),
+            ReturnValue::Table(table) => LuaValue::Table(table),
             ReturnValue::MultiValue(values) => values.move_first(),
         }
     }
@@ -44,6 +47,7 @@ impl ReturnValue {
             ReturnValue::Number(num) => LuaValue::Number(num),
             ReturnValue::String(str) => LuaValue::String(str),
             ReturnValue::Function(func) => LuaValue::Function(func),
+            ReturnValue::Table(table) => LuaValue::Table(table),
             ReturnValue::MultiValue(values) => {
                 assert_eq!(values.len(), 1);
                 values.move_first()
@@ -60,6 +64,7 @@ impl ReturnValue {
             (Self::MultiValue(lhs), Self::MultiValue(rhs)) if lhs.len() == rhs.len() => {
                 lhs.into_iter().zip(rhs).all(|(lhs, rhs)| lhs.total_eq(rhs))
             }
+            (Self::Table(lhs), Self::Table(rhs)) => lhs == rhs,
             (_, _) => false,
         }
     }
@@ -87,7 +92,7 @@ impl fmt::Display for ReturnValue {
                 }
                 Ok(())
             }
-            // Self::Table => fmt::Display::fmt("<table>", f),
+            Self::Table(table) => fmt::Debug::fmt(table, f),
             // Self::CFunction => fmt::Display::fmt("<cfunction>", f),
             // Self::UserData => fmt::Display::fmt("<unserdata>", f),
         }

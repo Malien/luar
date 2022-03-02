@@ -27,6 +27,7 @@ where
                         Some(ReturnValue::Number(num)) => return Some(LuaValue::Number(num)),
                         Some(ReturnValue::String(str)) => return Some(LuaValue::String(str)),
                         Some(ReturnValue::Function(func)) => return Some(LuaValue::Function(func)),
+                        Some(ReturnValue::Table(table)) => return Some(LuaValue::Table(table)),
                         Some(ReturnValue::MultiValue(values)) => {
                             *tail = Some(values.into_iter());
                         }

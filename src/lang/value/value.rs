@@ -2,14 +2,18 @@ use std::fmt;
 
 use crate::lang::{LuaFunction, LuaNumber};
 
+#[cfg(test)]
+use crate::test_util::{with_thread_gen, GenExt};
+
+use super::TableRef;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LuaValue {
     Nil,
     Number(LuaNumber),
     String(String),
     Function(LuaFunction),
-    // MultiValue(NonEmptyVec<LuaValue>),
-    // Table,
+    Table(TableRef),
     // CFunction,
     // UserData
 }
@@ -50,6 +54,7 @@ impl LuaValue {
             (Self::Number(lhs), Self::Number(rhs)) => lhs.total_eq(rhs),
             (Self::String(lhs), Self::String(rhs)) => lhs == rhs,
             (Self::Function(lhs), Self::Function(rhs)) => lhs == rhs,
+            (Self::Table(lhs), Self::Table(rhs)) => lhs == rhs,
             // (Self::MultiValue(lhs), Self::MultiValue(rhs)) if lhs.len() == rhs.len() => {
             //     lhs.into_iter().zip(rhs).all(|(lhs, rhs)| lhs.total_eq(rhs))
             // }
@@ -105,6 +110,7 @@ impl fmt::Display for LuaValue {
             Self::Number(num) => fmt::Display::fmt(num, f),
             Self::String(str) => fmt::Debug::fmt(str, f),
             Self::Function(function) => fmt::Debug::fmt(function, f),
+            Self::Table(table) => fmt::Debug::fmt(table, f),
             // Self::MultiValue(values) => {
             //     for value in values {
             //         fmt::Display::fmt(value, f)?;
@@ -122,11 +128,14 @@ impl fmt::Display for LuaValue {
 #[cfg(test)]
 impl quickcheck::Arbitrary for LuaValue {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        match u8::arbitrary(g) % 3 {
+        use super::ReturnValue;
+        match u8::arbitrary(g) % 5 {
             0 => LuaValue::Nil,
-            1 => LuaValue::Number(LuaNumber::arbitrary(g)),
-            2 => LuaValue::String(String::arbitrary(g)),
-            _ => todo!(),
+            1 => LuaValue::Number(with_thread_gen(LuaNumber::arbitrary)),
+            2 => LuaValue::String(with_thread_gen(String::arbitrary)),
+            3 => LuaValue::Function(LuaFunction::new(|_, _| Ok(ReturnValue::Nil))),
+            4 => LuaValue::Table(TableRef::arbitrary(&mut g.next_iter())),
+            _ => unreachable!(),
         }
     }
 
@@ -140,6 +149,9 @@ impl quickcheck::Arbitrary for LuaValue {
                 Box::new(std::iter::once(LuaValue::Nil).chain(str.shrink().map(LuaValue::String)))
             }
             LuaValue::Function(_) => Box::new(std::iter::once(LuaValue::Nil)),
+            LuaValue::Table(table) => {
+                Box::new(std::iter::once(LuaValue::Nil).chain(table.shrink().map(LuaValue::Table)))
+            }
             // LuaValue::MultiValue(values) => Box::new(values.shrink().map(|values| {
             //     if values.len() == 1 {
             //         values.into_iter().next().unwrap()

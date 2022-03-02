@@ -26,6 +26,7 @@ pub fn print<W: Write>(writer: &mut W, args: &[LuaValue]) -> Result<LuaValue, Ev
                 .map(|_| ()),
             LuaValue::Number(num) => write!(writer, "{}\n", num),
             LuaValue::Function(func) => write!(writer, "function: {:p}\n", func.addr()),
+            LuaValue::Table(table) => write!(writer, "table: {:p}\n", table.addr())
         };
         if let Err(err) = res {
             return Err(EvalError::IO(err));
