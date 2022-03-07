@@ -51,7 +51,7 @@ mod test {
         },
         lex::{Ident, Token},
         syn::{lua_parser, Module, ParseError},
-        util::NonEmptyVec,
+        util::NonEmptyVec, test_util::vec_of_idents,
     };
 
     #[quickcheck]
@@ -210,14 +210,6 @@ mod test {
         assert_multiple_assignment(&mut context, idents.into(), left_values);
 
         Ok(TestResult::passed())
-    }
-
-    fn vec_of_idents(len: usize, prefix: &str) -> Vec<Ident> {
-        (0..len)
-            .into_iter()
-            .map(|i| format!("{}{}", prefix, i))
-            .map(Ident::new)
-            .collect()
     }
 
     #[allow(unstable_name_collisions)]

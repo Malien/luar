@@ -6,6 +6,8 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+use crate::lex::Ident;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct NonShrinkable<T>(pub T);
@@ -101,4 +103,12 @@ impl GenExt for Gen {
     fn next_iter(&self) -> Self {
         Gen::new(std::cmp::min(*QUICKCHECK_RECURSIVE_DEPTH, self.size() - 1))
     }
+}
+
+pub fn vec_of_idents(len: usize, prefix: &str) -> Vec<Ident> {
+    (0..len)
+        .into_iter()
+        .map(|i| format!("{}{}", prefix, i))
+        .map(Ident::new)
+        .collect()
 }

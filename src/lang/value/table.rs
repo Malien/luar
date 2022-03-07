@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Rc};
 
 use super::{LuaKey, LuaValue};
 
@@ -6,11 +6,19 @@ use super::{LuaKey, LuaValue};
 pub struct TableValue(HashMap<LuaKey, LuaValue>);
 
 #[derive(Debug, Clone, Default)]
-pub struct TableRef(Rc<TableValue>);
+pub struct TableRef(Rc<RefCell<TableValue>>);
 
 impl TableRef {
     pub fn addr(&self) -> *const TableValue {
-        Rc::as_ptr(&self.0)
+        RefCell::as_ptr(self.0.as_ref())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.borrow().is_empty()
+    }
+
+    pub fn try_into_inner(self) -> Option<TableValue> {
+        Rc::try_unwrap(self.0).map(RefCell::into_inner).ok()
     }
 }
 
@@ -30,7 +38,7 @@ impl Hash for TableRef {
 
 impl From<TableValue> for TableRef {
     fn from(table: TableValue) -> Self {
-        Self(Rc::new(table))
+        Self(Rc::new(RefCell::new(table)))
     }
 }
 
@@ -39,7 +47,7 @@ impl TableValue {
         Self::default()
     }
 
-    pub fn empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.0.len() == 0
     }
 
@@ -49,6 +57,16 @@ impl TableValue {
 
     pub fn set(&mut self, key: LuaKey, value: LuaValue) {
         self.0.insert(key, value);
+    }
+
+    pub fn total_eq(&self, other: &TableValue) -> bool {
+        self.0
+            .iter()
+            .all(|(key, value)| other.get(key).total_eq(value))
+            && other
+                .0
+                .iter()
+                .all(|(key, value)| self.get(key).total_eq(value))
     }
 }
 
@@ -60,10 +78,15 @@ impl std::ops::Index<&LuaKey> for TableValue {
     }
 }
 
+impl PartialEq for TableValue {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.iter().all(|(key, value)| other.get(key) == value)
+            && other.0.iter().all(|(key, value)| self.get(key) == value)
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use std::rc::Rc;
-
     use quickcheck::{Arbitrary, TestResult};
 
     use crate::lang::{LuaFunction, LuaNumber, LuaValue, ReturnValue};
@@ -86,19 +109,25 @@ mod test {
         }
 
         fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            Box::new(self.0.shrink().map(Rc::new).map(TableRef))
+            Box::new(self.0.borrow().shrink().map(TableRef::from))
         }
     }
 
     #[test]
     fn new_table_is_empty() {
-        assert!(TableValue::new().empty());
+        assert!(TableValue::new().is_empty());
     }
 
     #[test]
     fn default_table_is_empty() {
         let table: TableValue = Default::default();
-        assert!(table.empty());
+        assert!(table.is_empty());
+    }
+
+    #[quickcheck]
+    fn accessing_unset_key_result_in_nil(key: LuaKey) {
+        let table = TableValue::new();
+        assert_eq!(table.get(&key), &LuaValue::Nil);
     }
 
     #[quickcheck]

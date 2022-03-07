@@ -1,5 +1,5 @@
 use crate::{
-    lang::{Eval, EvalContext, EvalError, LuaValue, ReturnValue, TypeError},
+    lang::{Eval, EvalContext, EvalError, LuaValue, ReturnValue, TypeError, TableRef},
     syn::{FunctionCall, FunctionCallArgs},
 };
 
@@ -48,7 +48,11 @@ impl Eval for FunctionCallArgs {
                 .map(|expr| expr.eval(context))
                 .map(|arg| arg.map(ReturnValue::first_value))
                 .collect(),
-            Self::Table(table) => table.eval(context).map(|table| vec![table]),
+            Self::Table(table) => table
+                .eval(context)
+                .map(TableRef::from)
+                .map(LuaValue::Table)
+                .map(|table| vec![table]),
         }
     }
 }
@@ -62,7 +66,9 @@ mod test {
 
     use super::Eval;
     use crate::error::LuaError;
-    use crate::lang::{EvalContextExt, EvalError, GlobalContext, LuaFunction, LuaValue, TypeError, ReturnValue};
+    use crate::lang::{
+        EvalContextExt, EvalError, GlobalContext, LuaFunction, LuaValue, ReturnValue, TypeError,
+    };
     use crate::syn;
     use crate::util::NonEmptyVec;
 

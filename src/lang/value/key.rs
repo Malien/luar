@@ -23,6 +23,12 @@ impl LuaKey {
             LuaValue::Table(table) => Some(Self::Table(table)),
         }
     }
+    pub fn number(num: impl Into<LuaNumber>) -> Self {
+        Self::Number(num.into())
+    }
+    pub fn string(str: impl Into<String>) -> Self {
+        Self::String(str.into())
+    }
 }
 
 impl From<LuaKey> for LuaValue {

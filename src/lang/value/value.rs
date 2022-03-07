@@ -48,6 +48,13 @@ impl LuaValue {
         panic!("Called unwrap_string() on a {:?}", self)
     }
 
+    pub fn unwrap_table(self) -> TableRef {
+        if let Self::Table(table) = self {
+            return table;
+        }
+        panic!("Called unwrap_table() on a {:?}", self)
+    }
+
     pub fn total_eq(&self, other: &LuaValue) -> bool {
         match (self, other) {
             (Self::Nil, Self::Nil) => true,
@@ -55,9 +62,6 @@ impl LuaValue {
             (Self::String(lhs), Self::String(rhs)) => lhs == rhs,
             (Self::Function(lhs), Self::Function(rhs)) => lhs == rhs,
             (Self::Table(lhs), Self::Table(rhs)) => lhs == rhs,
-            // (Self::MultiValue(lhs), Self::MultiValue(rhs)) if lhs.len() == rhs.len() => {
-            //     lhs.into_iter().zip(rhs).all(|(lhs, rhs)| lhs.total_eq(rhs))
-            // }
             _ => false,
         }
     }
@@ -76,6 +80,10 @@ impl LuaValue {
 
     pub fn is_function(&self) -> bool {
         matches!(self, Self::Function(_))
+    }
+
+    pub fn is_table(&self) -> bool {
+        matches!(self, Self::Table(_))
     }
 
     pub fn as_number(&self) -> Option<LuaNumber> {
@@ -111,16 +119,6 @@ impl fmt::Display for LuaValue {
             Self::String(str) => fmt::Debug::fmt(str, f),
             Self::Function(function) => fmt::Debug::fmt(function, f),
             Self::Table(table) => fmt::Debug::fmt(table, f),
-            // Self::MultiValue(values) => {
-            //     for value in values {
-            //         fmt::Display::fmt(value, f)?;
-            //         f.write_char('\t')?;
-            //     }
-            //     Ok(())
-            // }
-            // Self::Table => fmt::Display::fmt("<table>", f),
-            // Self::CFunction => fmt::Display::fmt("<cfunction>", f),
-            // Self::UserData => fmt::Display::fmt("<unserdata>", f),
         }
     }
 }
@@ -152,13 +150,6 @@ impl quickcheck::Arbitrary for LuaValue {
             LuaValue::Table(table) => {
                 Box::new(std::iter::once(LuaValue::Nil).chain(table.shrink().map(LuaValue::Table)))
             }
-            // LuaValue::MultiValue(values) => Box::new(values.shrink().map(|values| {
-            //     if values.len() == 1 {
-            //         values.into_iter().next().unwrap()
-            //     } else {
-            //         LuaValue::MultiValue(values)
-            //     }
-            // })),
         }
     }
 }

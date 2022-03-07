@@ -9,8 +9,8 @@ mod fn_decl;
 mod module;
 mod ret;
 mod stmnt;
-mod table;
 mod var;
+mod table_constructor;
 
 mod tail_values;
 pub use tail_values::*;

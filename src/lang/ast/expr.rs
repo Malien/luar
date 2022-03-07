@@ -1,5 +1,7 @@
 use crate::{
-    lang::{ArithmeticError, Eval, EvalContext, EvalError, LuaValue, ReturnValue, TypeError},
+    lang::{
+        ArithmeticError, Eval, EvalContext, EvalError, LuaValue, ReturnValue, TableRef, TypeError,
+    },
     lex::{NumberLiteral, StringLiteral},
     syn::{BinaryOperator, Expression, UnaryOperator},
 };
@@ -16,7 +18,10 @@ impl Eval for Expression {
             Expression::Number(NumberLiteral(num)) => Ok(ReturnValue::Number((*num).into())),
             Expression::String(StringLiteral(str)) => Ok(ReturnValue::String(str.clone())),
             Expression::Variable(var) => var.eval(context).map(ReturnValue::from),
-            Expression::TableConstructor(tbl) => tbl.eval(context).map(ReturnValue::from),
+            Expression::TableConstructor(tbl) => tbl
+                .eval(context)
+                .map(TableRef::from)
+                .map(ReturnValue::Table),
             Expression::FunctionCall(call) => call.eval(context),
             Expression::UnaryOperator { op, exp } => {
                 eval_unary_op_expr(exp.as_ref(), *op, context).map(ReturnValue::from)
