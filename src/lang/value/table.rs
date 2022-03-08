@@ -24,6 +24,10 @@ impl TableRef {
     pub fn get(&self, key: &LuaKey) -> LuaValue {
         self.0.borrow().get(key).clone()
     }
+
+    pub fn set(&mut self, key: LuaKey, value: LuaValue) {
+        self.0.borrow_mut().set(key, value)
+    }
 }
 
 impl PartialEq for TableRef {
@@ -72,7 +76,13 @@ impl TableValue {
                 .iter()
                 .all(|(key, value)| self.get(key).total_eq(value))
     }
+
+    pub fn keys(&self) -> Keys<'_> {
+        self.0.keys()
+    }
 }
+
+type Keys<'a> = std::collections::hash_map::Keys<'a, LuaKey, LuaValue>;
 
 impl std::ops::Index<&LuaKey> for TableValue {
     type Output = LuaValue;
@@ -90,12 +100,16 @@ impl PartialEq for TableValue {
 }
 
 #[cfg(test)]
+#[derive(Debug, Clone)]
+pub struct NaNLessTable(pub TableValue);
+
+#[cfg(test)]
 mod test {
     use quickcheck::{Arbitrary, TestResult};
 
     use crate::lang::{LuaFunction, LuaNumber, LuaValue, ReturnValue};
 
-    use super::{LuaKey, TableRef, TableValue};
+    use super::{LuaKey, NaNLessTable, TableRef, TableValue};
 
     impl Arbitrary for TableValue {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
@@ -114,6 +128,37 @@ mod test {
 
         fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
             Box::new(self.0.borrow().shrink().map(TableRef::from))
+        }
+    }
+
+    fn key_is_nan(key: &LuaKey) -> bool {
+        match key {
+            LuaKey::Number(num) if num.as_f64().is_nan() => true,
+            _ => false,
+        }
+    }
+
+    impl Arbitrary for NaNLessTable {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let size = usize::arbitrary(g) % g.size();
+            let keys = std::iter::repeat_with({
+                let mut g = quickcheck::Gen::new(g.size());
+                move || LuaKey::arbitrary(&mut g)
+            })
+            .filter(|key| !key_is_nan(key));
+            let values = std::iter::repeat_with(|| LuaValue::arbitrary(g));
+            let mut table = TableValue::new();
+            table.0.extend(keys.zip(values).take(size));
+            NaNLessTable(table)
+        }
+
+        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+            Box::new(
+                self.0
+                    .shrink()
+                    .filter(|table| table.keys().all(key_is_nan))
+                    .map(NaNLessTable),
+            )
         }
     }
 

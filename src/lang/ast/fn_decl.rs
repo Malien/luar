@@ -26,11 +26,10 @@ impl Eval for FunctionDeclaration {
                             .map(ControlFlow::function_return)
                     }
                 });
-                assign_to_var(context, var, LuaValue::Function(function));
+                assign_to_var(context, var, LuaValue::Function(function))
             }
             _ => todo!(),
         }
-        Ok(())
     }
 }
 

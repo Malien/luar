@@ -6,7 +6,10 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::lex::Ident;
+use crate::{
+    lang::{EvalContext, EvalError, LuaValue, ReturnValue},
+    lex::Ident,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
@@ -111,4 +114,26 @@ pub fn vec_of_idents(len: usize, prefix: &str) -> Vec<Ident> {
         .map(|i| format!("{}{}", prefix, i))
         .map(Ident::new)
         .collect()
+}
+
+pub fn lua_assert(_: &mut dyn EvalContext, args: &[LuaValue]) -> Result<ReturnValue, EvalError> {
+    match args.first() {
+        None | Some(LuaValue::Nil) => Err(EvalError::AssertionError),
+        _ => Ok(ReturnValue::Nil),
+    }
+}
+
+#[macro_export]
+macro_rules! run_lua_test {
+    ($file: expr, $context: expr) => {{
+        let mut context = $context;
+        crate::lang::EvalContextExt::set(
+            &mut context,
+            "assert",
+            crate::lang::LuaValue::function(crate::test_util::lua_assert),
+        );
+        let test_module = crate::syn::string_parser::module(include_str!($file))?;
+        crate::lang::Eval::eval(&test_module, &mut context)?;
+        Ok(())
+    }};
 }

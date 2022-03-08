@@ -26,6 +26,10 @@ pub enum TypeError {
         property: Ident,
         of: LuaValue,
     },
+    CannotAssignProperty {
+        property: Ident,
+        of: LuaValue,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -71,6 +75,9 @@ impl fmt::Display for TypeError {
             Self::IsNotIndexable(value) => write!(f, "Value {} cannot be indexed", value),
             Self::CannotAccessProperty { property, of } => {
                 write!(f, "Cannot access property {} of {}", property, of)
+            }
+            Self::CannotAssignProperty { property, of } => {
+                write!(f, "Cannot assign to property {} of {}", property, of)
             }
         }
     }

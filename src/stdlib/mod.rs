@@ -1,4 +1,6 @@
-use crate::lang::{EvalContext, EvalContextExt, EvalError, GlobalContext, LuaFunction, LuaValue, ReturnValue};
+use crate::lang::{
+    EvalContext, EvalContextExt, EvalError, GlobalContext, LuaFunction, LuaValue, ReturnValue,
+};
 
 pub mod fns;
 
@@ -20,7 +22,9 @@ fn define_fn(
 ) {
     ctx.set(
         name,
-        LuaValue::Function(LuaFunction::new(move |_, args| fun(args).map(ReturnValue::from))),
+        LuaValue::Function(LuaFunction::new(move |_, args| {
+            fun(args).map(ReturnValue::from)
+        })),
     )
 }
 
@@ -38,24 +42,12 @@ fn define_total_fn(
 #[cfg(test)]
 mod test {
     use crate::error::LuaError;
-    use crate::lang::{Eval, EvalContext, EvalContextExt, EvalError, LuaFunction, LuaValue, ReturnValue};
-    use crate::syn;
+    use crate::run_lua_test;
 
     use super::std_context;
 
-    fn lua_assert(_: &mut dyn EvalContext, args: &[LuaValue]) -> Result<ReturnValue, EvalError> {
-        match args.first() {
-            None | Some(LuaValue::Nil) => Err(EvalError::AssertionError),
-            _ => Ok(ReturnValue::Nil),
-        }
-    }
-
     #[test]
     fn lua_test() -> Result<(), LuaError> {
-        let mut context = std_context();
-        context.set("assert", LuaValue::Function(LuaFunction::new(lua_assert)));
-        let test_module = syn::string_parser::module(include_str!("./stdlib_test.lua"))?;
-        test_module.eval(&mut context)?;
-        Ok(())
+        run_lua_test!("./stdlib.test.lua", std_context())
     }
 }

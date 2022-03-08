@@ -1,5 +1,8 @@
 use crate::{
-    lang::{ast::{assign_to_var, tail_values}, Eval, EvalContext, EvalError, LuaValue},
+    lang::{
+        ast::{assign_to_var, tail_values},
+        Eval, EvalContext, EvalError, LuaValue,
+    },
     syn::{Assignment, Expression, Var},
 };
 
@@ -11,7 +14,8 @@ impl Eval for Assignment {
         Context: EvalContext + ?Sized,
     {
         let Assignment { names, values } = self;
-        assignment_values(context, values).map(|values| multiple_assignment(context, names, values))
+        assignment_values(context, values)
+            .and_then(|values| multiple_assignment(context, names, values))
     }
 }
 
@@ -31,10 +35,11 @@ fn multiple_assignment<'a, Context: EvalContext + ?Sized>(
     context: &mut Context,
     names: impl IntoIterator<Item = &'a Var>,
     values: impl Iterator<Item = LuaValue>,
-) {
+) -> Result<(), EvalError> {
     for (name, value) in names.into_iter().zip(values) {
-        assign_to_var(context, name, value)
+        assign_to_var(context, name, value)?;
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -47,11 +52,13 @@ mod test {
     use crate::{
         error::LuaError,
         lang::{
-            Eval, EvalContext, EvalContextExt, GlobalContext, LuaFunction, LuaValue, ReturnValue,
+            Eval, EvalContext, EvalContextExt, EvalError, GlobalContext, LuaFunction, LuaKey,
+            LuaValue, NaNLessTable, ReturnValue, TableRef, TableValue, TypeError,
         },
         lex::{Ident, Token},
-        syn::{lua_parser, Module, ParseError},
-        util::NonEmptyVec, test_util::vec_of_idents,
+        syn::{lua_parser, string_parser, Module, ParseError},
+        test_util::vec_of_idents,
+        util::NonEmptyVec, run_lua_test,
     };
 
     #[quickcheck]
@@ -281,5 +288,137 @@ mod test {
         assert_multiple_assignment(&context, idents, resulting_values);
 
         Ok(TestResult::passed())
+    }
+
+    #[quickcheck]
+    fn assigning_to_a_table_member(key: LuaKey, value: LuaValue) -> Result<TestResult, LuaError> {
+        if let LuaKey::Number(num) = key {
+            if num.as_f64().is_nan() {
+                return Ok(TestResult::discard());
+            }
+        }
+        let module = string_parser::module("table[key] = value")?;
+
+        let table = TableRef::from(TableValue::new());
+        let mut context = GlobalContext::new();
+        context.set("table", LuaValue::Table(table.clone()));
+        context.set("value", value.clone());
+        context.set("key", LuaValue::from(key.clone()));
+
+        module.eval(&mut context)?;
+        assert!(table.get(&key).total_eq(&value));
+        Ok(TestResult::passed())
+    }
+
+    #[quickcheck]
+    fn assigning_to_existing_member_overrides_it(
+        key: LuaKey,
+        prev_value: LuaValue,
+        value: LuaValue,
+    ) -> Result<TestResult, LuaError> {
+        let module = string_parser::module("table[key] = value")?;
+        if let LuaKey::Number(num) = key {
+            if num.as_f64().is_nan() {
+                return Ok(TestResult::discard());
+            }
+        }
+
+        let mut table = TableValue::new();
+        table.set(key.clone(), prev_value);
+        let table = TableRef::from(table);
+        let mut context = GlobalContext::new();
+        context.set("table", LuaValue::Table(table.clone()));
+        context.set("value", value.clone());
+        context.set("key", LuaValue::from(key.clone()));
+
+        module.eval(&mut context)?;
+        assert!(table.get(&key).total_eq(&value));
+        Ok(TestResult::passed())
+    }
+
+    #[quickcheck]
+    fn assigning_to_a_non_indexable_value_is_an_error(
+        key: LuaKey,
+        value: LuaValue,
+    ) -> Result<TestResult, LuaError> {
+        if value.is_table() {
+            return Ok(TestResult::discard());
+        }
+
+        let module = string_parser::module("value[key] = 42")?;
+        let mut context = GlobalContext::new();
+        context.set("key", key.into());
+        context.set("value", value);
+        let res = module.eval(&mut context);
+        assert!(matches!(
+            res,
+            Err(EvalError::TypeError(TypeError::IsNotIndexable(_)))
+        ));
+        Ok(TestResult::passed())
+    }
+
+    #[test]
+    fn assigning_to_a_nil_member_is_an_error() -> Result<(), LuaError> {
+        let module = string_parser::module("tbl = {} tbl[nil] = 42")?;
+        let mut context = GlobalContext::new();
+        let res = module.eval(&mut context);
+        assert!(matches!(
+            res,
+            Err(EvalError::TypeError(TypeError::NilLookup))
+        ));
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn assigning_to_a_property_is_the_same_as_to_a_member_keyed_by_the_string_of_property_name(
+        NaNLessTable(table): NaNLessTable,
+        prop: Ident,
+        value: LuaValue,
+    ) -> Result<(), LuaError> {
+        println!("{:?}\t{:?}\t{:?}", table, prop, value);
+        let module = string_parser::module(&format!(
+            "tbl1[\"{}\"] = value
+            tbl2.{} = value",
+            prop, prop
+        ))?;
+        let tbl1 = TableRef::from(table.clone());
+        let tbl2 = TableRef::from(table);
+        let mut context = GlobalContext::new();
+        context.set("tbl1", LuaValue::Table(tbl1.clone()));
+        context.set("tbl2", LuaValue::Table(tbl2.clone()));
+        context.set("value", value.clone());
+
+        module.eval(&mut context)?;
+        drop(context);
+        let tbl1 = tbl1.try_into_inner().unwrap();
+        let tbl2 = tbl2.try_into_inner().unwrap();
+        assert!(tbl1.total_eq(&tbl2));
+
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn accessing_property_of_a_non_indexable_value_is_an_error(
+        prop: Ident,
+        value: LuaValue,
+    ) -> Result<TestResult, LuaError> {
+        if value.is_table() {
+            return Ok(TestResult::discard());
+        }
+
+        let module = string_parser::module(&format!("value.{} = 42", prop))?;
+        let mut context = GlobalContext::new();
+        context.set("value", value);
+        let res = module.eval(&mut context);
+        assert!(matches!(
+            res,
+            Err(EvalError::TypeError(TypeError::CannotAssignProperty { .. }))
+        ));
+        Ok(TestResult::passed())
+    }
+
+    #[test]
+    fn lua_tests() -> Result<(), LuaError> {
+        run_lua_test!("./assignment.test.lua", GlobalContext::new())
     }
 }
