@@ -20,6 +20,10 @@ impl TableRef {
     pub fn try_into_inner(self) -> Option<TableValue> {
         Rc::try_unwrap(self.0).map(RefCell::into_inner).ok()
     }
+
+    pub fn get(&self, key: &LuaKey) -> LuaValue {
+        self.0.borrow().get(key).clone()
+    }
 }
 
 impl PartialEq for TableRef {

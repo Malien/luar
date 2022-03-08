@@ -1,11 +1,11 @@
 use std::fmt;
 
-use crate::lang::{LuaFunction, LuaNumber};
+use crate::lang::{EvalContext, EvalError, LuaFunction, LuaNumber};
 
 #[cfg(test)]
 use crate::test_util::{with_thread_gen, GenExt};
 
-use super::TableRef;
+use super::{ReturnValue, TableRef, TableValue};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LuaValue {
@@ -32,6 +32,16 @@ impl LuaValue {
 
     pub fn string(value: impl Into<String>) -> Self {
         Self::String(value.into())
+    }
+
+    pub fn table(value: TableValue) -> Self {
+        Self::Table(TableRef::from(value))
+    }
+
+    pub fn function(
+        func: impl Fn(&mut dyn EvalContext, &[LuaValue]) -> Result<ReturnValue, EvalError> + 'static,
+    ) -> Self {
+        Self::Function(LuaFunction::new(func))
     }
 
     pub fn unwrap_number(self) -> LuaNumber {
@@ -126,7 +136,6 @@ impl fmt::Display for LuaValue {
 #[cfg(test)]
 impl quickcheck::Arbitrary for LuaValue {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        use super::ReturnValue;
         match u8::arbitrary(g) % 5 {
             0 => LuaValue::Nil,
             1 => LuaValue::Number(with_thread_gen(LuaNumber::arbitrary)),

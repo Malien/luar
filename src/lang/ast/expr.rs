@@ -134,7 +134,7 @@ mod test {
     use crate::{
         error::LuaError,
         lang::{Eval, EvalContextExt, GlobalContext, LuaFunction, LuaValue, ReturnValue},
-        lex::{Ident, NumberLiteral, StringLiteral, Token},
+        lex::{NumberLiteral, StringLiteral, Token},
         syn::{lua_parser, string_parser},
         test_util::Finite,
         util::NonEmptyVec,
@@ -368,16 +368,6 @@ mod test {
             assert_eq!(expr.eval(&mut context)?, ReturnValue::Nil);
             Ok(())
         }
-    }
-
-    #[quickcheck]
-    fn eval_ident_on_global(value: LuaValue, ident: Ident) -> Result<(), LuaError> {
-        let module = string_parser::module(&format!("return {}", ident))?;
-        let mut context = GlobalContext::new();
-        assert_eq!(module.eval(&mut context)?, ReturnValue::Nil);
-        context.set(ident, value.clone());
-        assert!(module.eval(&mut context)?.total_eq(&value.into()));
-        Ok(())
     }
 
     #[test]

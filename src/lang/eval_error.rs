@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt;
 
 use super::{LuaType, LuaValue};
-use crate::syn;
+use crate::{lex::Ident, syn};
 
 #[derive(Debug)]
 pub enum EvalError {
@@ -19,6 +19,12 @@ pub enum TypeError {
         position: usize,
         expected: LuaType,
         got: LuaType,
+    },
+    NilLookup,
+    IsNotIndexable(LuaValue),
+    CannotAccessProperty {
+        property: Ident,
+        of: LuaValue,
     },
 }
 
@@ -37,7 +43,7 @@ impl fmt::Display for EvalError {
         match self {
             Self::TypeError(err) => fmt::Display::fmt(err, f),
             Self::AssertionError => f.write_str("Assertion failed"),
-            Self::IO(err) => write!(f, "IO Error: {}", err)
+            Self::IO(err) => write!(f, "IO Error: {}", err),
         }
     }
 }
@@ -60,6 +66,11 @@ impl fmt::Display for TypeError {
                     "Invalid argument type at position {}, expected {}, got {}",
                     position, expected, got
                 )
+            }
+            Self::NilLookup => write!(f, "Tried to perform a table lookup with a nil key"),
+            Self::IsNotIndexable(value) => write!(f, "Value {} cannot be indexed", value),
+            Self::CannotAccessProperty { property, of } => {
+                write!(f, "Cannot access property {} of {}", property, of)
             }
         }
     }

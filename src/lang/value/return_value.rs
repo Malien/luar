@@ -76,6 +76,18 @@ impl ReturnValue {
     pub fn string(value: impl Into<String>) -> Self {
         Self::String(value.into())
     }
+
+    pub fn is_multiple_return(&self) -> bool {
+        matches!(self, Self::MultiValue(_))
+    }
+
+    pub fn unwrap_multiple_return(self) -> NonEmptyVec<LuaValue> {
+        if let Self::MultiValue(values) = self {
+            values
+        } else {
+            panic!("Called unwrap_multiple_return() on {:?}", self)
+        }
+    }
 }
 
 impl fmt::Display for ReturnValue {
