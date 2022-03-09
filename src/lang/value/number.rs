@@ -44,6 +44,12 @@ impl From<i32> for LuaNumber {
     }
 }
 
+impl From<u64> for LuaNumber {
+    fn from(v: u64) -> Self {
+        LuaNumber(v as f64)
+    }
+}
+
 impl From<u8> for LuaNumber {
     fn from(v: u8) -> Self {
         LuaNumber(v as f64)
