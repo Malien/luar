@@ -94,7 +94,7 @@ mod test {
     use crate::lex::Ident;
     use crate::lex::ToTokenStream;
     use crate::lex::Token;
-    use crate::syn::lua_parser;
+    use crate::syn::unspanned_lua_token_parser;
     use crate::syn::Expression;
     use crate::test_util::arbitrary_recursive_vec;
     use crate::test_util::with_thread_gen;
@@ -145,14 +145,14 @@ mod test {
     #[test]
     fn parses_empty_table_constructor() {
         let tokens = [Token::OpenSquigglyBracket, Token::CloseSquigglyBracket];
-        let parsed = lua_parser::table_constructor(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::table_constructor(tokens).unwrap();
         assert_eq!(parsed, TableConstructor::empty());
     }
 
     #[quickcheck]
     fn parses_arbitrary_table_constructor(expected: TableConstructor) {
         let tokens = expected.clone().to_tokens().collect::<Vec<_>>();
-        let parsed = lua_parser::table_constructor(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::table_constructor(tokens).unwrap();
         assert_eq!(parsed, expected);
     }
 
@@ -168,7 +168,7 @@ mod test {
         tokens.extend(lfieldlist_tokens(exprs.clone()));
         tokens.push(Token::Comma);
         tokens.push(Token::CloseSquigglyBracket);
-        let parsed = lua_parser::table_constructor(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::table_constructor(tokens).unwrap();
         let table_constructor = TableConstructor::lfieldlist(exprs);
         assert_eq!(parsed, table_constructor);
         TestResult::passed()
@@ -183,7 +183,7 @@ mod test {
         tokens.push(Token::OpenSquigglyBracket);
         tokens.extend(lfieldlist_tokens(exprs.clone()));
         tokens.push(Token::CloseSquigglyBracket);
-        let parsed = lua_parser::table_constructor(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::table_constructor(tokens).unwrap();
         let table_constructor = TableConstructor::lfieldlist(exprs);
         assert_eq!(parsed, table_constructor);
         TestResult::passed()
@@ -198,7 +198,7 @@ mod test {
         }
         let expected = TableConstructor::ffieldlist(exprs);
         let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::table_constructor(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::table_constructor(tokens).unwrap();
         assert_eq!(parsed, expected);
         TestResult::passed()
     }

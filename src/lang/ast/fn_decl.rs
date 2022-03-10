@@ -58,7 +58,7 @@ mod test {
         lex::Ident,
         ne_vec,
         syn::{
-            string_parser, Block, Chunk, Expression, FunctionCall, FunctionCallArgs,
+            lua_parser, Block, Chunk, Expression, FunctionCall, FunctionCallArgs,
             FunctionDeclaration, FunctionName, Module, Return, Var,
         },
         util::NonEmptyVec,
@@ -66,7 +66,7 @@ mod test {
 
     #[quickcheck]
     fn fn_declaration_puts_function_in_scope(ident: Ident) -> Result<(), LuaError> {
-        let module = string_parser::module(&format!("function {}() end", ident))?;
+        let module = lua_parser::module(&format!("function {}() end", ident))?;
         let mut context = GlobalContext::new();
         module.eval(&mut context)?;
         assert!(context.get(&ident).is_function());
@@ -75,7 +75,7 @@ mod test {
 
     #[quickcheck]
     fn fn_declaration_return(ret_value: LuaValue) -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "function myfn() return value end
             return myfn()",
         )?;
@@ -136,7 +136,7 @@ mod test {
             .map(Ident::new)
             .collect();
         let idents_str = idents.iter().join(", ");
-        let module = string_parser::module(&format!(
+        let module = lua_parser::module(&format!(
             "function myfn()
                 return {}
             end
@@ -158,7 +158,7 @@ mod test {
 
     #[test]
     fn function_executes_side_effect() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "executed = nil
             function myfn() 
                 executed = 1
@@ -174,7 +174,7 @@ mod test {
 
     #[quickcheck]
     fn local_declarations_stay_local(ident: Ident) -> Result<(), LuaError> {
-        let module = string_parser::module(&format!(
+        let module = lua_parser::module(&format!(
             "{} = \"global\"
             function myfn()
                 local {} = \"local\"
@@ -198,7 +198,7 @@ mod test {
     fn arguments_passed_in_are_defined_as_local_variables_inside_fn(
         value: LuaValue,
     ) -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "function myfn(arg)
                 return arg
             end
@@ -214,7 +214,7 @@ mod test {
 
     #[test]
     fn not_passed_arguments_are_set_to_nil() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "function myfn(a, b, c, d)
                 return a, b, c, d
             end
@@ -234,7 +234,7 @@ mod test {
 
     #[test]
     fn passing_more_arguments_than_stated_just_gets_arglist_truncated() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "function myfn(a, b)
                 return a, b
             end

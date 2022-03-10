@@ -2,10 +2,7 @@ use lazy_static::lazy_static;
 #[cfg(test)]
 use quickcheck::Arbitrary;
 use regex::Regex;
-use std::{
-    iter::{self, FlatMap, Once},
-    str::FromStr,
-};
+use std::{iter, str::FromStr};
 use thiserror::Error;
 
 use super::{ToTokenStream, Token};
@@ -81,7 +78,7 @@ impl std::fmt::Display for Ident {
 
 #[cfg(test)]
 const VALID_IDENT_CHARS: &'static str =
-    "1234567890_abcdefghigklmnopqrstuvwxyzABCDEFGHIGKLMNOPQRSTUVWXYZ";
+    "1234567890_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 #[cfg(test)]
 const VALID_IDENT_BYTES: &[u8] = VALID_IDENT_CHARS.as_bytes();
 
@@ -109,17 +106,17 @@ impl Arbitrary for Ident {
     }
 }
 
-impl ToTokenStream for Vec<Ident> {
-    // I hate how this is forcing FlatMap to take a function pointer
-    // rather than be specialized with exact function type. Gimme impl
-    // Iterator, or at least let me name types of specific functions!
-    type Tokens = FlatMap<
-        std::vec::IntoIter<Ident>,
-        Once<Token>,
-        fn(Ident) -> <Ident as ToTokenStream>::Tokens,
-    >;
+// impl ToTokenStream for Vec<Ident> {
+//     // I hate how this is forcing FlatMap to take a function pointer
+//     // rather than be specialized with exact function type. Gimme impl
+//     // Iterator, or at least let me name types of specific functions!
+//     type Tokens = FlatMap<
+//         std::vec::IntoIter<Ident>,
+//         Once<Token>,
+//         fn(Ident) -> <Ident as ToTokenStream>::Tokens,
+//     >;
 
-    fn to_tokens(self) -> Self::Tokens {
-        self.into_iter().flat_map(ToTokenStream::to_tokens)
-    }
-}
+//     fn to_tokens(self) -> Self::Tokens {
+//         self.into_iter().flat_map(ToTokenStream::to_tokens)
+//     }
+// }

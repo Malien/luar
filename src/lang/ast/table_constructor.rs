@@ -33,14 +33,14 @@ mod test {
         error::LuaError,
         lang::{Eval, EvalContextExt, GlobalContext, LuaKey, LuaValue, TableValue},
         lex::Ident,
-        syn::{string_parser, Expression, TableConstructor, Var},
+        syn::{lua_parser, Expression, TableConstructor, Var},
         test_util::vec_of_idents,
         util::NonEmptyVec,
     };
 
     #[test]
     fn empty_table_constructor_creates_empty_table() -> Result<(), LuaError> {
-        let module = string_parser::module("return {}")?;
+        let module = lua_parser::module("return {}")?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?.assert_single();
         assert!(res.is_table());

@@ -48,7 +48,7 @@ mod test {
         lex::{Ident, ToTokenStream, Token},
         syn::{
             expr::{Expression, Var},
-            lua_parser,
+            unspanned_lua_token_parser, RawParseError,
         },
         test_util::{with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH},
     };
@@ -93,13 +93,13 @@ mod test {
 
     #[quickcheck]
     fn parse_named_var(ident: Ident) {
-        let parsed = lua_parser::var(&[Token::Ident(ident.clone())]).unwrap();
+        let parsed = unspanned_lua_token_parser::var([Token::Ident(ident.clone())]).unwrap();
         assert_eq!(Var::Named(ident), parsed);
     }
 
     #[quickcheck]
     fn parse_single_ppty_access(base: Ident, property: Ident) {
-        let parsed = lua_parser::var(&[
+        let parsed = unspanned_lua_token_parser::var([
             Token::Ident(base.clone()),
             Token::Dot,
             Token::Ident(property.clone()),
@@ -121,7 +121,7 @@ mod test {
         sequence.extend(properties.iter().cloned().flat_map(|property| {
             std::iter::once(Token::Dot).chain(std::iter::once(Token::Ident(property)))
         }));
-        let parsed = lua_parser::var(&sequence).unwrap();
+        let parsed = unspanned_lua_token_parser::var(sequence).unwrap();
         let mut var = Var::Named(base);
         for property in properties {
             var = Var::PropertyAccess {
@@ -132,14 +132,12 @@ mod test {
         assert_eq!(var, parsed);
     }
 
-    type Res = Result<(), peg::error::ParseError<usize>>;
-
     #[quickcheck]
-    fn parse_single_member_lookup(base: Ident, expression: Expression) -> Res {
+    fn parse_single_member_lookup(base: Ident, expression: Expression) -> Result<(), RawParseError>{
         let mut tokens = vec![Token::Ident(base.clone()), Token::OpenSquareBracket];
         tokens.extend(expression.clone().to_tokens());
         tokens.push(Token::CloseSquareBracket);
-        let parsed = lua_parser::var(&tokens)?;
+        let parsed = unspanned_lua_token_parser::var(tokens)?;
         assert_eq!(
             parsed,
             Var::MemberLookup {
@@ -161,7 +159,7 @@ mod test {
             tokens.push(Token::CloseSquareBracket);
             tokens
         }));
-        let parsed = lua_parser::var(&sequence).unwrap();
+        let parsed = unspanned_lua_token_parser::var(sequence).unwrap();
         let mut var = Var::Named(base);
         for expression in expressions {
             var = Var::MemberLookup {
@@ -175,7 +173,7 @@ mod test {
     #[quickcheck]
     fn parse_arbitrary_var(expected: Var) {
         let tokens = expected.clone().to_tokens().collect::<Vec<_>>();
-        let parsed = lua_parser::var(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::var(tokens).unwrap();
         assert_eq!(parsed, expected);
     }
 }

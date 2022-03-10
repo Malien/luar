@@ -56,18 +56,15 @@ mod test {
             LuaValue, NaNLessTable, ReturnValue, TableRef, TableValue, TypeError,
         },
         lex::{Ident, Token},
-        syn::{lua_parser, string_parser, Module, ParseError},
+        run_lua_test,
+        syn::{lua_parser, unspanned_lua_token_parser, Module, RawParseError},
         test_util::vec_of_idents,
-        util::NonEmptyVec, run_lua_test,
+        util::NonEmptyVec,
     };
 
     #[quickcheck]
     fn eval_single_assignment(ident: Ident, v1: LuaValue, v2: LuaValue) -> Result<(), LuaError> {
-        let module = lua_parser::module(&[
-            Token::Ident(ident.clone()),
-            Token::Assignment,
-            Token::Ident(Ident::new("value")),
-        ])?;
+        let module = lua_parser::module(&format!("{} = value", ident))?;
         let mut context = GlobalContext::new();
         assert_eq!(context.get(&ident), &LuaValue::Nil);
         context.set("value", v1.clone());
@@ -156,7 +153,7 @@ mod test {
         let tokens: Vec<_> =
             multiple_assignment_tokens(idents.iter().cloned(), value_idents.iter().cloned())
                 .collect();
-        let module = lua_parser::module(&tokens)?;
+        let module = unspanned_lua_token_parser::module(tokens)?;
 
         let mut context = GlobalContext::new();
         assign_values(
@@ -205,7 +202,7 @@ mod test {
                 Token::CloseRoundBracket,
             ])
             .collect();
-        let module = lua_parser::module(&tokens)?;
+        let module = unspanned_lua_token_parser::module(tokens)?;
 
         let mut context = GlobalContext::new();
         context.set("myfn", multi_return_fn(right_values.clone()));
@@ -225,7 +222,7 @@ mod test {
         left_idents: impl Iterator<Item = Ident>,
         right_idents: impl Iterator<Item = Ident>,
         fn_name: Ident,
-    ) -> Result<Module, ParseError> {
+    ) -> Result<Module, RawParseError> {
         let tokens: Vec<_> = idents
             .map(Token::Ident)
             .intersperse_with(|| Token::Comma)
@@ -247,7 +244,7 @@ mod test {
                     .intersperse_with(|| Token::Comma),
             )
             .collect();
-        lua_parser::module(&tokens)
+        unspanned_lua_token_parser::module(tokens)
     }
 
     #[quickcheck]
@@ -297,7 +294,7 @@ mod test {
                 return Ok(TestResult::discard());
             }
         }
-        let module = string_parser::module("table[key] = value")?;
+        let module = lua_parser::module("table[key] = value")?;
 
         let table = TableRef::from(TableValue::new());
         let mut context = GlobalContext::new();
@@ -316,7 +313,7 @@ mod test {
         prev_value: LuaValue,
         value: LuaValue,
     ) -> Result<TestResult, LuaError> {
-        let module = string_parser::module("table[key] = value")?;
+        let module = lua_parser::module("table[key] = value")?;
         if let LuaKey::Number(num) = key {
             if num.as_f64().is_nan() {
                 return Ok(TestResult::discard());
@@ -345,7 +342,7 @@ mod test {
             return Ok(TestResult::discard());
         }
 
-        let module = string_parser::module("value[key] = 42")?;
+        let module = lua_parser::module("value[key] = 42")?;
         let mut context = GlobalContext::new();
         context.set("key", key.into());
         context.set("value", value);
@@ -359,7 +356,7 @@ mod test {
 
     #[test]
     fn assigning_to_a_nil_member_is_an_error() -> Result<(), LuaError> {
-        let module = string_parser::module("tbl = {} tbl[nil] = 42")?;
+        let module = lua_parser::module("tbl = {} tbl[nil] = 42")?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context);
         assert!(matches!(
@@ -376,7 +373,7 @@ mod test {
         value: LuaValue,
     ) -> Result<(), LuaError> {
         println!("{:?}\t{:?}\t{:?}", table, prop, value);
-        let module = string_parser::module(&format!(
+        let module = lua_parser::module(&format!(
             "tbl1[\"{}\"] = value
             tbl2.{} = value",
             prop, prop
@@ -406,7 +403,7 @@ mod test {
             return Ok(TestResult::discard());
         }
 
-        let module = string_parser::module(&format!("value.{} = 42", prop))?;
+        let module = lua_parser::module(&format!("value.{} = 42", prop))?;
         let mut context = GlobalContext::new();
         context.set("value", value);
         let res = module.eval(&mut context);

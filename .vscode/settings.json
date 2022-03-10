@@ -1,12 +1,30 @@
 {
     "cSpell.words": [
+        "Arglist",
+        "decllist",
         "denum",
         "effecty",
+        "exprlist",
         "ffield",
         "ffieldlist",
+        "Hasher",
+        "heapsort",
         "idents",
+        "indoc",
+        "insta",
+        "itertools",
         "lfield",
         "lfieldlist",
-        "mult"
+        "luar",
+        "mlua",
+        "mult",
+        "myfn",
+        "ppty",
+        "shrinked",
+        "stmnt",
+        "tailrec",
+        "thiserror",
+        "unspanned",
+        "varlist"
     ]
 }

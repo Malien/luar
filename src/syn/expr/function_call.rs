@@ -67,12 +67,11 @@ impl ToTokenStream for FunctionCallArgs {
 
 #[cfg(test)]
 mod test {
-    use peg::error::ParseError;
     use quickcheck::{empty_shrinker, Arbitrary, Gen};
 
     use crate::{lex::{Ident, ToTokenStream}, syn::{
             expr::{Expression, TableConstructor, Var},
-            lua_parser,
+            unspanned_lua_token_parser, ParseError,
         }, test_util::{QUICKCHECK_RECURSIVE_DEPTH, arbitrary_recursive_vec, with_thread_gen}};
 
     use super::{FunctionCall, FunctionCallArgs};
@@ -191,7 +190,7 @@ mod test {
             args: FunctionCallArgs::Arglist(Vec::new()),
         };
         let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::function_call(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::function_call(tokens).unwrap();
         assert_eq!(expected, parsed);
     }
 
@@ -202,18 +201,18 @@ mod test {
             args: FunctionCallArgs::Table(TableConstructor::empty()),
         };
         let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::function_call(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::function_call(tokens).unwrap();
         assert_eq!(expected, parsed);
     }
 
     #[quickcheck]
-    fn parases_arbitrary_table_function_call(func: Var, tbl: TableConstructor) {
+    fn parses_arbitrary_table_function_call(func: Var, tbl: TableConstructor) {
         let expected = FunctionCall::Function {
             func,
             args: FunctionCallArgs::Table(tbl),
         };
         let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::function_call(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::function_call(tokens).unwrap();
         assert_eq!(expected, parsed);
     }
 
@@ -221,13 +220,13 @@ mod test {
     fn parses_arbitrary_arglist_function_call(
         func: Var,
         args: Vec<Expression>,
-    ) -> Result<(), ParseError<usize>> {
+    ) -> Result<(), ParseError> {
         let expected = FunctionCall::Function {
             func,
             args: FunctionCallArgs::Arglist(args),
         };
         let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::function_call(&tokens)?;
+        let parsed = unspanned_lua_token_parser::function_call(tokens)?;
         assert_eq!(expected, parsed);
         Ok(())
     }
@@ -236,10 +235,10 @@ mod test {
     fn parses_arbitrary_function_function_call(
         func: Var,
         args: FunctionCallArgs,
-    ) -> Result<(), ParseError<usize>> {
+    ) -> Result<(), ParseError> {
         let expected = FunctionCall::Function { func, args };
         let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::function_call(&tokens)?;
+        let parsed = unspanned_lua_token_parser::function_call(tokens)?;
         assert_eq!(expected, parsed);
         Ok(())
     }
@@ -249,18 +248,18 @@ mod test {
         func: Var,
         method: Ident,
         args: FunctionCallArgs,
-    ) -> Result<(), ParseError<usize>> {
+    ) -> Result<(), ParseError> {
         let expected = FunctionCall::Method { func, method, args };
         let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::function_call(&tokens)?;
+        let parsed = unspanned_lua_token_parser::function_call(tokens)?;
         assert_eq!(expected, parsed);
         Ok(())
     }
 
     #[quickcheck]
-    fn parses_arbitrary_function_call(expected: FunctionCall) -> Result<(), ParseError<usize>> {
+    fn parses_arbitrary_function_call(expected: FunctionCall) -> Result<(), ParseError> {
         let tokens: Vec<_> = expected.clone().to_tokens().collect();
-        let parsed = lua_parser::function_call(&tokens)?;
+        let parsed = unspanned_lua_token_parser::function_call(tokens)?;
         assert_eq!(expected, parsed);
         Ok(())
     }

@@ -70,7 +70,7 @@ mod test {
     use crate::{
         input_parsing_expectation,
         lex::{Ident, NumberLiteral, ToTokenStream},
-        syn::{expr::Expression, lua_parser, Declaration, Statement, Block},
+        syn::{expr::Expression, unspanned_lua_token_parser, Declaration, Statement, Block},
         test_util::GenExt,
         util::NonEmptyVec,
     };
@@ -376,7 +376,7 @@ mod test {
     #[quickcheck]
     fn parses_arbitrary_conditional(conditional: Conditional) {
         let tokens: Vec<_> = conditional.clone().to_tokens().collect();
-        let parsed = lua_parser::conditional(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::conditional(tokens).unwrap();
         assert_eq!(parsed, conditional);
     }
 }

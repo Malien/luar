@@ -69,7 +69,7 @@ fmt_tokens!(UnaryOperator);
 
 #[cfg(test)]
 pub mod test {
-    use crate::{lex::Token, syn::lua_parser};
+    use crate::{lex::Token, syn::unspanned_lua_token_parser};
 
     use super::{BinaryOperator, UnaryOperator};
     use indoc::indoc;
@@ -139,7 +139,7 @@ pub mod test {
             not 1^2 * - 3 + 4 / 5 .. 6 - 7 < 8 and 9 > 10 or 11 == 12
         "};
         let tokens: Vec<_> = Token::lexer(TEXT).collect();
-        let expression = lua_parser::expression(&tokens).unwrap();
+        let expression = unspanned_lua_token_parser::expression(tokens).unwrap();
         insta::assert_debug_snapshot!(expression);
     }
 
@@ -174,7 +174,7 @@ pub mod test {
             1 <= 2 and 3 + not 4 * 5 ^ 6 >= 7 - - 8 / 9 or 10 ~= 11 .. 12
         "};
         let tokens: Vec<_> = Token::lexer(TEXT).collect();
-        let expression = lua_parser::expression(&tokens).unwrap();
+        let expression = unspanned_lua_token_parser::expression(tokens).unwrap();
         insta::assert_debug_snapshot!(expression);
     }
 
@@ -213,7 +213,7 @@ pub mod test {
             1 <= ((2 and 3) + not (4 * 5)) ^ 6 >= 7 - - 8 / ((9 or 10) ~= 11) .. 12
         "};
         let tokens: Vec<_> = Token::lexer(TEXT).collect();
-        let expression = lua_parser::expression(&tokens).unwrap();
+        let expression = unspanned_lua_token_parser::expression(tokens).unwrap();
         insta::assert_debug_snapshot!(expression);
     }
 }

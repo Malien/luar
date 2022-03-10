@@ -71,7 +71,7 @@ mod test {
 
     use crate::{
         lex::{NumberLiteral, StringLiteral, ToTokenStream, Token},
-        syn::{expr::Var, lua_parser, BinaryOperator, UnaryOperator},
+        syn::{expr::Var, unspanned_lua_token_parser, BinaryOperator, UnaryOperator},
     };
 
     use super::Expression;
@@ -129,13 +129,13 @@ mod test {
 
     #[test]
     fn nill_expr() {
-        let parsed = lua_parser::expression(&[Token::Nil]).unwrap();
+        let parsed = unspanned_lua_token_parser::expression([Token::Nil]).unwrap();
         assert_eq!(Expression::Nil, parsed);
     }
 
     #[quickcheck]
     fn number_expr(literal: NumberLiteral) {
-        let expression = lua_parser::expression(&[Token::Number(literal)]).unwrap();
+        let expression = unspanned_lua_token_parser::expression([Token::Number(literal)]).unwrap();
         match (&literal, &expression) {
             (NumberLiteral(x), Expression::Number(NumberLiteral(y))) if f64::is_nan(*x) => {
                 assert!(f64::is_nan(*y))
@@ -148,28 +148,28 @@ mod test {
     fn string_expr(literal: StringLiteral) {
         assert_eq!(
             Expression::String(literal.clone()),
-            lua_parser::expression(&[Token::String(literal)]).unwrap()
+            unspanned_lua_token_parser::expression([Token::String(literal)]).unwrap()
         );
     }
 
     #[quickcheck]
     fn var_expr(expected: Var) {
         let tokens = expected.clone().to_tokens().collect::<Vec<_>>();
-        let parsed = lua_parser::expression(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::expression(tokens).unwrap();
         assert_eq!(parsed, Expression::Variable(expected));
     }
 
     #[quickcheck]
     fn parses_arbitrary_expression(expected: Expression) {
         let tokens = expected.clone().to_tokens().collect::<Vec<_>>();
-        let parsed = lua_parser::expression(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::expression(tokens).unwrap();
         assert_eq!(parsed, expected);
     }
 
     #[test]
     fn parses_my_example() {
         let tokens: Vec<_> = Token::lexer("A[{}]").collect();
-        let parsed = lua_parser::expression(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::expression(tokens).unwrap();
         assert_eq!(
             Expression::Variable(Var::MemberLookup {
                 from: Box::new(Var::Named("A".parse().unwrap())),

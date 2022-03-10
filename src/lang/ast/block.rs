@@ -28,12 +28,12 @@ mod test {
     use crate::{
         error::LuaError,
         lang::{Eval, GlobalContext},
-        syn::string_parser,
+        syn::lua_parser,
     };
 
     #[test]
     fn early_returns_from_blocks_stop_flow_of_execution() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "if 1 then
                 return 1
             end
@@ -47,7 +47,7 @@ mod test {
 
     #[test]
     fn early_returns_from_functions_stop_flow_of_execution() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "function fn()
                 if 1 then
                     return 1

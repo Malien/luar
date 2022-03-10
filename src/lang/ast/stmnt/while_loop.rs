@@ -25,12 +25,12 @@ mod test {
     use crate::{
         error::LuaError,
         lang::{Eval, GlobalContext, LuaValue, EvalContextExt, ReturnValue},
-        syn::string_parser, ne_vec,
+        syn::lua_parser, ne_vec,
     };
 
     #[test]
     fn while_loop_with_falsy_condition_does_not_execute_body() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "while nil do
                 side_effect_committed = 1
             end
@@ -44,7 +44,7 @@ mod test {
 
     #[test]
     fn while_loop_with_truthy_condition_executes_body_at_least_once() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "while not side_effect_committed do
                 side_effect_committed = 1
             end
@@ -58,7 +58,7 @@ mod test {
 
     #[quickcheck]
     fn while_loop_executes_until_condition_is_true(times: u8) -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "count_executed = 0
             while i ~= 0 do
                 count_executed = count_executed + 1
@@ -79,7 +79,7 @@ mod test {
 
     #[test]
     fn while_loop_early_return() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "while 1 do
                 return 1
             end"

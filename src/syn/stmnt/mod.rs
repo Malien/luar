@@ -52,7 +52,7 @@ mod test {
 
     use crate::lex::{ToTokenStream, Token};
     use crate::syn::expr::function_call::FunctionCall;
-    use crate::syn::lua_parser;
+    use crate::syn::unspanned_lua_token_parser;
 
     use super::{Assignment, Conditional, Declaration, RepeatLoop, Statement, WhileLoop};
 
@@ -85,7 +85,7 @@ mod test {
     #[quickcheck]
     fn parses_arbitrary_statement(expected: Statement) {
         let tokens = expected.clone().to_tokens().collect::<Vec<_>>();
-        let parsed = lua_parser::statement(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::statement(tokens).unwrap();
         assert_eq!(parsed, expected);
     }
 
@@ -96,7 +96,7 @@ mod test {
             .to_tokens()
             .chain(std::iter::once(Token::Semicolon))
             .collect();
-        let parsed = lua_parser::statement(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::statement(tokens).unwrap();
         assert_eq!(parsed, expected);
     }
 }

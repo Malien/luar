@@ -1,6 +1,13 @@
 use crate::lex::{Ident, Token};
 use crate::util::NonEmptyVec;
 
+mod token_stream;
+use peg::error::ExpectedSet;
+pub use token_stream::*;
+
+mod token_span;
+pub use token_span::*;
+
 pub mod expr;
 pub use expr::op::*;
 pub use expr::*;
@@ -65,25 +72,115 @@ fn compose_function_call(head: FunctionCallHead, args: FunctionCallArgs) -> Func
     }
 }
 
-pub type ParseError = peg::error::ParseError<usize>;
+#[derive(Debug, thiserror::Error)]
+pub enum ParseError {
+    #[error("{0}")]
+    Raw(#[from] RawParseError),
+    #[error("{0}")]
+    Identified(#[from] ParseErrorWithSourcePosition),
+}
 
-pub mod string_parser {
+pub type RawParseError = peg::error::ParseError<TokenSpan>;
+
+#[derive(Debug, thiserror::Error)]
+#[error("Encountered a parsing error at {start:?}")]
+pub struct ParseErrorWithSourcePosition {
+    expected: ExpectedSet,
+    start: Option<SourcePosition>,
+    end: Option<SourcePosition>,
+}
+
+pub(crate) fn enrich_error(source: &str, raw_error: RawParseError) -> ParseErrorWithSourcePosition {
+    let RawParseError { expected, location } = raw_error;
+    match location {
+        TokenSpan::SourceByteSpan { start, end } => ParseErrorWithSourcePosition {
+            expected,
+            start: find_source_position(source, start),
+            end: find_source_position(source, end),
+        },
+        TokenSpan::Unknown => ParseErrorWithSourcePosition {
+            expected,
+            start: None,
+            end: None,
+        },
+        TokenSpan::StreamPosition(_) => ParseErrorWithSourcePosition {
+            expected,
+            start: None,
+            end: None,
+        },
+    }
+}
+
+pub mod lua_parser {
     macro_rules! forward {
         ($rule: ident, $ret: ty) => {
-            pub fn $rule(input: &str) -> Result<$ret, crate::syn::ParseError> {
+            pub fn $rule(input: &str) -> Result<$ret, crate::syn::ParseErrorWithSourcePosition> {
                 use logos::Logos;
-                let tokens: Vec<_> = crate::lex::Token::lexer(input).collect();
-                crate::syn::lua_parser::$rule(&tokens)
+                let tokens: crate::syn::TokenStream =
+                    crate::lex::Token::lexer(input).spanned().collect();
+                crate::syn::lua_token_parser::$rule(&tokens)
+                    .map_err(|error| super::enrich_error(input, error))
             }
         };
     }
 
+    forward!(nil, super::Expression);
+    forward!(string, super::Expression);
+    forward!(number, super::Expression);
+    forward!(var_expression, super::Expression);
+    forward!(tbl_expression, super::Expression);
     forward!(expression, super::Expression);
+    forward!(block, super::Block);
+    forward!(function_call, super::FunctionCall);
+    forward!(table_constructor, super::TableConstructor);
+    forward!(var, super::Var);
+    forward!(function_declaration, super::FunctionDeclaration);
+    forward!(ret, super::Return);
+    forward!(declaration, super::Declaration);
+    forward!(assignment, super::Assignment);
+    forward!(conditional, super::Conditional);
+    forward!(statement, super::Statement);
+    forward!(repeat_loop, super::RepeatLoop);
+    forward!(while_loop, super::WhileLoop);
+    forward!(module, super::Module);
+}
+
+pub mod unspanned_lua_token_parser {
+    macro_rules! forward {
+        ($rule: ident, $ret: ty) => {
+            pub fn $rule(
+                input: impl ::std::iter::IntoIterator<Item = crate::lex::Token>,
+            ) -> Result<$ret, crate::syn::RawParseError> {
+                crate::syn::lua_token_parser::$rule(
+                    &crate::syn::ToTokenStreamExt::to_spanned_token_stream(input.into_iter()),
+                )
+            }
+        };
+    }
+
+    forward!(nil, super::Expression);
+    forward!(string, super::Expression);
+    forward!(number, super::Expression);
+    forward!(var_expression, super::Expression);
+    forward!(tbl_expression, super::Expression);
+    forward!(expression, super::Expression);
+    forward!(block, super::Block);
+    forward!(function_call, super::FunctionCall);
+    forward!(table_constructor, super::TableConstructor);
+    forward!(var, super::Var);
+    forward!(function_declaration, super::FunctionDeclaration);
+    forward!(ret, super::Return);
+    forward!(declaration, super::Declaration);
+    forward!(assignment, super::Assignment);
+    forward!(conditional, super::Conditional);
+    forward!(statement, super::Statement);
+    forward!(repeat_loop, super::RepeatLoop);
+    forward!(while_loop, super::WhileLoop);
     forward!(module, super::Module);
 }
 
 peg::parser! {
-    pub grammar lua_parser() for [Token] {
+    pub grammar lua_token_parser() for TokenStream {
         pub rule nil() -> Expression
             = _:[Token::Nil] { Expression::Nil }
 
@@ -99,7 +196,7 @@ peg::parser! {
         pub rule tbl_expression() -> Expression
             = tbl:table_constructor() { Expression::TableConstructor(tbl) }
 
-        pub rule var_or_func_expression() -> Expression
+        rule var_or_func_expression() -> Expression
             = func:var() _:[Token::Colon] _:[Token::Ident(method)] args:function_call_args() {
                 Expression::FunctionCall(FunctionCall::Method { func, method, args })
             }
@@ -435,9 +532,8 @@ peg::parser! {
             }
 
         pub rule ret() -> Return
-            = _:[Token::Return] exprs:expression() ++ [Token::Comma] {
-                // SAFETY: ++ matches non empty sequence
-                Return(unsafe { NonEmptyVec::new_unchecked(exprs) })
+            = _:[Token::Return] exprs:expression() ** [Token::Comma] {
+                Return(exprs)
             }
 
         pub rule function_declaration() -> FunctionDeclaration
@@ -477,8 +573,9 @@ mod tests {
             #[test]
             fn $name() {
                 use logos::Logos;
-                let tokens: Vec<_> = crate::lex::Token::lexer($input).collect();
-                let parsed = crate::syn::lua_parser::$type(&tokens).unwrap();
+                let tokens: crate::syn::TokenStream =
+                    crate::lex::Token::lexer($input).spanned().collect();
+                let parsed = crate::syn::lua_token_parser::$type(&tokens).unwrap();
                 assert_eq!(parsed, $expected)
             }
         };
@@ -488,8 +585,10 @@ mod tests {
     macro_rules! assert_parses {
         ($type: ident, $expected: expr) => {{
             let expected = $expected;
-            let tokens: Vec<_> = crate::lex::ToTokenStream::to_tokens(expected.clone()).collect();
-            let parsed = crate::syn::lua_parser::$type(&tokens).unwrap();
+            let parsed = crate::syn::unspanned_lua_token_parser::$type(
+                crate::lex::ToTokenStream::to_tokens(expected.clone()),
+            )
+            .unwrap();
             assert_eq!(expected, parsed);
         }};
     }

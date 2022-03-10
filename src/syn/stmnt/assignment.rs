@@ -36,7 +36,7 @@ fmt_tokens!(Assignment);
 #[cfg(test)]
 mod test {
     use super::Assignment;
-    use crate::{lex::ToTokenStream, syn::lua_parser};
+    use crate::{lex::ToTokenStream, syn::unspanned_lua_token_parser};
     use quickcheck::Arbitrary;
 
     impl Arbitrary for Assignment {
@@ -68,7 +68,7 @@ mod test {
     #[quickcheck]
     fn parses_arbitrary_assignment(expected: Assignment) {
         let tokens = expected.clone().to_tokens().collect::<Vec<_>>();
-        let parsed = lua_parser::assignment(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::assignment(tokens).unwrap();
         assert_eq!(parsed, expected);
     }
 }

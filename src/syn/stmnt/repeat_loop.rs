@@ -32,7 +32,7 @@ mod test {
     use crate::{
         input_parsing_expectation,
         lex::{Ident, NumberLiteral, ToTokenStream},
-        syn::{expr::Expression, lua_parser, Declaration, Statement, Block},
+        syn::{expr::Expression, unspanned_lua_token_parser, Declaration, Statement, Block},
         util::NonEmptyVec,
     };
 
@@ -139,7 +139,7 @@ mod test {
             condition,
         };
         let tokens: Vec<_> = repeat_loop.clone().to_tokens().collect();
-        let parsed = lua_parser::repeat_loop(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::repeat_loop(tokens).unwrap();
         assert_eq!(repeat_loop, parsed)
     }
 
@@ -150,14 +150,14 @@ mod test {
             condition: Expression::Nil,
         };
         let tokens: Vec<_> = repeat_loop.clone().to_tokens().collect();
-        let parsed = lua_parser::repeat_loop(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::repeat_loop(tokens).unwrap();
         assert_eq!(repeat_loop, parsed);
     }
 
     #[quickcheck]
     fn parses_arbitrary_repeat_loop(repeat_loop: RepeatLoop) {
         let tokens: Vec<_> = repeat_loop.clone().to_tokens().collect();
-        let parsed = lua_parser::repeat_loop(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::repeat_loop(tokens).unwrap();
         assert_eq!(repeat_loop, parsed);
     }
 }

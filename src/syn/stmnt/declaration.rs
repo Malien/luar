@@ -42,8 +42,8 @@ mod test {
     use super::Declaration;
     use crate::{
         lex::{Ident, NumberLiteral, ToTokenStream, Token},
-        syn::{expr::Expression, lua_parser},
-        util::NonEmptyVec,
+        syn::{expr::Expression, unspanned_lua_token_parser},
+        util::NonEmptyVec, input_parsing_expectation,
     };
     use logos::Logos;
     use quickcheck::Arbitrary;
@@ -81,22 +81,12 @@ mod test {
     #[quickcheck]
     fn parses_arbitrary_declaration(decl: Declaration) {
         let tokens: Vec<_> = decl.clone().to_tokens().collect();
-        let parsed = lua_parser::declaration(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::declaration(tokens).unwrap();
         assert_eq!(decl, parsed);
     }
 
-    macro_rules! input_parsing_expectation {
-        ($name: tt, $input: expr, $expected: expr) => {
-            #[test]
-            fn $name() {
-                let tokens: Vec<_> = crate::lex::Token::lexer($input).collect();
-                let parsed = crate::syn::lua_parser::declaration(&tokens).unwrap();
-                assert_eq!(parsed, $expected)
-            }
-        };
-    }
-
     input_parsing_expectation!(
+        declaration,
         single_declaration,
         "local a",
         Declaration {
@@ -106,6 +96,7 @@ mod test {
     );
 
     input_parsing_expectation!(
+        declaration,
         multiple_declarations,
         "local a, b",
         Declaration {
@@ -122,11 +113,12 @@ mod test {
     #[test]
     fn zero_declarations_is_illegal() {
         let tokens = [Token::Local];
-        let res = lua_parser::declaration(&tokens);
+        let res = unspanned_lua_token_parser::declaration(tokens);
         assert!(res.is_err());
     }
 
     input_parsing_expectation!(
+        declaration,
         single_initialization,
         "local a = 42",
         Declaration {
@@ -136,6 +128,7 @@ mod test {
     );
 
     input_parsing_expectation!(
+        declaration,
         multiple_initialization,
         "local a, b = 42, 69",
         Declaration {
@@ -155,7 +148,7 @@ mod test {
     #[test]
     fn initialization_without_declaration_is_illegal() {
         let tokens: Vec<_> = Token::lexer("local = 42").collect();
-        let res = lua_parser::declaration(&tokens);
+        let res = unspanned_lua_token_parser::declaration(tokens);
         assert!(res.is_err());
     }
 }

@@ -62,12 +62,12 @@ mod test {
             TableValue, TypeError,
         },
         lex::Ident,
-        syn::string_parser,
+        syn::lua_parser,
     };
 
     #[quickcheck]
     fn eval_ident_on_global(value: LuaValue, ident: Ident) -> Result<(), LuaError> {
-        let module = string_parser::module(&format!("return {}", ident))?;
+        let module = lua_parser::module(&format!("return {}", ident))?;
         let mut context = GlobalContext::new();
         assert_eq!(module.eval(&mut context)?, ReturnValue::Nil);
         context.set(ident, value.clone());
@@ -77,7 +77,7 @@ mod test {
 
     #[quickcheck]
     fn eval_table_lookup_on_nonexistent_key(key: LuaKey) -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "tbl = {}
             return tbl[key]",
         )?;
@@ -92,7 +92,7 @@ mod test {
 
     #[test]
     fn looking_up_table_with_nil_results_in_an_type_error() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "tbl = {}
             return tbl[nil]",
         )?;
@@ -113,7 +113,7 @@ mod test {
             return Ok(TestResult::discard());
         }
 
-        let module = string_parser::module("return value[1]")?;
+        let module = lua_parser::module("return value[1]")?;
         let mut context = GlobalContext::new();
         context.set("value", value);
         let res = module.eval(&mut context);
@@ -133,7 +133,7 @@ mod test {
             }
         }
 
-        let module = string_parser::module("return tbl[key]")?;
+        let module = lua_parser::module("return tbl[key]")?;
         let mut context = GlobalContext::new();
         let mut table = TableValue::new();
         table.set(key.clone(), value.clone());
@@ -154,7 +154,7 @@ mod test {
             return Ok(TestResult::discard());
         }
 
-        let module = string_parser::module("return value.foo")?;
+        let module = lua_parser::module("return value.foo")?;
         let mut context = GlobalContext::new();
         context.set("value", value);
         let res = module.eval(&mut context);
@@ -168,7 +168,7 @@ mod test {
 
     #[quickcheck]
     fn eval_property_access(value: LuaValue, property: Ident) -> Result<(), LuaError> {
-        let module = string_parser::module(&format!("return tbl.{}", property))?;
+        let module = lua_parser::module(&format!("return tbl.{}", property))?;
         let mut context = GlobalContext::new();
         let mut table = TableValue::new();
         let key = LuaKey::string(property);
@@ -182,7 +182,7 @@ mod test {
 
     #[quickcheck]
     fn looking_up_nonexistent_property(property: Ident) -> Result<(), LuaError> {
-        let module = string_parser::module(&format!("tbl = {{}} return tbl.{}", property))?;
+        let module = lua_parser::module(&format!("tbl = {{}} return tbl.{}", property))?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
         assert_eq!(res, ReturnValue::Nil);
@@ -194,7 +194,7 @@ mod test {
         table: TableValue,
         prop: Ident,
     ) -> Result<(), LuaError> {
-        let module = string_parser::module(&format!("return tbl[\"{}\"], tbl.{}", prop, prop))?;
+        let module = lua_parser::module(&format!("return tbl[\"{}\"], tbl.{}", prop, prop))?;
         let mut context = GlobalContext::new();
         context.set("tbl", LuaValue::table(table));
         let res = module.eval(&mut context)?;

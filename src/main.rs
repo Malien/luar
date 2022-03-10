@@ -23,7 +23,7 @@ fn repl() -> Result<(), Box<dyn Error>> {
     print!(">>> ");
     std::io::stdout().flush()?;
     for line in std::io::stdin().lock().lines() {
-        let module = syn::string_parser::module(&line?)?;
+        let module = syn::lua_parser::module(&line?)?;
         let res = module.eval(&mut context);
         match res {
             Ok(value) => println!("{}", value),
@@ -41,7 +41,7 @@ fn eval_file(filename: &str) -> Result<(), Box<dyn Error>> {
     let mut file = std::fs::File::open(filename)?;
     let mut buffer = String::new();
     file.read_to_string(&mut buffer)?;
-    let module = syn::string_parser::module(&buffer)?;
+    let module = syn::lua_parser::module(&buffer)?;
     module.eval(&mut stdlib::std_context())?;
     Ok(())
 }

@@ -107,7 +107,7 @@ mod test {
 
     #[test]
     fn parses_empty_module() {
-        assert_eq!(lua_parser::module(&[]).unwrap(), Module::default());
+        assert_eq!(lua_parser::module("").unwrap(), Module::default());
     }
 
     #[quickcheck]

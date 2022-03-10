@@ -33,8 +33,8 @@ mod test {
     use super::WhileLoop;
     use crate::{
         lex::{Ident, NumberLiteral, ToTokenStream, Token},
-        syn::{expr::Expression, lua_parser, Block, Declaration, Statement},
-        util::NonEmptyVec,
+        syn::{expr::Expression, unspanned_lua_token_parser, Block, Declaration, Statement},
+        util::NonEmptyVec, input_parsing_expectation,
     };
 
     impl Arbitrary for WhileLoop {
@@ -63,19 +63,8 @@ mod test {
         }
     }
 
-    macro_rules! input_parsing_expectation {
-        ($name: tt, $input: expr, $expected: expr) => {
-            #[test]
-            fn $name() {
-                use logos::Logos;
-                let tokens: Vec<_> = crate::lex::Token::lexer($input).collect();
-                let parsed = crate::syn::lua_parser::while_loop(&tokens).unwrap();
-                assert_eq!(parsed, $expected)
-            }
-        };
-    }
-
     input_parsing_expectation!(
+        while_loop,
         parses_empty_loop,
         "while 1 do end",
         WhileLoop {
@@ -85,6 +74,7 @@ mod test {
     );
 
     input_parsing_expectation!(
+        while_loop,
         parses_single_statement_body,
         "while 1 do 
             local foo = 42 
@@ -102,6 +92,7 @@ mod test {
     );
 
     input_parsing_expectation!(
+        while_loop,
         parses_multiple_statement_body,
         "while 1 do
             local foo = 42
@@ -128,7 +119,7 @@ mod test {
     #[test]
     fn while_loop_without_condition_is_illegal() {
         let tokens = [Token::While, Token::Do, Token::End]; // while do end
-        let res = lua_parser::while_loop(&tokens);
+        let res = unspanned_lua_token_parser::while_loop(tokens);
         assert!(res.is_err());
     }
 
@@ -139,7 +130,7 @@ mod test {
             body: Block::default(),
         };
         let tokens: Vec<_> = while_loop.clone().to_tokens().collect();
-        let parsed = lua_parser::while_loop(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::while_loop(tokens).unwrap();
         assert_eq!(while_loop, parsed);
     }
 
@@ -150,14 +141,14 @@ mod test {
             body,
         };
         let tokens: Vec<_> = while_loop.clone().to_tokens().collect();
-        let parsed = lua_parser::while_loop(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::while_loop(tokens).unwrap();
         assert_eq!(while_loop, parsed);
     }
 
     #[quickcheck]
     fn parses_arbitrary_while_loop(while_loop: WhileLoop) {
         let tokens: Vec<_> = while_loop.clone().to_tokens().collect();
-        let parsed = lua_parser::while_loop(&tokens).unwrap();
+        let parsed = unspanned_lua_token_parser::while_loop(tokens).unwrap();
         assert_eq!(while_loop, parsed);
     }
 }

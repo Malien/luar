@@ -132,7 +132,7 @@ macro_rules! run_lua_test {
             "assert",
             crate::lang::LuaValue::function(crate::test_util::lua_assert),
         );
-        let test_module = crate::syn::string_parser::module(include_str!($file))?;
+        let test_module = crate::syn::lua_parser::module(include_str!($file))?;
         crate::lang::Eval::eval(&test_module, &mut context)?;
         Ok(())
     }};

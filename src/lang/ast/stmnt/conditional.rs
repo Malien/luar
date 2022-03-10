@@ -35,12 +35,12 @@ mod test {
         error::LuaError,
         lang::{Eval, GlobalContext, LuaValue, ReturnValue},
         ne_vec,
-        syn::string_parser,
+        syn::lua_parser,
     };
 
     #[test]
     fn if_with_falsy_condition_does_not_evaluate_body() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "if nil then
                 result = 1
             end
@@ -54,7 +54,7 @@ mod test {
 
     #[test]
     fn if_with_truthy_condition_evaluates_body() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "if 1 then
                 result = 1
             end
@@ -68,7 +68,7 @@ mod test {
 
     #[test]
     fn if_with_truthy_condition_does_not_evaluate_else_branch() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "if 1 then
                 result = 'true branch'
             else
@@ -84,7 +84,7 @@ mod test {
 
     #[test]
     fn if_with_falsy_condition_evaluates_else_branch() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "if nil then
                 result = 'true branch'
             else
@@ -100,7 +100,7 @@ mod test {
 
     #[test]
     fn if_with_truthy_condition_does_not_evaluate_elseif_branch() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "function side_effect() 
                 side_effect_committed = 1
             end
@@ -125,7 +125,7 @@ mod test {
     #[test]
     fn if_with_falsy_condition_and_passing_elseif_should_evaluate_elseif_branch(
     ) -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "if nil then
                 result = 'if branch'
             elseif 1 then
@@ -144,7 +144,7 @@ mod test {
     #[test]
     fn if_with_falsy_condition_and_falsy_elseif_condition_should_not_evaluate_anything(
     ) -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "if nil then
                 result = 'if branch'
             elseif nil then
@@ -161,7 +161,7 @@ mod test {
     #[test]
     fn if_with_falsy_condition_and_falsy_elseif_condition_should_evaluate_else_branch(
     ) -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "if nil then
                 result = 'if branch'
             elseif nil then

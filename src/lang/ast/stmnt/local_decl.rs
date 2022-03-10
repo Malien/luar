@@ -39,7 +39,7 @@ mod test {
         error::LuaError,
         lang::{Eval, EvalContextExt, GlobalContext, LuaValue},
         lex::Ident,
-        syn::string_parser,
+        syn::lua_parser,
     };
 
     #[quickcheck]
@@ -47,7 +47,7 @@ mod test {
         ident: Ident,
         value: LuaValue,
     ) -> Result<(), LuaError> {
-        let module = string_parser::module(&format!("local {} = value", ident))?;
+        let module = lua_parser::module(&format!("local {} = value", ident))?;
         let mut context = GlobalContext::new();
         context.set("value", value.clone());
         module.eval(&mut context)?;
@@ -57,7 +57,7 @@ mod test {
 
     #[quickcheck]
     fn redeclaring_local_does_nothing(ident: Ident, value: LuaValue) -> Result<(), LuaError> {
-        let module = string_parser::module(&format!(
+        let module = lua_parser::module(&format!(
             "local {} = value
             local {}
             return {}",
@@ -76,7 +76,7 @@ mod test {
         value1: LuaValue,
         value2: LuaValue,
     ) -> Result<(), LuaError> {
-        let module = string_parser::module(&format!(
+        let module = lua_parser::module(&format!(
             "local {} = value1
             local {} = value2
             return {}",
@@ -96,7 +96,7 @@ mod test {
         value1: LuaValue,
         value2: LuaValue,
     ) -> Result<(), LuaError> {
-        let module = string_parser::module(&format!(
+        let module = lua_parser::module(&format!(
             "{} = value1
             local {} = value2
             return {}",
@@ -116,7 +116,7 @@ mod test {
         value1: LuaValue,
         value2: LuaValue,
     ) -> Result<(), LuaError> {
-        let module = string_parser::module(&format!(
+        let module = lua_parser::module(&format!(
             "{} = value1
             {} = nil
             local {} = value2

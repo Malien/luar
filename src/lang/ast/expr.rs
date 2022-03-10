@@ -135,7 +135,7 @@ mod test {
         error::LuaError,
         lang::{Eval, EvalContextExt, GlobalContext, LuaFunction, LuaValue, ReturnValue},
         lex::{NumberLiteral, StringLiteral, Token},
-        syn::{lua_parser, string_parser},
+        syn::{lua_parser, unspanned_lua_token_parser},
         test_util::Finite,
         util::NonEmptyVec,
     };
@@ -286,7 +286,7 @@ mod test {
         #[test]
         fn eval_not_on_nil() -> Result<(), LuaError> {
             let mut context = GlobalContext::new();
-            let exp = syn::string_parser::expression("not nil")?;
+            let exp = syn::lua_parser::expression("not nil")?;
             assert_eq!(exp.eval(&mut context)?, ReturnValue::number(1));
             Ok(())
         }
@@ -372,7 +372,7 @@ mod test {
 
     #[test]
     fn eval_nil() -> Result<(), LuaError> {
-        let module = string_parser::module("return nil")?;
+        let module = lua_parser::module("return nil")?;
         let mut context = GlobalContext::new();
         assert_eq!(module.eval(&mut context)?, ReturnValue::Nil);
         Ok(())
@@ -380,7 +380,8 @@ mod test {
 
     #[quickcheck]
     fn eval_number_literal(Finite(num): Finite<f64>) -> Result<(), LuaError> {
-        let module = lua_parser::module(&[Token::Return, Token::Number(NumberLiteral(num))])?;
+        let module =
+            unspanned_lua_token_parser::module([Token::Return, Token::Number(NumberLiteral(num))])?;
         let mut context = GlobalContext::new();
         assert!(module
             .eval(&mut context)?
@@ -390,8 +391,10 @@ mod test {
 
     #[quickcheck]
     fn eval_string_literal(str: String) -> Result<(), LuaError> {
-        let module =
-            lua_parser::module(&[Token::Return, Token::String(StringLiteral(str.clone()))])?;
+        let module = unspanned_lua_token_parser::module([
+            Token::Return,
+            Token::String(StringLiteral(str.clone())),
+        ])?;
         let mut context = GlobalContext::new();
         assert_eq!(module.eval(&mut context)?, ReturnValue::String(str));
         Ok(())
@@ -402,7 +405,7 @@ mod test {
         if lhs.is_falsy() {
             return Ok(TestResult::discard());
         }
-        let module = string_parser::module("return lhs and rhs")?;
+        let module = lua_parser::module("return lhs and rhs")?;
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs.clone());
@@ -413,7 +416,7 @@ mod test {
 
     #[quickcheck]
     fn eval_and_falsy(rhs: LuaValue) -> Result<(), LuaError> {
-        let module = string_parser::module("return lhs and rhs")?;
+        let module = lua_parser::module("return lhs and rhs")?;
         let mut context = GlobalContext::new();
         context.set("lhs", LuaValue::Nil);
         context.set("rhs", rhs.clone());
@@ -426,7 +429,7 @@ mod test {
     fn multiple_return_is_not_propagated_in_and(
         values: NonEmptyVec<LuaValue>,
     ) -> Result<(), LuaError> {
-        let module = string_parser::module("return 1 and mult()")?;
+        let module = lua_parser::module("return 1 and mult()")?;
         let mut context = GlobalContext::new();
         let ret_value = ReturnValue::MultiValue(values.clone());
         let mult_fn = LuaFunction::new(move |_, _| Ok(ret_value.clone()));
@@ -439,7 +442,7 @@ mod test {
     #[test]
     #[ignore = "This relies on fn def, fn call and assignment which are not implemented yet"]
     fn and_short_circuits() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "side_effect_committed = nil
 
             function side_effecty_fn()
@@ -459,7 +462,7 @@ mod test {
         if lhs.is_falsy() {
             return Ok(TestResult::discard());
         }
-        let module = string_parser::module("return lhs or rhs")?;
+        let module = lua_parser::module("return lhs or rhs")?;
         let mut context = GlobalContext::new();
         context.set("lhs", lhs.clone());
         context.set("rhs", rhs);
@@ -470,7 +473,7 @@ mod test {
 
     #[quickcheck]
     fn eval_or_falsy(rhs: LuaValue) -> Result<(), LuaError> {
-        let module = string_parser::module("return lhs or rhs")?;
+        let module = lua_parser::module("return lhs or rhs")?;
         let mut context = GlobalContext::new();
         context.set("lhs", LuaValue::Nil);
         context.set("rhs", rhs.clone());
@@ -483,7 +486,7 @@ mod test {
     fn multiple_return_is_not_propagated_in_or(
         values: NonEmptyVec<LuaValue>,
     ) -> Result<(), LuaError> {
-        let module = string_parser::module("return nil or mult()")?;
+        let module = lua_parser::module("return nil or mult()")?;
         let mut context = GlobalContext::new();
         let ret_value = ReturnValue::MultiValue(values.clone());
         let mult_fn = LuaFunction::new(move |_, _| Ok(ret_value.clone()));
@@ -496,7 +499,7 @@ mod test {
     #[test]
     #[ignore = "This relies on fn def, fn call and assignment which are not implemented yet"]
     fn or_short_circuits() -> Result<(), LuaError> {
-        let module = string_parser::module(
+        let module = lua_parser::module(
             "
             side_effect_committed = nil
 
@@ -522,7 +525,7 @@ mod test {
             }
         }
 
-        let module = string_parser::module("return value == value")?;
+        let module = lua_parser::module("return value == value")?;
         let mut context = GlobalContext::new();
         let res = module.eval(&mut context)?;
         assert_eq!(LuaValue::true_value(), res.assert_single());
@@ -535,7 +538,7 @@ mod test {
         rhs: LuaValue,
     ) -> Result<(), LuaError> {
         let expected = LuaValue::from_bool(lhs == rhs);
-        let module = string_parser::module("return lhs == rhs")?;
+        let module = lua_parser::module("return lhs == rhs")?;
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
@@ -549,7 +552,7 @@ mod test {
         lhs: LuaValue,
         rhs: LuaValue,
     ) -> Result<(), LuaError> {
-        let module = string_parser::module("return (not (lhs ~= rhs)) == (lhs == rhs)")?;
+        let module = lua_parser::module("return (not (lhs ~= rhs)) == (lhs == rhs)")?;
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
@@ -563,7 +566,7 @@ mod test {
         lhs: f64,
         rhs: f64,
     ) -> Result<(), LuaError> {
-        let module = string_parser::module("return lhs + rhs")?;
+        let module = lua_parser::module("return lhs + rhs")?;
         let mut context = GlobalContext::new();
 
         context.set("lhs", LuaValue::number(lhs));
@@ -597,7 +600,7 @@ mod test {
         if let (Some(_), Some(_)) = (lhs.as_number(), rhs.as_number()) {
             return Ok(TestResult::discard());
         }
-        let module = string_parser::module("return lhs + rhs")?;
+        let module = lua_parser::module("return lhs + rhs")?;
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
@@ -612,7 +615,7 @@ mod test {
         lhs: f64,
         rhs: f64,
     ) -> Result<(), LuaError> {
-        let module = string_parser::module("return lhs - rhs")?;
+        let module = lua_parser::module("return lhs - rhs")?;
         let mut context = GlobalContext::new();
 
         context.set("lhs", LuaValue::number(lhs));
@@ -646,7 +649,7 @@ mod test {
         if let (Some(_), Some(_)) = (lhs.as_number(), rhs.as_number()) {
             return Ok(TestResult::discard());
         }
-        let module = string_parser::module("return lhs - rhs")?;
+        let module = lua_parser::module("return lhs - rhs")?;
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);

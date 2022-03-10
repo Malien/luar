@@ -13,8 +13,11 @@ impl Eval for Return {
     where
         Context: EvalContext + ?Sized,
     {
-        if self.0.len() == 1 {
-            self.0.first().eval(context)
+        if self.0.len() <= 1 {
+            match self.0.first() {
+                Some(expr) => expr.eval(context),
+                None => Ok(ReturnValue::Nil)
+            }
         } else {
             self.0
                 .iter()
@@ -48,14 +51,14 @@ mod test {
             .collect();
         let module = Module {
             chunks: vec![],
-            ret: Some(Return(NonEmptyVec::new(
+            ret: Some(Return(
                 idents
                     .iter()
                     .cloned()
                     .map(Var::Named)
                     .map(Expression::Variable)
                     .collect(),
-            ))),
+            )),
         };
         let mut context = GlobalContext::new();
         for (val, ident) in values.iter().zip(idents) {
@@ -82,7 +85,7 @@ mod test {
             .collect();
         let module = Module {
             chunks: vec![],
-            ret: Some(Return(NonEmptyVec::new(
+            ret: Some(Return(
                 idents
                     .iter()
                     .cloned()
@@ -95,7 +98,7 @@ mod test {
                         },
                     )))
                     .collect(),
-            ))),
+            )),
         };
         let mut context = GlobalContext::new();
 
