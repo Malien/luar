@@ -1,7 +1,6 @@
-use criterion::{criterion_group, criterion_main};
+use criterion::criterion_main;
 
-mod benchmarks;
-use benchmarks::*;
+mod execution;
+mod parser;
 
-criterion_group!(benches, fib_rec::bench, fib_tailrec::bench, fib_loop::bench);
-criterion_main!(benches);
+criterion_main!(execution::benches, parser::benches);
