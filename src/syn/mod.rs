@@ -435,7 +435,7 @@ peg::parser! {
             }
 
         pub rule ret() -> Return
-            = _:[Token::Return] exprs:expression() ++ [Token::Comma] { 
+            = _:[Token::Return] exprs:expression() ++ [Token::Comma] {
                 // SAFETY: ++ matches non empty sequence
                 Return(unsafe { NonEmptyVec::new_unchecked(exprs) })
             }
@@ -493,5 +493,4 @@ mod tests {
             assert_eq!(expected, parsed);
         }};
     }
-
 }

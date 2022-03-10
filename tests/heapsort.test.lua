@@ -1,5 +1,5 @@
-local random, floor = math.random, math.floor
-floor = math.ifloor or floor
+-- local random, floor = math.random, math.floor
+-- floor = math.ifloor or floor
 
 function heapsort(n, ra)
     local j, i, rra
@@ -37,12 +37,31 @@ function heapsort(n, ra)
     end
 end
 
+function populated_table(N)
+    local a = {}
+    local i = 1
+    while i ~= N do
+        a[i] = random()
+        i = i + 1
+    end
+    return a
+end
+
+function assert_sorted(N, tbl)
+    local i = 1
+    while i ~= N - 1 do
+        assert(tbl[i] <= tbl[i+1])
+    end
+end
+
 local Num = tonumber((arg and arg[1])) or 4
-for i=1,Num do
-  local N = tonumber((arg and arg[2])) or 10000
-  local a = {}
-  for i=1,N do a[i] = random() end
-  heapsort(N, a)
-  for i=1,N-1 do assert(a[i] <= a[i+1]) end
+local N = tonumber((arg and arg[2])) or 10000
+
+local i = 1
+while i ~= Num do
+    local tbl = populated_table(N)
+    heapsort(N, tbl)
+    assert_sorted(tbl)
+    i = i + 1
 end
 
