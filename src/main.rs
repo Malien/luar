@@ -1,20 +1,6 @@
 use std::error::Error;
 
-use crate::lang::Eval;
-
-#[cfg(test)]
-#[macro_use(quickcheck)]
-extern crate quickcheck_macros;
-
-#[cfg(test)]
-mod test_util;
-
-pub mod error;
-pub mod lang;
-pub mod lex;
-pub mod stdlib;
-pub mod syn;
-mod util;
+use luar::{stdlib, syn, lang::Eval};
 
 fn repl() -> Result<(), Box<dyn Error>> {
     use std::io::{Write, BufRead};

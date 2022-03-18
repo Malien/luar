@@ -424,6 +424,7 @@ dependencies = [
  "insta",
  "itertools",
  "lazy_static",
+ "libc",
  "logos",
  "mlua",
  "num",

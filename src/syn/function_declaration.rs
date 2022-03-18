@@ -183,7 +183,7 @@ mod test {
                 args: vec![],
                 body: Block::default(),
                 name: FunctionName::Plain(Var::Named(Ident::new("foo"))),
-            };
+            }
         };
     }
 

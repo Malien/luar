@@ -2,7 +2,7 @@
 name = "luar"
 version = "0.1.0"
 authors = ["Yaroslav <q.link0.p@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -20,6 +20,7 @@ regex = "1.4"
 lazy_static = "1.4.0"
 peg = "0.7.0"
 itertools = "0.10.1"
+libc = "0.2"
 
 [dev-dependencies]
 insta = "1.3"

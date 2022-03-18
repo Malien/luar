@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::lang::{EvalContext, EvalError, LuaFunction, LuaNumber};
+use crate::lang::{EvalContext, EvalError, LuaFunction, LuaNumber, LuaType};
 
 #[cfg(test)]
 use crate::test_util::{with_thread_gen, GenExt};
@@ -118,6 +118,20 @@ impl LuaValue {
         } else {
             LuaValue::false_value()
         }
+    }
+
+    pub fn type_of(&self) -> LuaType {
+        match self {
+            Self::Nil => LuaType::Nil,
+            Self::Number(_) => LuaType::Number,
+            Self::String(_) => LuaType::String,
+            Self::Function(_) => LuaType::Function,
+            Self::Table(_) => LuaType::Table
+        }
+    }
+
+    pub fn is_comparable(&self) -> bool {
+        self.type_of().is_comparable()
     }
 }
 

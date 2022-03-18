@@ -54,13 +54,13 @@ function assert_sorted(N, tbl)
     end
 end
 
-local Num = tonumber((arg and arg[1])) or 4
-local N = tonumber((arg and arg[2])) or 10000
+local iterations = 4
+local element_count = 10000
 
 local i = 1
-while i ~= Num do
-    local tbl = populated_table(N)
-    heapsort(N, tbl)
+while i ~= iterations do
+    local tbl = populated_table(element_count)
+    heapsort(element_count, tbl)
     assert_sorted(tbl)
     i = i + 1
 end

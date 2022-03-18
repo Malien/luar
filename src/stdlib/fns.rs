@@ -26,7 +26,7 @@ pub fn print<W: Write>(writer: &mut W, args: &[LuaValue]) -> Result<LuaValue, Ev
                 .map(|_| ()),
             LuaValue::Number(num) => write!(writer, "{}\n", num),
             LuaValue::Function(func) => write!(writer, "function: {:p}\n", func.addr()),
-            LuaValue::Table(table) => write!(writer, "table: {:p}\n", table.addr())
+            LuaValue::Table(table) => write!(writer, "table: {:p}\n", table.addr()),
         };
         if let Err(err) = res {
             return Err(EvalError::IO(err));
@@ -35,14 +35,21 @@ pub fn print<W: Write>(writer: &mut W, args: &[LuaValue]) -> Result<LuaValue, Ev
     Ok(LuaValue::Nil)
 }
 
+pub fn random(_: &[LuaValue]) -> LuaValue {
+    // SAFETY: libc rand function should always be safe to call
+    let int_value = unsafe { libc::rand() };
+    let float_value = int_value as f64 / libc::INT_MAX as f64;
+    return LuaValue::number(float_value);
+}
+
 #[cfg(test)]
 mod test {
     use std::io::Cursor;
 
     use super::{print, tonumber};
     use crate::{
-        lang::{LuaFunction, LuaValue, LuaNumber, ReturnValue},
-        util::close_relative_eq,
+        lang::{LuaFunction, LuaNumber, LuaValue, ReturnValue},
+        util::close_relative_eq, stdlib::fns::random,
     };
 
     #[test]
@@ -127,6 +134,14 @@ mod test {
         }
         let expected_str = String::from_utf8(expected_buf.into_inner()).unwrap();
         assert_eq!(res_str, expected_str);
+    }
+
+    #[test]
+    fn random_produces_values_from_0_to_1() {
+        for _ in 0..1000 {
+            let res = random(&[]).unwrap_number().as_f64();
+            assert!((0.0..=1.0).contains(&res));
+        }
     }
 
     // #[test]

@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt;
 
 use super::{LuaType, LuaValue};
-use crate::{lex::Ident, syn};
+use crate::lex::Ident;
 
 #[derive(Debug)]
 pub enum EvalError {
@@ -30,6 +30,19 @@ pub enum TypeError {
         property: Ident,
         of: LuaValue,
     },
+    Ordering {
+        lhs: LuaValue,
+        rhs: LuaValue,
+        op: OrderingOperator,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrderingOperator {
+    Less,
+    Greater,
+    LessOrEquals,
+    GreaterOrEquals,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -37,9 +50,41 @@ pub enum ArithmeticError {
     UnaryMinus(LuaValue),
     Binary {
         lhs: LuaValue,
-        op: syn::BinaryOperator,
+        op: ArithmeticOperator,
         rhs: LuaValue,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArithmeticOperator {
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
+
+impl fmt::Display for OrderingOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Less => "<",
+            Self::Greater => ">",
+            Self::LessOrEquals => "<=",
+            Self::GreaterOrEquals => ">=",
+        }
+        .fmt(f)
+    }
+}
+
+impl fmt::Display for ArithmeticOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Add => '+',
+            Self::Sub => '-',
+            Self::Mul => '*',
+            Self::Div => '/',
+        }
+        .fmt(f)
+    }
 }
 
 impl fmt::Display for EvalError {
@@ -56,7 +101,7 @@ impl fmt::Display for TypeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt("Type Error: ", f)?;
         match self {
-            Self::Arithmetic(err) => fmt::Display::fmt(err, f),
+            Self::Arithmetic(err) => write!(f, "Arithmetic Error: {}", err),
             Self::IsNotCallable(value) => {
                 write!(f, "Attempting to call {}, which is not callable", value)
             }
@@ -78,6 +123,13 @@ impl fmt::Display for TypeError {
             }
             Self::CannotAssignProperty { property, of } => {
                 write!(f, "Cannot assign to property {} of {}", property, of)
+            }
+            Self::Ordering { lhs, rhs, op } => {
+                write!(
+                    f,
+                    "Cannot compare {} and {} with an \"{}\" operator",
+                    lhs, rhs, op
+                )
             }
         }
     }

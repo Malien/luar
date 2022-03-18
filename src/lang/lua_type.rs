@@ -4,8 +4,14 @@ pub enum LuaType {
     Number,
     String,
     Function,
-    // Table
+    Table,
     // UserData
+}
+
+impl LuaType {
+    pub fn is_comparable(self) -> bool {
+        matches!(self, LuaType::Number | LuaType::String)
+    }
 }
 
 impl std::fmt::Display for LuaType {
@@ -14,7 +20,9 @@ impl std::fmt::Display for LuaType {
             Self::Nil => "nil",
             Self::Number => "number",
             Self::String => "string",
-            Self::Function => "function"
-        }.fmt(f)
+            Self::Function => "function",
+            Self::Table => "table",
+        }
+        .fmt(f)
     }
 }

@@ -1,6 +1,7 @@
 use crate::{
     lang::{
-        ArithmeticError, Eval, EvalContext, EvalError, LuaValue, ReturnValue, TableRef, TypeError,
+        ArithmeticError, ArithmeticOperator, Eval, EvalContext, EvalError, LuaValue,
+        OrderingOperator, ReturnValue, TableRef, TypeError,
     },
     lex::{NumberLiteral, StringLiteral},
     syn::{BinaryOperator, Expression, UnaryOperator},
@@ -76,56 +77,77 @@ where
 
     let lhs = lhs.eval(context)?.first_value();
     match op {
-        And if lhs.is_falsy() => Ok(lhs),
-        And => rhs.eval(context).map(ReturnValue::first_value),
-        Or if lhs.is_truthy() => Ok(lhs),
-        Or => rhs.eval(context).map(ReturnValue::first_value),
-        // // Precedence level 1
-        // Less,
-        // Greater,
-        // LessOrEquals,
-        // GreaterOrEquals,
-        Equals => Ok(LuaValue::from_bool(lhs == rhs.eval(context)?.first_value())),
-        NotEquals => Ok(LuaValue::from_bool(lhs != rhs.eval(context)?.first_value())),
-        // // Precedence level 2
-        // Concat,
-        // // Precedence level 3
-        Plus => binary_number_op(
-            lhs,
-            rhs.eval(context)?.first_value(),
-            BinaryOperator::Plus,
-            std::ops::Add::add,
-        ),
-        Minus => binary_number_op(
-            lhs,
-            rhs.eval(context)?.first_value(),
-            BinaryOperator::Minus,
-            std::ops::Sub::sub,
-        ),
-        // // Precedence level 4
-        // Mul,
-        // Div,
-        // // Precedence level 5
-        // Exp,
-        _ => todo!(),
+        And if lhs.is_falsy() => return Ok(lhs),
+        And => return rhs.eval(context).map(ReturnValue::first_value),
+        Or if lhs.is_truthy() => return Ok(lhs),
+        Or => return rhs.eval(context).map(ReturnValue::first_value),
+        _ => {}
+    };
+    let rhs = rhs.eval(context)?.first_value();
+
+    match op {
+        Equals => return Ok(LuaValue::from_bool(lhs == rhs)),
+        NotEquals => return Ok(LuaValue::from_bool(lhs != rhs)),
+        _ => {}
     }
+
+    match op {
+        Less => less_than(lhs, rhs),
+        Greater => greater_than(lhs, rhs),
+        LessOrEquals => less_or_equals(lhs, rhs),
+        GreaterOrEquals => greater_or_equals(lhs, rhs),
+        Plus => binary_number_op(lhs, rhs, ArithmeticOperator::Add, std::ops::Add::add),
+        Minus => binary_number_op(lhs, rhs, ArithmeticOperator::Sub, std::ops::Sub::sub),
+        Mul | Div | Exp | Concat => todo!(),
+        And | Or | Equals | NotEquals => unreachable!(),
+    }
+    .map_err(EvalError::TypeError)
 }
 
 fn binary_number_op(
     lhs: LuaValue,
     rhs: LuaValue,
-    op: BinaryOperator,
+    op: ArithmeticOperator,
     op_fn: impl FnOnce(f64, f64) -> f64,
-) -> Result<LuaValue, EvalError> {
+) -> Result<LuaValue, TypeError> {
     if let (Some(lhs), Some(rhs)) = (lhs.as_number(), rhs.as_number()) {
         let res = op_fn(lhs.as_f64(), rhs.as_f64());
         Ok(LuaValue::number(res))
     } else {
-        Err(EvalError::TypeError(TypeError::Arithmetic(
-            ArithmeticError::Binary { lhs, rhs, op },
-        )))
+        Err(TypeError::Arithmetic(ArithmeticError::Binary {
+            lhs,
+            rhs,
+            op,
+        }))
     }
 }
+
+macro_rules! ord_op {
+    ($name: ident, $cmp_op: tt, $op: expr) => {
+        fn $name(lhs: LuaValue, rhs: LuaValue) -> Result<LuaValue, TypeError> {
+            match (&lhs, &rhs) {
+                (LuaValue::Number(lhs), LuaValue::Number(rhs)) =>
+                    Ok(LuaValue::from_bool(lhs $cmp_op rhs)),
+                (LuaValue::String(lhs), LuaValue::String(rhs)) =>
+                    Ok(LuaValue::from_bool(lhs $cmp_op rhs)),
+                (LuaValue::Number(lhs), LuaValue::String(rhs)) =>
+                    Ok(LuaValue::from_bool(&format!("{}", lhs) $cmp_op rhs)),
+                (LuaValue::String(lhs), LuaValue::Number(rhs)) =>
+                    Ok(LuaValue::from_bool(lhs $cmp_op &format!("{}", rhs))),
+                _ => Err(TypeError::Ordering {
+                    lhs,
+                    rhs,
+                    op: $op
+                })
+            }
+        }
+    };
+}
+
+ord_op!(less_than, <, OrderingOperator::Less);
+ord_op!(greater_than, >, OrderingOperator::Greater);
+ord_op!(less_or_equals, <=, OrderingOperator::LessOrEquals);
+ord_op!(greater_or_equals, >=, OrderingOperator::GreaterOrEquals);
 
 #[cfg(test)]
 mod test {
@@ -133,8 +155,11 @@ mod test {
 
     use crate::{
         error::LuaError,
-        lang::{Eval, EvalContextExt, GlobalContext, LuaFunction, LuaValue, ReturnValue},
+        lang::{
+            Eval, EvalContextExt, GlobalContext, LuaFunction, LuaNumber, LuaValue, ReturnValue,
+        },
         lex::{NumberLiteral, StringLiteral, Token},
+        ne_vec,
         syn::{lua_parser, unspanned_lua_token_parser},
         test_util::Finite,
         util::NonEmptyVec,
@@ -657,5 +682,113 @@ mod test {
         assert!(res.is_err());
 
         Ok(TestResult::passed())
+    }
+
+    #[quickcheck]
+    #[allow(non_snake_case)]
+    fn comparing_numbers_behave_according_to_IEEE754(lhs: f64, rhs: f64) -> Result<(), LuaError> {
+        let module = lua_parser::module("return a > b, a < b, a >= b, a <= b")?;
+        let mut context = GlobalContext::new();
+        context.set("a", LuaValue::number(lhs));
+        context.set("b", LuaValue::number(rhs));
+        let expected = ne_vec![
+            LuaValue::from_bool(lhs > rhs),
+            LuaValue::from_bool(lhs < rhs),
+            LuaValue::from_bool(lhs >= rhs),
+            LuaValue::from_bool(lhs <= rhs)
+        ];
+        let res = module.eval(&mut context)?;
+        assert_eq!(res, ReturnValue::MultiValue(expected));
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn comparing_strings_orders_then_lexicographically(
+        lhs: String,
+        rhs: String,
+    ) -> Result<(), LuaError> {
+        let module = lua_parser::module("return a > b, a < b, a >= b, a <= b")?;
+        let mut context = GlobalContext::new();
+        context.set("a", LuaValue::string(lhs.clone()));
+        context.set("b", LuaValue::string(rhs.clone()));
+        let expected = ne_vec![
+            LuaValue::from_bool(lhs > rhs),
+            LuaValue::from_bool(lhs < rhs),
+            LuaValue::from_bool(lhs >= rhs),
+            LuaValue::from_bool(lhs <= rhs)
+        ];
+        let res = module.eval(&mut context)?;
+        assert_eq!(res, ReturnValue::MultiValue(expected));
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn comparing_strings_and_numbers_coerces_numbers_to_strings(
+        str: String,
+        num: LuaNumber,
+    ) -> Result<(), LuaError> {
+        let module = lua_parser::module("return a > b, a < b, a >= b, a <= b")?;
+        let mut context = GlobalContext::new();
+
+        {
+            context.set("a", LuaValue::string(str.clone()));
+            context.set("b", LuaValue::number(num));
+            let lhs = &str;
+            let rhs = &format!("{}", num);
+            let expected = ne_vec![
+                LuaValue::from_bool(lhs > rhs),
+                LuaValue::from_bool(lhs < rhs),
+                LuaValue::from_bool(lhs >= rhs),
+                LuaValue::from_bool(lhs <= rhs)
+            ];
+            let res = module.eval(&mut context)?;
+            assert_eq!(res, ReturnValue::MultiValue(expected));
+        }
+        {
+            context.set("a", LuaValue::number(num));
+            context.set("b", LuaValue::string(str.clone()));
+            let lhs = &format!("{}", num);
+            let rhs = &str;
+            let expected = ne_vec![
+                LuaValue::from_bool(lhs > rhs),
+                LuaValue::from_bool(lhs < rhs),
+                LuaValue::from_bool(lhs >= rhs),
+                LuaValue::from_bool(lhs <= rhs)
+            ];
+            let res = module.eval(&mut context)?;
+            assert_eq!(res, ReturnValue::MultiValue(expected));
+        }
+
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn values_other_than_numbers_and_strings_are_not_comparable(
+        val: LuaValue,
+    ) -> Result<(), LuaError> {
+        let ops = [">", "<", ">=", "<="];
+        let modules = IntoIterator::into_iter(ops)
+            .flat_map(|op| {
+                [
+                    format!("return 1 {} value", op),
+                    format!("return value {} 1", op),
+                ]
+            })
+            .map(|str| lua_parser::module(&str))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut context = GlobalContext::new();
+        let is_comparable = val.is_comparable();
+        context.set("value", val);
+
+        for module in modules {
+            let res = module.eval(&mut context);
+            if is_comparable {
+                assert!(res.is_ok());
+            } else {
+                assert!(res.is_err());
+            }
+        }
+
+        Ok(())
     }
 }
