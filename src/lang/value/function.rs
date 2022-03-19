@@ -1,22 +1,22 @@
-use std::{fmt, rc::Rc, hash::Hash};
+use std::{fmt, hash::Hash, rc::Rc};
 
-use crate::lang::{EvalContext, EvalError, LuaValue, ReturnValue};
+use crate::lang::{EvalError, GlobalContext, LuaValue, ReturnValue};
 
-pub type InnerFn = dyn Fn(&mut dyn EvalContext, &[LuaValue]) -> Result<ReturnValue, EvalError>;
+pub type InnerFn = dyn Fn(&mut GlobalContext, &[LuaValue]) -> Result<ReturnValue, EvalError>;
 
 #[derive(Clone)]
 pub struct LuaFunction(Rc<InnerFn>);
 
 impl LuaFunction {
     pub fn new(
-        func: impl Fn(&mut dyn EvalContext, &[LuaValue]) -> Result<ReturnValue, EvalError> + 'static,
+        func: impl Fn(&mut GlobalContext, &[LuaValue]) -> Result<ReturnValue, EvalError> + 'static,
     ) -> Self {
         Self(Rc::new(func))
     }
 
     pub fn call(
         &self,
-        context: &mut dyn EvalContext,
+        context: &mut GlobalContext,
         args: &[LuaValue],
     ) -> Result<ReturnValue, EvalError> {
         self.0(context, args)

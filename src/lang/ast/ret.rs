@@ -1,34 +1,30 @@
 use crate::{
-    lang::{Eval, EvalContext, EvalError, ReturnValue},
+    lang::{EvalError, LocalScope, ReturnValue, ScopeHolder},
     syn::Return,
     util::NonEmptyVec,
 };
 
-use super::tail_values;
+use super::{eval_expr, tail_values};
 
-impl Eval for Return {
-    type Return = ReturnValue;
-
-    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, EvalError>
-    where
-        Context: EvalContext + ?Sized,
-    {
-        if self.0.len() <= 1 {
-            match self.0.first() {
-                Some(expr) => expr.eval(context),
-                None => Ok(ReturnValue::Nil)
-            }
-        } else {
-            self.0
-                .iter()
-                .map(|expr| expr.eval(context))
-                .collect::<Result<Vec<_>, _>>()
-                .map(tail_values)
-                .map(Iterator::collect)
-                // SAFETY: values is produced from NonEmpty vec, so values are not empty as well
-                .map(|values| unsafe { NonEmptyVec::new_unchecked(values) })
-                .map(ReturnValue::MultiValue)
+pub(crate) fn eval_ret(
+    ret: &Return,
+    scope: &mut LocalScope<impl ScopeHolder>,
+) -> Result<ReturnValue, EvalError> {
+    if ret.0.len() <= 1 {
+        match ret.0.first() {
+            Some(expr) => eval_expr(expr, scope),
+            None => Ok(ReturnValue::Nil),
         }
+    } else {
+        ret.0
+            .iter()
+            .map(|expr| eval_expr(expr, scope))
+            .collect::<Result<Vec<_>, _>>()
+            .map(tail_values)
+            .map(Iterator::collect)
+            // SAFETY: values is produced from NonEmpty vec, so values are not empty as well
+            .map(|values| unsafe { NonEmptyVec::new_unchecked(values) })
+            .map(ReturnValue::MultiValue)
     }
 }
 
@@ -36,7 +32,7 @@ impl Eval for Return {
 mod test {
     use crate::{
         error::LuaError,
-        lang::{Eval, EvalContextExt, GlobalContext, LuaFunction, LuaValue, ReturnValue},
+        lang::{ast, GlobalContext, LuaFunction, LuaValue, ReturnValue},
         lex::Ident,
         syn::{Expression, FunctionCall, FunctionCallArgs, Module, Return, Var},
         util::NonEmptyVec,
@@ -64,7 +60,7 @@ mod test {
         for (val, ident) in values.iter().zip(idents) {
             context.set(ident, val.clone());
         }
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         if values.len() == 1 {
             assert!(res.total_eq(&values.move_first().into()));
         } else {
@@ -109,7 +105,7 @@ mod test {
         for (val, ident) in v1.iter().zip(idents) {
             context.set(ident, val.clone());
         }
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         let combined = NonEmptyVec::try_new(v1.into_iter().chain(v2).collect()).unwrap();
         assert!(res.total_eq(&ReturnValue::MultiValue(combined)));
         Ok(())

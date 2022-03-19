@@ -10,7 +10,7 @@ expression: tokens
     ),
     Number(
         NumberLiteral(
-            0.000000015000000000000002,
+            1.5000000000000002e-8,
         ),
     ),
     Number(
@@ -27,7 +27,7 @@ expression: tokens
     Minus,
     Number(
         NumberLiteral(
-            0.000000524,
+            5.24e-7,
         ),
     ),
     Plus,

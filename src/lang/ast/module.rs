@@ -1,37 +1,29 @@
 use crate::{
-    lang::{ControlFlow, Eval, EvalContext, EvalError, ReturnValue},
+    lang::{ControlFlow, EvalError, GlobalContext, LocalScope, ReturnValue, ScopeHolder},
     syn::{Chunk, Module},
 };
 
-impl Eval for Module {
-    type Return = ReturnValue;
+use super::{eval_fn_decl, eval_ret, eval_stmnt};
 
-    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, EvalError>
-    where
-        Context: EvalContext + ?Sized,
-    {
-        for chunk in &*self.chunks {
-            if let ControlFlow::Return(value) = chunk.eval(context)? {
-                return Ok(value);
-            }
+pub fn eval_module(module: &Module, context: &mut GlobalContext) -> Result<ReturnValue, EvalError> {
+    let mut scope = context.top_level_scope();
+    for chunk in &*module.chunks {
+        if let ControlFlow::Return(value) = eval_chunk(chunk, &mut scope)? {
+            return Ok(value);
         }
-        match self.ret {
-            Some(ref ret) => ret.eval(context),
-            None => Ok(ReturnValue::Nil),
-        }
+    }
+    match module.ret {
+        Some(ref ret) => eval_ret(ret, &mut scope),
+        None => Ok(ReturnValue::Nil),
     }
 }
 
-impl Eval for Chunk {
-    type Return = ControlFlow;
-
-    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, EvalError>
-    where
-        Context: EvalContext + ?Sized,
-    {
-        match self {
-            Chunk::Statement(stmnt) => stmnt.eval(context),
-            Chunk::FnDecl(decl) => decl.eval(context).map(|_| ControlFlow::Continue),
-        }
+pub(crate) fn eval_chunk(
+    chunk: &Chunk,
+    scope: &mut LocalScope<GlobalContext>,
+) -> Result<ControlFlow, EvalError> {
+    match chunk {
+        Chunk::Statement(stmnt) => eval_stmnt(stmnt, scope),
+        Chunk::FnDecl(decl) => eval_fn_decl(decl, scope).map(|_| ControlFlow::Continue),
     }
 }

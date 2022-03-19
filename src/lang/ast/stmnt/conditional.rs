@@ -1,29 +1,28 @@
 use crate::{
-    lang::{ControlFlow, Eval},
+    lang::{
+        ast::{eval_block, eval_expr},
+        ControlFlow, EvalError, LocalScope, ScopeHolder,
+    },
     syn::{Conditional, ConditionalTail},
 };
 
-impl Eval for Conditional {
-    type Return = ControlFlow;
+pub(crate) fn eval_conditional(
+    conditional: &Conditional,
+    scope: &mut LocalScope<impl ScopeHolder>,
+) -> Result<ControlFlow, EvalError> {
+    let Conditional {
+        condition,
+        body,
+        tail,
+    } = conditional;
 
-    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, crate::lang::EvalError>
-    where
-        Context: crate::lang::EvalContext + ?Sized,
-    {
-        let Conditional {
-            condition,
-            body,
-            tail,
-        } = self;
-
-        if condition.eval(context)?.first_value().is_truthy() {
-            body.eval(context)
-        } else {
-            match tail {
-                ConditionalTail::End => Ok(ControlFlow::Continue),
-                ConditionalTail::Else(block) => block.eval(context),
-                ConditionalTail::ElseIf(condition) => condition.eval(context),
-            }
+    if eval_expr(condition, scope)?.first_value().is_truthy() {
+        eval_block(body, &mut scope.child_scope())
+    } else {
+        match tail {
+            ConditionalTail::End => Ok(ControlFlow::Continue),
+            ConditionalTail::Else(block) => eval_block(block, &mut scope.child_scope()),
+            ConditionalTail::ElseIf(condition) => eval_conditional(condition, scope),
         }
     }
 }
@@ -33,7 +32,7 @@ mod test {
 
     use crate::{
         error::LuaError,
-        lang::{Eval, GlobalContext, LuaValue, ReturnValue},
+        lang::{ast, GlobalContext, LuaValue, ReturnValue},
         ne_vec,
         syn::lua_parser,
     };
@@ -47,7 +46,7 @@ mod test {
             return result",
         )?;
         let mut context = GlobalContext::new();
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(res.assert_single().is_falsy());
         Ok(())
     }
@@ -61,7 +60,7 @@ mod test {
             return result",
         )?;
         let mut context = GlobalContext::new();
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(res.assert_single().is_truthy());
         Ok(())
     }
@@ -77,7 +76,7 @@ mod test {
             return result",
         )?;
         let mut context = GlobalContext::new();
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::string("true branch"));
         Ok(())
     }
@@ -93,7 +92,7 @@ mod test {
             return result",
         )?;
         let mut context = GlobalContext::new();
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::string("false branch"));
         Ok(())
     }
@@ -115,7 +114,7 @@ mod test {
             return result, side_effect_committed",
         )?;
         let mut context = GlobalContext::new();
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         let expected =
             ReturnValue::MultiValue(ne_vec![LuaValue::string("if branch"), LuaValue::Nil]);
         assert_eq!(res, expected);
@@ -136,7 +135,7 @@ mod test {
             return result",
         )?;
         let mut context = GlobalContext::new();
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::string("elseif branch"));
         Ok(())
     }
@@ -153,7 +152,7 @@ mod test {
             return result",
         )?;
         let mut context = GlobalContext::new();
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::Nil);
         Ok(())
     }
@@ -172,7 +171,7 @@ mod test {
             return result",
         )?;
         let mut context = GlobalContext::new();
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::string("else branch"));
         Ok(())
     }

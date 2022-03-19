@@ -1,6 +1,4 @@
-use crate::lang::{
-    EvalContext, EvalContextExt, EvalError, GlobalContext, LuaFunction, LuaValue, ReturnValue,
-};
+use crate::lang::{EvalError, GlobalContext, LuaFunction, LuaValue, ReturnValue};
 
 pub mod fns;
 
@@ -10,14 +8,14 @@ pub fn std_context() -> GlobalContext {
     return ctx;
 }
 
-pub fn define_std_lib(ctx: &mut impl EvalContext) {
+pub(crate) fn define_std_lib(ctx: &mut GlobalContext) {
     define_total_fn(ctx, "tonumber", fns::tonumber);
     define_fn(ctx, "print", fns::print_stdout);
     define_total_fn(ctx, "random", fns::random);
 }
 
 fn define_fn(
-    ctx: &mut impl EvalContext,
+    ctx: &mut GlobalContext,
     name: &str,
     fun: impl Fn(&[LuaValue]) -> Result<LuaValue, EvalError> + 'static,
 ) {
@@ -30,7 +28,7 @@ fn define_fn(
 }
 
 fn define_total_fn(
-    ctx: &mut impl EvalContext,
+    ctx: &mut GlobalContext,
     name: &str,
     fun: impl Fn(&[LuaValue]) -> LuaValue + 'static,
 ) {

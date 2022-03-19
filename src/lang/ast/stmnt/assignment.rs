@@ -1,43 +1,38 @@
 use crate::{
     lang::{
-        ast::{assign_to_var, tail_values},
-        Eval, EvalContext, EvalError, LuaValue,
+        ast::{assign_to_var, eval_expr, tail_values},
+        EvalError, LocalScope, LuaValue, ScopeHolder,
     },
     syn::{Assignment, Expression, Var},
 };
 
-impl Eval for Assignment {
-    type Return = ();
-
-    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, EvalError>
-    where
-        Context: EvalContext + ?Sized,
-    {
-        let Assignment { names, values } = self;
-        assignment_values(context, values)
-            .and_then(|values| multiple_assignment(context, names, values))
-    }
+pub(crate) fn eval_assignment(
+    assignment: &Assignment,
+    scope: &mut LocalScope<impl ScopeHolder>,
+) -> Result<(), EvalError> {
+    let Assignment { names, values } = assignment;
+    assignment_values(scope, values).and_then(|values| multiple_assignment(scope, names, values))
 }
 
-pub fn assignment_values<'a, Context: EvalContext + ?Sized>(
-    context: &mut Context,
+pub(crate) fn assignment_values<'a>(
+    scope: &mut LocalScope<impl ScopeHolder>,
     values: impl IntoIterator<Item = &'a Expression>,
 ) -> Result<impl Iterator<Item = LuaValue>, EvalError> {
     values
         .into_iter()
-        .map(|expr| expr.eval(context))
+        .map(|expr| eval_expr(expr, scope))
         .collect::<Result<Vec<_>, _>>()
         .map(tail_values)
         .map(|values| values.chain(std::iter::repeat_with(|| LuaValue::Nil)))
 }
 
-fn multiple_assignment<'a, Context: EvalContext + ?Sized>(
-    context: &mut Context,
+fn multiple_assignment<'a>(
+    scope: &mut LocalScope<impl ScopeHolder>,
     names: impl IntoIterator<Item = &'a Var>,
     values: impl Iterator<Item = LuaValue>,
 ) -> Result<(), EvalError> {
     for (name, value) in names.into_iter().zip(values) {
-        assign_to_var(context, name, value)?;
+        assign_to_var(scope, name, value)?;
     }
     Ok(())
 }
@@ -52,8 +47,8 @@ mod test {
     use crate::{
         error::LuaError,
         lang::{
-            Eval, EvalContext, EvalContextExt, EvalError, GlobalContext, LuaFunction, LuaKey,
-            LuaValue, NaNLessTable, ReturnValue, TableRef, TableValue, TypeError,
+            ast, EvalError, GlobalContext, LuaFunction, LuaKey, LuaValue, NaNLessTable,
+            ReturnValue, TableRef, TableValue, TypeError,
         },
         lex::{Ident, Token},
         run_lua_test,
@@ -68,10 +63,10 @@ mod test {
         let mut context = GlobalContext::new();
         assert_eq!(context.get(&ident), &LuaValue::Nil);
         context.set("value", v1.clone());
-        module.eval(&mut context)?;
+        ast::eval_module(&module, &mut context)?;
         assert!(context.get(&ident).total_eq(&v1));
         context.set("value", v2.clone());
-        module.eval(&mut context)?;
+        ast::eval_module(&module, &mut context)?;
         assert!(context.get(&ident).total_eq(&v2));
         Ok(())
     }
@@ -99,7 +94,7 @@ mod test {
     }
 
     fn assign_values(
-        context: &mut impl EvalContext,
+        context: &mut GlobalContext,
         names: impl IntoIterator<Item = Ident>,
         values: impl IntoIterator<Item = LuaValue>,
     ) {
@@ -109,7 +104,7 @@ mod test {
     }
 
     fn assert_multiple_assignment(
-        context: &impl EvalContext,
+        context: &GlobalContext,
         idents: Vec<Ident>,
         values: Vec<LuaValue>,
     ) {
@@ -129,7 +124,7 @@ mod test {
     }
 
     fn put_dummy_values<'a>(
-        context: &mut impl EvalContext,
+        context: &mut GlobalContext,
         idents: impl IntoIterator<Item = &'a Ident>,
     ) {
         for ident in idents {
@@ -163,7 +158,7 @@ mod test {
         );
         put_dummy_values(&mut context, &idents);
 
-        module.eval(&mut context)?;
+        ast::eval_module(&module, &mut context)?;
         assert_multiple_assignment(&context, idents, values.into());
 
         Ok(TestResult::passed())
@@ -208,7 +203,7 @@ mod test {
         context.set("myfn", multi_return_fn(right_values.clone()));
         assign_values(&mut context, value_idents, left_values.iter().cloned());
         put_dummy_values(&mut context, &idents);
-        module.eval(&mut context)?;
+        ast::eval_module(&module, &mut context)?;
 
         left_values.extend(right_values.into_iter());
         assert_multiple_assignment(&mut context, idents.into(), left_values);
@@ -275,7 +270,7 @@ mod test {
         assign_values(&mut context, right_idents, right_values.iter().cloned());
         put_dummy_values(&mut context, &idents);
 
-        module.eval(&mut context)?;
+        ast::eval_module(&module, &mut context)?;
 
         let resulting_values: Vec<LuaValue> = left_values
             .into_iter()
@@ -302,7 +297,7 @@ mod test {
         context.set("value", value.clone());
         context.set("key", LuaValue::from(key.clone()));
 
-        module.eval(&mut context)?;
+        ast::eval_module(&module, &mut context)?;
         assert!(table.get(&key).total_eq(&value));
         Ok(TestResult::passed())
     }
@@ -328,7 +323,7 @@ mod test {
         context.set("value", value.clone());
         context.set("key", LuaValue::from(key.clone()));
 
-        module.eval(&mut context)?;
+        ast::eval_module(&module, &mut context)?;
         assert!(table.get(&key).total_eq(&value));
         Ok(TestResult::passed())
     }
@@ -346,7 +341,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("key", key.into());
         context.set("value", value);
-        let res = module.eval(&mut context);
+        let res = ast::eval_module(&module, &mut context);
         assert!(matches!(
             res,
             Err(EvalError::TypeError(TypeError::IsNotIndexable(_)))
@@ -358,7 +353,7 @@ mod test {
     fn assigning_to_a_nil_member_is_an_error() -> Result<(), LuaError> {
         let module = lua_parser::module("tbl = {} tbl[nil] = 42")?;
         let mut context = GlobalContext::new();
-        let res = module.eval(&mut context);
+        let res = ast::eval_module(&module, &mut context);
         assert!(matches!(
             res,
             Err(EvalError::TypeError(TypeError::NilLookup))
@@ -385,7 +380,7 @@ mod test {
         context.set("tbl2", LuaValue::Table(tbl2.clone()));
         context.set("value", value.clone());
 
-        module.eval(&mut context)?;
+        ast::eval_module(&module, &mut context)?;
         drop(context);
         let tbl1 = tbl1.try_into_inner().unwrap();
         let tbl2 = tbl2.try_into_inner().unwrap();
@@ -406,7 +401,7 @@ mod test {
         let module = lua_parser::module(&format!("value.{} = 42", prop))?;
         let mut context = GlobalContext::new();
         context.set("value", value);
-        let res = module.eval(&mut context);
+        let res = ast::eval_module(&module, &mut context);
         assert!(matches!(
             res,
             Err(EvalError::TypeError(TypeError::CannotAssignProperty { .. }))

@@ -1,9 +1,6 @@
 mod value;
 pub use value::*;
 
-mod eval;
-pub use eval::*;
-
 mod context;
 pub use context::*;
 

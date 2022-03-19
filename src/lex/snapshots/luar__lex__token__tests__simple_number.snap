@@ -15,7 +15,7 @@ expression: tokens
     ),
     Number(
         NumberLiteral(
-            10000000000000000.0,
+            1e16,
         ),
     ),
     Minus,

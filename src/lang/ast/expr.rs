@@ -1,48 +1,42 @@
 use crate::{
     lang::{
-        ArithmeticError, ArithmeticOperator, Eval, EvalContext, EvalError, LuaValue,
-        OrderingOperator, ReturnValue, TableRef, TypeError,
+        ArithmeticError, ArithmeticOperator, EvalError, LocalScope, LuaValue, OrderingOperator,
+        ReturnValue, ScopeHolder, TableRef, TypeError,
     },
     lex::{NumberLiteral, StringLiteral},
     syn::{BinaryOperator, Expression, UnaryOperator},
 };
 
-impl Eval for Expression {
-    type Return = ReturnValue;
+use super::{eval_fn_call, eval_tbl_constructor, eval_var};
 
-    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, EvalError>
-    where
-        Context: EvalContext + ?Sized,
-    {
-        match self {
-            Expression::Nil => Ok(ReturnValue::Nil),
-            Expression::Number(NumberLiteral(num)) => Ok(ReturnValue::Number((*num).into())),
-            Expression::String(StringLiteral(str)) => Ok(ReturnValue::String(str.clone())),
-            Expression::Variable(var) => var.eval(context).map(ReturnValue::from),
-            Expression::TableConstructor(tbl) => tbl
-                .eval(context)
-                .map(TableRef::from)
-                .map(ReturnValue::Table),
-            Expression::FunctionCall(call) => call.eval(context),
-            Expression::UnaryOperator { op, exp } => {
-                eval_unary_op_expr(exp.as_ref(), *op, context).map(ReturnValue::from)
-            }
-            Expression::BinaryOperator { lhs, op, rhs } => {
-                binary_op_eval(*op, lhs, rhs, context).map(ReturnValue::from)
-            }
+pub(crate) fn eval_expr(
+    expr: &Expression,
+    scope: &mut LocalScope<impl ScopeHolder>,
+) -> Result<ReturnValue, EvalError> {
+    match expr {
+        Expression::Nil => Ok(ReturnValue::Nil),
+        Expression::Number(NumberLiteral(num)) => Ok(ReturnValue::Number((*num).into())),
+        Expression::String(StringLiteral(str)) => Ok(ReturnValue::String(str.clone())),
+        Expression::Variable(var) => eval_var(var, scope).map(ReturnValue::from),
+        Expression::TableConstructor(tbl) => eval_tbl_constructor(tbl, scope)
+            .map(TableRef::from)
+            .map(ReturnValue::Table),
+        Expression::FunctionCall(call) => eval_fn_call(call, scope),
+        Expression::UnaryOperator { op, exp } => {
+            eval_unary_op_expr(exp.as_ref(), *op, scope).map(ReturnValue::from)
+        }
+        Expression::BinaryOperator { lhs, op, rhs } => {
+            binary_op_eval(*op, lhs, rhs, scope).map(ReturnValue::from)
         }
     }
 }
 
-fn eval_unary_op_expr<Context>(
+fn eval_unary_op_expr(
     expr: &Expression,
     op: UnaryOperator,
-    context: &mut Context,
-) -> Result<LuaValue, EvalError>
-where
-    Context: EvalContext + ?Sized,
-{
-    expr.eval(context).and_then(|value| {
+    scope: &mut LocalScope<impl ScopeHolder>,
+) -> Result<LuaValue, EvalError> {
+    eval_expr(expr, scope).and_then(|value| {
         unary_op_eval(op, value.first_value())
             .map_err(TypeError::Arithmetic)
             .map_err(EvalError::TypeError)
@@ -64,30 +58,26 @@ fn unary_minus_eval(value: LuaValue) -> Result<LuaValue, ArithmeticError> {
     }
 }
 
-fn binary_op_eval<Context>(
+fn binary_op_eval(
     op: BinaryOperator,
     lhs: &Expression,
     rhs: &Expression,
-    context: &mut Context,
-) -> Result<LuaValue, EvalError>
-where
-    Context: EvalContext + ?Sized,
-{
+    scope: &mut LocalScope<impl ScopeHolder>,
+) -> Result<LuaValue, EvalError> {
     use BinaryOperator::*;
 
-    let lhs = lhs.eval(context)?.first_value();
+    let lhs = eval_expr(lhs, scope)?.first_value();
     match op {
         And if lhs.is_falsy() => return Ok(lhs),
-        And => return rhs.eval(context).map(ReturnValue::first_value),
         Or if lhs.is_truthy() => return Ok(lhs),
-        Or => return rhs.eval(context).map(ReturnValue::first_value),
         _ => {}
     };
-    let rhs = rhs.eval(context)?.first_value();
 
+    let rhs = eval_expr(rhs, scope)?.first_value();
     match op {
         Equals => return Ok(LuaValue::from_bool(lhs == rhs)),
         NotEquals => return Ok(LuaValue::from_bool(lhs != rhs)),
+        And | Or => return Ok(rhs),
         _ => {}
     }
 
@@ -155,9 +145,7 @@ mod test {
 
     use crate::{
         error::LuaError,
-        lang::{
-            Eval, EvalContextExt, GlobalContext, LuaFunction, LuaNumber, LuaValue, ReturnValue,
-        },
+        lang::{ast, GlobalContext, LuaFunction, LuaNumber, LuaValue, ReturnValue},
         lex::{NumberLiteral, StringLiteral, Token},
         ne_vec,
         syn::{lua_parser, unspanned_lua_token_parser},
@@ -170,44 +158,14 @@ mod test {
 
         use crate::{
             error::LuaError,
-            lang::{ArithmeticError, Eval, EvalError, GlobalContext, ReturnValue, TypeError},
+            lang::{
+                ast, ArithmeticError, EvalError, GlobalContext, ReturnValue, ScopeHolder, TypeError,
+            },
             lex::{NumberLiteral, StringLiteral},
             syn,
             test_util::Finite,
             util::eq_with_nan,
         };
-
-        #[test]
-        fn eval_nil() -> Result<(), EvalError> {
-            let mut context = GlobalContext::new();
-            let expr = syn::Expression::Nil;
-            assert_eq!(expr.eval(&mut context)?, ReturnValue::Nil);
-            Ok(())
-        }
-
-        #[quickcheck]
-        fn eval_number_literal(num: f64) -> Result<(), EvalError> {
-            let mut context = GlobalContext::new();
-            let expr = syn::Expression::Number(NumberLiteral(num));
-            let res = expr
-                .eval(&mut context)?
-                .assert_single()
-                .unwrap_number()
-                .as_f64();
-            assert!(eq_with_nan(res, num));
-            Ok(())
-        }
-
-        #[quickcheck]
-        fn eval_string_literal(str: String) -> Result<(), EvalError> {
-            let mut context = GlobalContext::new();
-            let expr = syn::Expression::String(StringLiteral(str.clone()));
-            assert_eq!(
-                expr.eval(&mut context)?.assert_single().unwrap_string(),
-                str
-            );
-            Ok(())
-        }
 
         fn negation_expr(num: f64) -> syn::Expression {
             syn::Expression::UnaryOperator {
@@ -220,8 +178,7 @@ mod test {
         fn eval_negation(Finite(num): Finite<f64>) -> Result<(), EvalError> {
             let mut context = GlobalContext::new();
             let expr = negation_expr(num);
-            let res = expr
-                .eval(&mut context)?
+            let res = ast::eval_expr(&expr, &mut context.top_level_scope())?
                 .assert_single()
                 .unwrap_number()
                 .as_f64();
@@ -233,8 +190,7 @@ mod test {
         fn eval_negation_on_nan() -> Result<(), EvalError> {
             let mut context = GlobalContext::new();
             let expr = negation_expr(f64::NAN);
-            let res = expr
-                .eval(&mut context)?
+            let res = ast::eval_expr(&expr, &mut context.top_level_scope())?
                 .assert_single()
                 .unwrap_number()
                 .as_f64();
@@ -246,8 +202,7 @@ mod test {
         fn eval_negation_on_inf() -> Result<(), EvalError> {
             let mut context = GlobalContext::new();
             let expr = negation_expr(f64::INFINITY);
-            let res = expr
-                .eval(&mut context)?
+            let res = ast::eval_expr(&expr, &mut context.top_level_scope())?
                 .assert_single()
                 .unwrap_number()
                 .as_f64();
@@ -259,8 +214,7 @@ mod test {
         fn eval_negation_on_neg_inf() -> Result<(), EvalError> {
             let mut context = GlobalContext::new();
             let expr = negation_expr(f64::NEG_INFINITY);
-            let res = expr
-                .eval(&mut context)?
+            let res = ast::eval_expr(&expr, &mut context.top_level_scope())?
                 .assert_single()
                 .unwrap_number()
                 .as_f64();
@@ -275,8 +229,7 @@ mod test {
                 op: syn::UnaryOperator::Minus,
                 exp: Box::new(syn::Expression::String(StringLiteral(format!("{}", num)))),
             };
-            let res = expr
-                .eval(&mut context)?
+            let res = ast::eval_expr(&expr, &mut context.top_level_scope())?
                 .assert_single()
                 .unwrap_number()
                 .as_f64();
@@ -298,7 +251,7 @@ mod test {
                     op: syn::UnaryOperator::Minus,
                     exp: Box::new(exp),
                 };
-                let res = expr.eval(&mut context);
+                let res = ast::eval_expr(&expr, &mut context.top_level_scope());
                 assert!(matches!(
                     res,
                     Err(EvalError::TypeError(TypeError::Arithmetic(
@@ -311,8 +264,11 @@ mod test {
         #[test]
         fn eval_not_on_nil() -> Result<(), LuaError> {
             let mut context = GlobalContext::new();
-            let exp = syn::lua_parser::expression("not nil")?;
-            assert_eq!(exp.eval(&mut context)?, ReturnValue::number(1));
+            let expr = syn::lua_parser::expression("not nil")?;
+            assert_eq!(
+                ast::eval_expr(&expr, &mut context.top_level_scope())?,
+                ReturnValue::number(1)
+            );
             Ok(())
         }
 
@@ -342,55 +298,10 @@ mod test {
                 op: syn::UnaryOperator::Not,
                 exp: Box::new(expr),
             };
-            assert_eq!(expr.eval(&mut context)?, ReturnValue::Nil);
-            Ok(())
-        }
-
-        #[derive(Debug, Clone)]
-        pub struct SimpleExpression(syn::Expression);
-
-        impl Arbitrary for SimpleExpression {
-            fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-                Self(match u8::arbitrary(g) % 3 {
-                    0 => syn::Expression::Nil,
-                    1 => syn::Expression::Number(Arbitrary::arbitrary(g)),
-                    2 => syn::Expression::String(Arbitrary::arbitrary(g)),
-                    _ => unreachable!(),
-                })
-            }
-
-            fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-                Box::new(self.0.shrink().map(Self))
-            }
-        }
-
-        #[quickcheck]
-        fn eval_and_on_truthy(
-            TruthyExpression(lhs): TruthyExpression,
-            SimpleExpression(rhs): SimpleExpression,
-        ) -> Result<(), LuaError> {
-            let mut context = GlobalContext::new();
-            let expected = rhs.eval(&mut context)?;
-            let expr = syn::Expression::BinaryOperator {
-                op: syn::BinaryOperator::And,
-                lhs: Box::new(lhs),
-                rhs: Box::new(rhs),
-            };
-
-            assert!(expr.eval(&mut context)?.total_eq(&expected));
-            Ok(())
-        }
-
-        #[quickcheck]
-        fn eval_and_on_falsy(SimpleExpression(rhs): SimpleExpression) -> Result<(), LuaError> {
-            let mut context = GlobalContext::new();
-            let expr = syn::Expression::BinaryOperator {
-                op: syn::BinaryOperator::And,
-                lhs: Box::new(syn::Expression::Nil),
-                rhs: Box::new(rhs),
-            };
-
-            assert_eq!(expr.eval(&mut context)?, ReturnValue::Nil);
+            assert_eq!(
+                ast::eval_expr(&expr, &mut context.top_level_scope())?,
+                ReturnValue::Nil
+            );
             Ok(())
         }
     }
@@ -399,7 +310,7 @@ mod test {
     fn eval_nil() -> Result<(), LuaError> {
         let module = lua_parser::module("return nil")?;
         let mut context = GlobalContext::new();
-        assert_eq!(module.eval(&mut context)?, ReturnValue::Nil);
+        assert_eq!(ast::eval_module(&module, &mut context)?, ReturnValue::Nil);
         Ok(())
     }
 
@@ -408,9 +319,7 @@ mod test {
         let module =
             unspanned_lua_token_parser::module([Token::Return, Token::Number(NumberLiteral(num))])?;
         let mut context = GlobalContext::new();
-        assert!(module
-            .eval(&mut context)?
-            .total_eq(&ReturnValue::number(num)));
+        assert!(ast::eval_module(&module, &mut context)?.total_eq(&ReturnValue::number(num)));
         Ok(())
     }
 
@@ -421,7 +330,10 @@ mod test {
             Token::String(StringLiteral(str.clone())),
         ])?;
         let mut context = GlobalContext::new();
-        assert_eq!(module.eval(&mut context)?, ReturnValue::String(str));
+        assert_eq!(
+            ast::eval_module(&module, &mut context)?,
+            ReturnValue::String(str)
+        );
         Ok(())
     }
 
@@ -434,7 +346,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs.clone());
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(LuaValue::total_eq(&res.assert_single(), &rhs));
         Ok(TestResult::passed())
     }
@@ -445,7 +357,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", LuaValue::Nil);
         context.set("rhs", rhs.clone());
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::Nil);
         Ok(())
     }
@@ -459,7 +371,7 @@ mod test {
         let ret_value = ReturnValue::MultiValue(values.clone());
         let mult_fn = LuaFunction::new(move |_, _| Ok(ret_value.clone()));
         context.set("mult", LuaValue::Function(mult_fn));
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(ReturnValue::total_eq(&res, &values.move_first().into()));
         Ok(())
     }
@@ -478,7 +390,7 @@ mod test {
             return side_effect_committed",
         )?;
         let mut context = GlobalContext::new();
-        assert_eq!(module.eval(&mut context)?, ReturnValue::Nil);
+        assert_eq!(ast::eval_module(&module, &mut context)?, ReturnValue::Nil);
         Ok(())
     }
 
@@ -491,7 +403,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", lhs.clone());
         context.set("rhs", rhs);
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(LuaValue::total_eq(&res.assert_single(), &lhs));
         Ok(TestResult::passed())
     }
@@ -502,7 +414,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", LuaValue::Nil);
         context.set("rhs", rhs.clone());
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(LuaValue::total_eq(&res.assert_single(), &rhs));
         Ok(())
     }
@@ -516,7 +428,7 @@ mod test {
         let ret_value = ReturnValue::MultiValue(values.clone());
         let mult_fn = LuaFunction::new(move |_, _| Ok(ret_value.clone()));
         context.set("mult", LuaValue::Function(mult_fn));
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(ReturnValue::total_eq(&res, &values.move_first().into()));
         Ok(())
     }
@@ -537,7 +449,7 @@ mod test {
         ",
         )?;
         let mut context = GlobalContext::new();
-        assert_eq!(module.eval(&mut context)?, ReturnValue::Nil);
+        assert_eq!(ast::eval_module(&module, &mut context)?, ReturnValue::Nil);
         Ok(())
     }
 
@@ -552,7 +464,7 @@ mod test {
 
         let module = lua_parser::module("return value == value")?;
         let mut context = GlobalContext::new();
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert_eq!(LuaValue::true_value(), res.assert_single());
         Ok(TestResult::passed())
     }
@@ -567,7 +479,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert_eq!(expected, res.assert_single());
         Ok(())
     }
@@ -581,7 +493,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert_eq!(LuaValue::true_value(), res.assert_single());
         Ok(())
     }
@@ -596,22 +508,22 @@ mod test {
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::number(rhs));
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs + rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
         context.set("rhs", LuaValue::number(rhs));
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs + rhs)));
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::String(rhs.to_string()));
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs + rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
         context.set("rhs", LuaValue::String(rhs.to_string()));
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs + rhs)));
 
         Ok(())
@@ -629,7 +541,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
-        let res = module.eval(&mut context);
+        let res = ast::eval_module(&module, &mut context);
         assert!(res.is_err());
 
         Ok(TestResult::passed())
@@ -645,22 +557,22 @@ mod test {
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::number(rhs));
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs - rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
         context.set("rhs", LuaValue::number(rhs));
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs - rhs)));
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::String(rhs.to_string()));
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs - rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
         context.set("rhs", LuaValue::String(rhs.to_string()));
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs - rhs)));
 
         Ok(())
@@ -678,7 +590,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
-        let res = module.eval(&mut context);
+        let res = ast::eval_module(&module, &mut context);
         assert!(res.is_err());
 
         Ok(TestResult::passed())
@@ -697,7 +609,7 @@ mod test {
             LuaValue::from_bool(lhs >= rhs),
             LuaValue::from_bool(lhs <= rhs)
         ];
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::MultiValue(expected));
         Ok(())
     }
@@ -717,7 +629,7 @@ mod test {
             LuaValue::from_bool(lhs >= rhs),
             LuaValue::from_bool(lhs <= rhs)
         ];
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::MultiValue(expected));
         Ok(())
     }
@@ -741,7 +653,7 @@ mod test {
                 LuaValue::from_bool(lhs >= rhs),
                 LuaValue::from_bool(lhs <= rhs)
             ];
-            let res = module.eval(&mut context)?;
+            let res = ast::eval_module(&module, &mut context)?;
             assert_eq!(res, ReturnValue::MultiValue(expected));
         }
         {
@@ -755,7 +667,7 @@ mod test {
                 LuaValue::from_bool(lhs >= rhs),
                 LuaValue::from_bool(lhs <= rhs)
             ];
-            let res = module.eval(&mut context)?;
+            let res = ast::eval_module(&module, &mut context)?;
             assert_eq!(res, ReturnValue::MultiValue(expected));
         }
 
@@ -781,7 +693,7 @@ mod test {
         context.set("value", val);
 
         for module in modules {
-            let res = module.eval(&mut context);
+            let res = ast::eval_module(&module, &mut context);
             if is_comparable {
                 assert!(res.is_ok());
             } else {

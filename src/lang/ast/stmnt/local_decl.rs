@@ -1,35 +1,31 @@
 use crate::{
-    lang::{Eval, EvalContext, LuaValue},
+    lang::{LocalScope, LuaValue, ScopeHolder},
     lex::Ident,
     syn::Declaration,
 };
 
 use super::assignment::assignment_values;
 
-impl Eval for Declaration {
-    type Return = ();
+pub(crate) fn eval_decl(
+    decl: &Declaration,
+    scope: &mut LocalScope<impl ScopeHolder>,
+) -> Result<(), crate::lang::EvalError> {
+    let Declaration {
+        names,
+        initial_values,
+    } = decl;
 
-    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, crate::lang::EvalError>
-    where
-        Context: crate::lang::EvalContext + ?Sized,
-    {
-        let Self {
-            names,
-            initial_values,
-        } = self;
-
-        assignment_values(context, initial_values)
-            .map(|values| multiple_local_assignment(context, names.clone(), values))
-    }
+    assignment_values(scope, initial_values)
+        .map(|values| multiple_local_assignment(scope, names.clone(), values))
 }
 
-fn multiple_local_assignment<Context: EvalContext + ?Sized>(
-    context: &mut Context,
+fn multiple_local_assignment(
+    scope: &mut LocalScope<impl ScopeHolder>,
     names: impl IntoIterator<Item = Ident>,
     values: impl Iterator<Item = LuaValue>,
 ) {
     for (name, value) in names.into_iter().zip(values) {
-        context.declare_local(name.into(), value);
+        scope.declare_local(name, value);
     }
 }
 
@@ -37,21 +33,22 @@ fn multiple_local_assignment<Context: EvalContext + ?Sized>(
 mod test {
     use crate::{
         error::LuaError,
-        lang::{Eval, EvalContextExt, GlobalContext, LuaValue},
+        lang::{ast, GlobalContext, LuaValue, ReturnValue},
         lex::Ident,
+        ne_vec,
         syn::lua_parser,
     };
 
     #[quickcheck]
-    fn local_decl_behaves_like_global_assignment_in_global_scope(
+    fn local_decl_does_not_behave_like_global_assignment_in_global_scope(
         ident: Ident,
         value: LuaValue,
     ) -> Result<(), LuaError> {
         let module = lua_parser::module(&format!("local {} = value", ident))?;
         let mut context = GlobalContext::new();
         context.set("value", value.clone());
-        module.eval(&mut context)?;
-        assert!(context.get(&ident).total_eq(&value));
+        ast::eval_module(&module, &mut context)?;
+        assert_eq!(context.get(&ident), &LuaValue::Nil);
         Ok(())
     }
 
@@ -65,8 +62,8 @@ mod test {
         ))?;
         let mut context = GlobalContext::new();
         context.set("value", value.clone());
-        module.eval(&mut context)?;
-        assert!(context.get(&ident).total_eq(&value));
+        let res = ast::eval_module(&module, &mut context)?;
+        assert!(res.assert_single().total_eq(&value));
         Ok(())
     }
 
@@ -85,8 +82,8 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("value1", value1.clone());
         context.set("value2", value2);
-        module.eval(&mut context)?;
-        assert!(context.get(&ident).total_eq(&value1));
+        let res = ast::eval_module(&module, &mut context)?;
+        assert!(res.assert_single().total_eq(&value1));
         Ok(())
     }
 
@@ -105,7 +102,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("value1", value1.clone());
         context.set("value2", value2);
-        module.eval(&mut context)?;
+        ast::eval_module(&module, &mut context)?;
         assert!(context.get(&ident).total_eq(&value1));
         Ok(())
     }
@@ -126,10 +123,79 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("value1", value1);
         context.set("value2", value2);
-        module.eval(&mut context)?;
+        ast::eval_module(&module, &mut context)?;
         assert!(context.get(&ident).is_nil());
         Ok(())
     }
 
-    // TODO: test that assignment behaves exactly like regular assignment
+    #[test]
+    fn local_var_in_global_context_is_not_accessible_from_other_function_contexts(
+    ) -> Result<(), LuaError> {
+        let module = lua_parser::module(
+            "local foo = 42
+            function bar() return foo end
+            return bar()",
+        )?;
+        let mut context = GlobalContext::new();
+        let res = ast::eval_module(&module, &mut context)?;
+        assert_eq!(res, ReturnValue::Nil);
+        Ok(())
+    }
+
+    #[test]
+    fn global_var_cannot_be_redeclared_local() -> Result<(), LuaError> {
+        let module = lua_parser::module(
+            "foo = 69
+            local foo = 42
+            function bar() return foo end
+            return foo, bar()",
+        )?;
+        let mut context = GlobalContext::new();
+        let res = ast::eval_module(&module, &mut context)?;
+        assert_eq!(
+            res,
+            ReturnValue::MultiValue(ne_vec![LuaValue::number(69), LuaValue::number(69)])
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn local_vars_do_not_leak_through_function_calls() -> Result<(), LuaError> {
+        let module = lua_parser::module(
+            "
+            function foo()
+                return a
+            end
+            
+            function bar()
+                local a = 42
+                return foo()
+            end
+
+            return bar()",
+        )?;
+        let mut context = GlobalContext::new();
+        let res = ast::eval_module(&module, &mut context)?;
+        assert_eq!(res, ReturnValue::Nil);
+        Ok(())
+    }
+
+    #[test]
+    fn local_scopes_are_different() -> Result<(), LuaError> {
+        let module = lua_parser::module(
+            "
+            if 1 then
+                local foo = 42
+            end
+
+            if 1 then
+                return foo
+            end
+            return 69
+        ",
+        )?;
+        let res = ast::eval_module(&module, &mut GlobalContext::new())?;
+        assert_eq!(res, ReturnValue::Nil);
+        Ok(())
+    }
 }

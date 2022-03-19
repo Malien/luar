@@ -1,27 +1,28 @@
 use crate::{
-    lang::{ControlFlow, Eval, EvalContext, EvalError},
+    lang::{ControlFlow, EvalError, LocalScope, ScopeHolder, ast::eval_fn_call},
     syn::Statement,
 };
 
 mod assignment;
+pub(crate) use assignment::*;
 mod conditional;
+pub(crate) use conditional::*;
 mod local_decl;
+pub(crate) use local_decl::*;
 mod while_loop;
+pub(crate) use while_loop::*;
 
-impl Eval for Statement {
-    type Return = ControlFlow;
-
-    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, EvalError>
-    where
-        Context: EvalContext + ?Sized,
-    {
-        match self {
-            Self::Assignment(assignment) => assignment.eval(context).map(|_| ControlFlow::Continue),
-            Self::LocalDeclaration(decl) => decl.eval(context).map(|_| ControlFlow::Continue),
-            Self::FunctionCall(func_call) => func_call.eval(context).map(|_| ControlFlow::Continue),
-            Self::If(conditional) => conditional.eval(context),
-            Self::While(while_loop) => while_loop.eval(context),
-            _ => todo!(),
-        }
+pub(crate) fn eval_stmnt(
+    stmnt: &Statement,
+    scope: &mut LocalScope<impl ScopeHolder>,
+) -> Result<ControlFlow, EvalError> {
+    use Statement::*;
+    match stmnt {
+        Assignment(assignment) => eval_assignment(assignment, scope).map(|_| ControlFlow::Continue),
+        LocalDeclaration(decl) => eval_decl(decl, scope).map(|_| ControlFlow::Continue),
+        FunctionCall(func_call) => eval_fn_call(func_call, scope).map(|_| ControlFlow::Continue),
+        If(conditional) => eval_conditional(conditional, scope),
+        While(while_loop) => eval_while_loop(while_loop, scope),
+        _ => todo!(),
     }
 }

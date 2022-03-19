@@ -1,37 +1,43 @@
 use crate::{lex::Ident, syn::Var};
 
-use super::{Eval, EvalContext, EvalContextExt, EvalError, LuaKey, LuaValue, TypeError};
+use super::{EvalError, LocalScope, LuaKey, LuaValue, ScopeHolder, TypeError};
 
 mod block;
+pub(crate) use block::*;
 mod expr;
+pub(crate) use expr::*;
 mod fn_call;
+pub(crate) use fn_call::*;
 mod fn_decl;
+pub(crate) use fn_decl::*;
 mod module;
+pub use module::*;
 mod ret;
+pub(crate) use ret::*;
 mod stmnt;
+pub(crate) use stmnt::*;
 mod table_constructor;
+pub(crate) use table_constructor::*;
 mod var;
+pub(crate) use var::*;
 
 mod tail_values;
 pub use tail_values::*;
 
-pub fn assign_to_var<Context>(
-    context: &mut Context,
+pub(crate) fn assign_to_var(
+    scope: &mut LocalScope<impl ScopeHolder>,
     var: &Var,
     value: LuaValue,
-) -> Result<(), EvalError>
-where
-    Context: EvalContext + ?Sized,
-{
+) -> Result<(), EvalError> {
     match var {
-        Var::Named(ident) => Ok(context.set(ident.clone(), value)),
+        Var::Named(ident) => Ok(scope.set(ident.clone(), value)),
         Var::MemberLookup { from, value: key } => {
-            let from = from.eval(context)?;
-            let key = key.eval(context)?.first_value();
+            let from = eval_var(from, scope)?;
+            let key = eval_expr(key, scope)?.first_value();
             assign_to_value_member(from, key, value)
         }
         Var::PropertyAccess { from, property } => {
-            let from = from.eval(context)?;
+            let from = eval_var(from, scope)?;
             assign_to_value_property(from, property.clone(), value)
         }
     }

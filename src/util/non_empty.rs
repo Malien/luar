@@ -1,4 +1,4 @@
-use std::{ops::Deref, fmt};
+use std::{fmt, ops::{Deref, DerefMut}};
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -56,6 +56,11 @@ impl<T> NonEmptyVec<T> {
         self.0.first().unwrap()
     }
 
+    pub fn first_mut(&mut self) -> &mut T {
+        // Can be unwrap_unchecked() but I'm scared tbh.
+        self.0.first_mut().unwrap()
+    }
+
     pub fn last(&self) -> &'_ T {
         // Can be unwrap_unchecked() but I'm scared tbh.
         self.0.last().unwrap()
@@ -74,12 +79,22 @@ impl<T> NonEmptyVec<T> {
         // Can be unwrap_unchecked() but I'm scared tbh.
         (self.0.pop().unwrap(), self.0)
     }
+
+    pub fn push(&mut self, value: T) {
+        self.0.push(value)
+    }
 }
 
 impl<T> Deref for NonEmptyVec<T> {
-    type Target = Vec<T>;
+    type Target = [T];
     fn deref(&self) -> &'_ Self::Target {
         &self.0
+    }
+}
+
+impl<T> DerefMut for NonEmptyVec<T> {
+    fn deref_mut(&mut self) -> &'_ mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -140,4 +155,10 @@ macro_rules! ne_vec {
     ($($x:expr),+ $(,)?) => (
         unsafe { crate::util::NonEmptyVec::new_unchecked(vec![$($x),+]) }
     );
+}
+
+impl<T: Default> Default for NonEmptyVec<T> {
+    fn default() -> Self {
+        NonEmptyVec::of_single(T::default())
+    }
 }

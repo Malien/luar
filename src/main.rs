@@ -1,16 +1,16 @@
 use std::error::Error;
 
-use luar::{stdlib, syn, lang::Eval};
+use luar::{lang::ast, stdlib, syn};
 
 fn repl() -> Result<(), Box<dyn Error>> {
-    use std::io::{Write, BufRead};
+    use std::io::{BufRead, Write};
 
     let mut context = stdlib::std_context();
     print!(">>> ");
     std::io::stdout().flush()?;
     for line in std::io::stdin().lock().lines() {
         let module = syn::lua_parser::module(&line?)?;
-        let res = module.eval(&mut context);
+        let res = ast::eval_module(&module, &mut context);
         match res {
             Ok(value) => println!("{}", value),
             Err(err) => println!("Error: {}", err),
@@ -28,7 +28,7 @@ fn eval_file(filename: &str) -> Result<(), Box<dyn Error>> {
     let mut buffer = String::new();
     file.read_to_string(&mut buffer)?;
     let module = syn::lua_parser::module(&buffer)?;
-    module.eval(&mut stdlib::std_context())?;
+    ast::eval_module(&module, &mut stdlib::std_context())?;
     Ok(())
 }
 

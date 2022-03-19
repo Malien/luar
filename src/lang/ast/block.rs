@@ -1,35 +1,29 @@
 use crate::{
-    lang::{ControlFlow, Eval, EvalContext, EvalError, LocalContext},
+    lang::{ControlFlow, EvalError, LocalScope, ScopeHolder},
     syn::Block,
 };
 
-impl Eval for Block {
-    type Return = ControlFlow;
+use super::{eval_ret, eval_stmnt};
 
-    fn eval<Context>(&self, context: &mut Context) -> Result<Self::Return, EvalError>
-    where
-        Context: EvalContext + ?Sized,
-    {
-        let local_ctx: &mut dyn EvalContext = &mut LocalContext::new(context);
-        for statement in &self.statements {
-            if let ControlFlow::Return(value) = statement.eval(local_ctx)? {
-                return Ok(ControlFlow::Return(value))
-            }
+pub(crate) fn eval_block(
+    block: &Block,
+    scope: &mut LocalScope<impl ScopeHolder>,
+) -> Result<ControlFlow, EvalError> {
+    for statement in &block.statements {
+        if let ControlFlow::Return(value) = eval_stmnt(statement, scope)? {
+            return Ok(ControlFlow::Return(value));
         }
-        self.ret
-            .as_ref()
-            .map(|ret| ret.eval(local_ctx).map(ControlFlow::Return))
-            .unwrap_or(Ok(ControlFlow::Continue))
     }
+    block
+        .ret
+        .as_ref()
+        .map(|ret| eval_ret(ret, scope).map(ControlFlow::Return))
+        .unwrap_or(Ok(ControlFlow::Continue))
 }
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        error::LuaError,
-        lang::{Eval, GlobalContext},
-        syn::lua_parser,
-    };
+    use crate::{error::LuaError, lang::ast, lang::GlobalContext, syn::lua_parser};
 
     #[test]
     fn early_returns_from_blocks_stop_flow_of_execution() -> Result<(), LuaError> {
@@ -40,7 +34,7 @@ mod test {
             return nil",
         )?;
         let mut context = GlobalContext::new();
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(res.assert_single().is_truthy());
         Ok(())
     }
@@ -57,7 +51,7 @@ mod test {
             return fn()",
         )?;
         let mut context = GlobalContext::new();
-        let res = module.eval(&mut context)?;
+        let res = ast::eval_module(&module, &mut context)?;
         assert!(res.assert_single().is_truthy());
         Ok(())
     }

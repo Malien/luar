@@ -12,14 +12,14 @@ macro_rules! fib_bench {
                 group.bench_function("ast interpretation", |b| {
                     let module = ::luar::syn::lua_parser::module(BENCH_FILE).unwrap();
                     let mut context = ::luar::lang::GlobalContext::new();
-                    ::luar::lang::EvalContextExt::set(
+                    ::luar::lang::GlobalContext::set(
                         &mut context,
                         "N",
                         ::luar::lang::LuaValue::number(20),
                     );
 
                     b.iter(|| {
-                        ::luar::lang::Eval::eval(&module, &mut context).unwrap();
+                        ::luar::lang::ast::eval_module(&module, &mut context).unwrap();
                     });
                 });
 

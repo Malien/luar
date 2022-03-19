@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::lang::{EvalContext, EvalError, LuaFunction, LuaNumber, LuaType};
+use crate::lang::{EvalError, LuaFunction, LuaNumber, LuaType, GlobalContext};
 
 #[cfg(test)]
 use crate::test_util::{with_thread_gen, GenExt};
@@ -39,7 +39,7 @@ impl LuaValue {
     }
 
     pub fn function(
-        func: impl Fn(&mut dyn EvalContext, &[LuaValue]) -> Result<ReturnValue, EvalError> + 'static,
+        func: impl Fn(&mut GlobalContext, &[LuaValue]) -> Result<ReturnValue, EvalError> + 'static,
     ) -> Self {
         Self::Function(LuaFunction::new(func))
     }
