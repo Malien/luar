@@ -40,7 +40,7 @@ end
 function populated_table(N)
     local a = {}
     local i = 1
-    while i ~= N do
+    while i ~= N + 1 do
         a[i] = random()
         i = i + 1
     end
@@ -51,17 +51,18 @@ function assert_sorted(N, tbl)
     local i = 1
     while i ~= N - 1 do
         assert(tbl[i] <= tbl[i+1])
+        i = i + 1
     end
 end
 
 local iterations = 4
 local element_count = 10000
 
-local i = 1
+local i = 0
 while i ~= iterations do
     local tbl = populated_table(element_count)
     heapsort(element_count, tbl)
-    assert_sorted(tbl)
+    assert_sorted(element_count, tbl)
     i = i + 1
 end
 

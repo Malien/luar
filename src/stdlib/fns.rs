@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::lang::{EvalError, LuaValue};
+use crate::lang::{EvalError, LuaType, LuaValue, TypeError};
 
 pub fn tonumber(args: &[LuaValue]) -> LuaValue {
     if let Some(arg) = args.first() {
@@ -42,14 +42,44 @@ pub fn random(_: &[LuaValue]) -> LuaValue {
     return LuaValue::number(float_value);
 }
 
+pub fn floor(args: &[LuaValue]) -> Result<LuaValue, EvalError> {
+    if let Some(arg) = args.first() {
+        if let Some(num) = arg.as_number() {
+            Ok(LuaValue::number(num.as_f64().floor()))
+        } else {
+            Err(TypeError::ArgumentType {
+                position: 0,
+                expected: LuaType::Number,
+                got: arg.type_of(),
+            })
+        }
+    } else {
+        Err(TypeError::ArgumentType {
+            position: 0,
+            expected: LuaType::Number,
+            got: LuaType::Nil,
+        })
+    }
+    .map_err(EvalError::TypeError)
+}
+
+pub fn assert(args: &[LuaValue]) -> Result<LuaValue, EvalError> {
+    match args.first() {
+        None | Some(LuaValue::Nil) => Err(EvalError::AssertionError),
+        _ => Ok(LuaValue::Nil),
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::io::Cursor;
 
-    use super::{print, tonumber};
+    use quickcheck::TestResult;
+
+    use super::{assert, floor, print, random, tonumber};
     use crate::{
-        lang::{LuaFunction, LuaNumber, LuaValue, ReturnValue},
-        util::close_relative_eq, stdlib::fns::random,
+        lang::{EvalError, LuaFunction, LuaNumber, LuaValue, ReturnValue, TableValue},
+        util::{close_relative_eq, eq_with_nan},
     };
 
     #[test]
@@ -142,6 +172,56 @@ mod test {
             let res = random(&[]).unwrap_number().as_f64();
             assert!((0.0..=1.0).contains(&res));
         }
+    }
+
+    #[quickcheck]
+    fn floor_floor_numbers(num: LuaNumber) {
+        assert!(eq_with_nan(
+            floor(&[LuaValue::number(num)])
+                .unwrap()
+                .unwrap_number()
+                .as_f64(),
+            num.as_f64().floor()
+        ));
+
+        assert!(eq_with_nan(
+            floor(&[LuaValue::string(format!("{}", num))])
+                .unwrap()
+                .unwrap_number()
+                .as_f64(),
+            num.as_f64().floor()
+        ));
+    }
+
+    #[test]
+    fn flooring_unconvertible_values_is_an_error() {
+        let unsupported = [
+            LuaValue::Nil,
+            LuaValue::string("hello"),
+            LuaValue::table(TableValue::new()),
+            LuaValue::function(|_, _| Ok(ReturnValue::Nil)),
+        ];
+        for value in unsupported {
+            assert!(floor(&[value]).is_err())
+        }
+    }
+
+    #[quickcheck]
+    fn asserting_truthy_value_does_nothing(value: LuaValue) -> TestResult {
+        if value.is_falsy() {
+            return TestResult::discard();
+        }
+        assert_eq!(assert(&[value]).unwrap(), LuaValue::Nil);
+        TestResult::passed()
+    }
+
+    #[test]
+    fn asserting_falsy_value_produces_error() {
+        assert!(matches!(assert(&[]), Err(EvalError::AssertionError)));
+        assert!(matches!(
+            assert(&[LuaValue::Nil]),
+            Err(EvalError::AssertionError)
+        ));
     }
 
     // #[test]

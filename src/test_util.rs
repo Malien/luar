@@ -6,10 +6,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::{
-    lang::{EvalError, LuaValue, ReturnValue, GlobalContext},
-    lex::Ident,
-};
+use crate::lex::Ident;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
@@ -116,25 +113,20 @@ pub fn vec_of_idents(len: usize, prefix: &str) -> Vec<Ident> {
         .collect()
 }
 
-pub(crate) fn lua_assert(
-    _: &mut GlobalContext,
-    args: &[LuaValue],
-) -> Result<ReturnValue, EvalError> {
-    match args.first() {
-        None | Some(LuaValue::Nil) => Err(EvalError::AssertionError),
-        _ => Ok(ReturnValue::Nil),
-    }
-}
-
 #[macro_export]
 macro_rules! run_lua_test {
     ($file: expr, $context: expr) => {{
         let mut context = $context;
-        crate::lang::GlobalContext::set(
-            &mut context,
-            "assert",
-            crate::lang::LuaValue::function(crate::test_util::lua_assert),
-        );
+        let existing_assert = crate::lang::GlobalContext::get(&context, "assert");
+        if existing_assert.is_nil() {
+            crate::lang::GlobalContext::set(
+                &mut context,
+                "assert",
+                crate::lang::LuaValue::function(|_, args| {
+                    crate::stdlib::fns::assert(args).map(crate::lang::ReturnValue::from)
+                }),
+            );
+        }
         let test_module = crate::syn::lua_parser::module(include_str!($file))?;
         crate::lang::ast::eval_module(&test_module, &mut context)?;
         Ok(())

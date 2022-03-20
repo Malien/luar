@@ -12,6 +12,8 @@ pub(crate) fn define_std_lib(ctx: &mut GlobalContext) {
     define_total_fn(ctx, "tonumber", fns::tonumber);
     define_fn(ctx, "print", fns::print_stdout);
     define_total_fn(ctx, "random", fns::random);
+    define_fn(ctx, "floor", fns::floor);
+    define_fn(ctx, "assert", fns::assert);
 }
 
 fn define_fn(

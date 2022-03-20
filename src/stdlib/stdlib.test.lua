@@ -29,3 +29,11 @@ while i ~= 1000 do
 end
 -- I could test "randomness" sorta speak, by calculating 
 -- that entropy is sufficient, but yeah... Not today
+
+-- floor tests
+assert(floor ~= nil)
+assert(floor(1) == 1)
+assert(floor(42.2) == 42)
+assert(floor(69.9) == 69)
+assert(floor("24") == 24)
+assert(floor("69.420") == 69)
