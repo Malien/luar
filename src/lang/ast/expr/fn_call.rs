@@ -33,7 +33,7 @@ fn call_value(
     }
 }
 
-pub(crate) fn eval_fn_args(
+fn eval_fn_args(
     args: &FunctionCallArgs,
     scope: &mut LocalScope<impl ScopeHolder>,
 ) -> Result<Vec<LuaValue>, EvalError> {

@@ -1,64 +1,12 @@
 use crate::{
     lang::{
-        ArithmeticError, ArithmeticOperator, EvalError, LocalScope, LuaValue, OrderingOperator,
-        ReturnValue, ScopeHolder, TableRef, TypeError,
+        ast::eval_expr, ArithmeticError, ArithmeticOperator, EvalError, LocalScope, LuaValue,
+        OrderingOperator, ScopeHolder, TypeError,
     },
-    lex::{NumberLiteral, StringLiteral},
-    syn::{BinaryOperator, Expression, UnaryOperator},
+    syn::{BinaryOperator, Expression},
 };
 
-use super::{eval_fn_call, eval_tbl_constructor, eval_var};
-
-pub(crate) fn eval_expr(
-    expr: &Expression,
-    scope: &mut LocalScope<impl ScopeHolder>,
-) -> Result<ReturnValue, EvalError> {
-    match expr {
-        Expression::Nil => Ok(ReturnValue::Nil),
-        Expression::Number(NumberLiteral(num)) => Ok(ReturnValue::Number((*num).into())),
-        Expression::String(StringLiteral(str)) => Ok(ReturnValue::String(str.clone())),
-        Expression::Variable(var) => eval_var(var, scope).map(ReturnValue::from),
-        Expression::TableConstructor(tbl) => eval_tbl_constructor(tbl, scope)
-            .map(TableRef::from)
-            .map(ReturnValue::Table),
-        Expression::FunctionCall(call) => eval_fn_call(call, scope),
-        Expression::UnaryOperator { op, exp } => {
-            eval_unary_op_expr(exp.as_ref(), *op, scope).map(ReturnValue::from)
-        }
-        Expression::BinaryOperator { lhs, op, rhs } => {
-            binary_op_eval(*op, lhs, rhs, scope).map(ReturnValue::from)
-        }
-    }
-}
-
-fn eval_unary_op_expr(
-    expr: &Expression,
-    op: UnaryOperator,
-    scope: &mut LocalScope<impl ScopeHolder>,
-) -> Result<LuaValue, EvalError> {
-    eval_expr(expr, scope).and_then(|value| {
-        unary_op_eval(op, value.first_value())
-            .map_err(TypeError::Arithmetic)
-            .map_err(EvalError::TypeError)
-    })
-}
-
-fn unary_op_eval(op: UnaryOperator, value: LuaValue) -> Result<LuaValue, ArithmeticError> {
-    match op {
-        UnaryOperator::Minus => unary_minus_eval(value),
-        UnaryOperator::Not if value.is_falsy() => Ok(LuaValue::number(1)),
-        UnaryOperator::Not => Ok(LuaValue::Nil),
-    }
-}
-
-fn unary_minus_eval(value: LuaValue) -> Result<LuaValue, ArithmeticError> {
-    match value.as_number() {
-        Some(num) => Ok(LuaValue::number(-num.as_f64())),
-        None => Err(ArithmeticError::UnaryMinus(value)),
-    }
-}
-
-fn binary_op_eval(
+pub(crate) fn binary_op_eval(
     op: BinaryOperator,
     lhs: &Expression,
     rhs: &Expression,
@@ -146,196 +94,10 @@ mod test {
     use crate::{
         error::LuaError,
         lang::{ast, GlobalContext, LuaFunction, LuaNumber, LuaValue, ReturnValue},
-        lex::{NumberLiteral, StringLiteral, Token},
         ne_vec,
-        syn::{lua_parser, unspanned_lua_token_parser},
-        test_util::Finite,
+        syn::lua_parser,
         util::NonEmptyVec,
     };
-
-    mod expressions {
-        use quickcheck::Arbitrary;
-
-        use crate::{
-            error::LuaError,
-            lang::{
-                ast, ArithmeticError, EvalError, GlobalContext, ReturnValue, ScopeHolder, TypeError,
-            },
-            lex::{NumberLiteral, StringLiteral},
-            syn,
-            test_util::Finite,
-            util::eq_with_nan,
-        };
-
-        fn negation_expr(num: f64) -> syn::Expression {
-            syn::Expression::UnaryOperator {
-                op: syn::UnaryOperator::Minus,
-                exp: Box::new(syn::Expression::Number(NumberLiteral(num))),
-            }
-        }
-
-        #[quickcheck]
-        fn eval_negation(Finite(num): Finite<f64>) -> Result<(), EvalError> {
-            let mut context = GlobalContext::new();
-            let expr = negation_expr(num);
-            let res = ast::eval_expr(&expr, &mut context.top_level_scope())?
-                .assert_single()
-                .unwrap_number()
-                .as_f64();
-            assert_eq!(res, -num);
-            Ok(())
-        }
-
-        #[test]
-        fn eval_negation_on_nan() -> Result<(), EvalError> {
-            let mut context = GlobalContext::new();
-            let expr = negation_expr(f64::NAN);
-            let res = ast::eval_expr(&expr, &mut context.top_level_scope())?
-                .assert_single()
-                .unwrap_number()
-                .as_f64();
-            assert!(eq_with_nan(res, f64::NAN));
-            Ok(())
-        }
-
-        #[test]
-        fn eval_negation_on_inf() -> Result<(), EvalError> {
-            let mut context = GlobalContext::new();
-            let expr = negation_expr(f64::INFINITY);
-            let res = ast::eval_expr(&expr, &mut context.top_level_scope())?
-                .assert_single()
-                .unwrap_number()
-                .as_f64();
-            assert!(eq_with_nan(res, f64::NEG_INFINITY));
-            Ok(())
-        }
-
-        #[test]
-        fn eval_negation_on_neg_inf() -> Result<(), EvalError> {
-            let mut context = GlobalContext::new();
-            let expr = negation_expr(f64::NEG_INFINITY);
-            let res = ast::eval_expr(&expr, &mut context.top_level_scope())?
-                .assert_single()
-                .unwrap_number()
-                .as_f64();
-            assert!(eq_with_nan(res, f64::INFINITY));
-            Ok(())
-        }
-
-        #[quickcheck]
-        fn eval_negation_on_convertible_str(num: f64) -> Result<(), EvalError> {
-            let mut context = GlobalContext::new();
-            let expr = syn::Expression::UnaryOperator {
-                op: syn::UnaryOperator::Minus,
-                exp: Box::new(syn::Expression::String(StringLiteral(format!("{}", num)))),
-            };
-            let res = ast::eval_expr(&expr, &mut context.top_level_scope())?
-                .assert_single()
-                .unwrap_number()
-                .as_f64();
-            assert!(eq_with_nan(res, -num));
-            Ok(())
-        }
-
-        #[test]
-        fn eval_unary_minus_on_unsupported_type_errors() {
-            let mut context = GlobalContext::new();
-            let unsupported = [
-                syn::Expression::Nil,
-                syn::Expression::String(StringLiteral("Definitely not a number".to_string())),
-                // syn::Expression::TableConstructor(TableConstructor::empty()),
-            ];
-
-            for exp in unsupported {
-                let expr = syn::Expression::UnaryOperator {
-                    op: syn::UnaryOperator::Minus,
-                    exp: Box::new(exp),
-                };
-                let res = ast::eval_expr(&expr, &mut context.top_level_scope());
-                assert!(matches!(
-                    res,
-                    Err(EvalError::TypeError(TypeError::Arithmetic(
-                        ArithmeticError::UnaryMinus(_)
-                    )))
-                ));
-            }
-        }
-
-        #[test]
-        fn eval_not_on_nil() -> Result<(), LuaError> {
-            let mut context = GlobalContext::new();
-            let expr = syn::lua_parser::expression("not nil")?;
-            assert_eq!(
-                ast::eval_expr(&expr, &mut context.top_level_scope())?,
-                ReturnValue::number(1)
-            );
-            Ok(())
-        }
-
-        #[derive(Debug, Clone)]
-        pub struct TruthyExpression(syn::Expression);
-
-        impl Arbitrary for TruthyExpression {
-            fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-                Self(match u8::arbitrary(g) % 2 {
-                    0 => syn::Expression::Number(Arbitrary::arbitrary(g)),
-                    1 => syn::Expression::String(Arbitrary::arbitrary(g)),
-                    _ => unreachable!(),
-                })
-            }
-
-            fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-                Box::new(self.0.shrink().map(Self))
-            }
-        }
-
-        #[quickcheck]
-        fn eval_not_on_truthy_vals(
-            TruthyExpression(expr): TruthyExpression,
-        ) -> Result<(), LuaError> {
-            let mut context = GlobalContext::new();
-            let expr = syn::Expression::UnaryOperator {
-                op: syn::UnaryOperator::Not,
-                exp: Box::new(expr),
-            };
-            assert_eq!(
-                ast::eval_expr(&expr, &mut context.top_level_scope())?,
-                ReturnValue::Nil
-            );
-            Ok(())
-        }
-    }
-
-    #[test]
-    fn eval_nil() -> Result<(), LuaError> {
-        let module = lua_parser::module("return nil")?;
-        let mut context = GlobalContext::new();
-        assert_eq!(ast::eval_module(&module, &mut context)?, ReturnValue::Nil);
-        Ok(())
-    }
-
-    #[quickcheck]
-    fn eval_number_literal(Finite(num): Finite<f64>) -> Result<(), LuaError> {
-        let module =
-            unspanned_lua_token_parser::module([Token::Return, Token::Number(NumberLiteral(num))])?;
-        let mut context = GlobalContext::new();
-        assert!(ast::eval_module(&module, &mut context)?.total_eq(&ReturnValue::number(num)));
-        Ok(())
-    }
-
-    #[quickcheck]
-    fn eval_string_literal(str: String) -> Result<(), LuaError> {
-        let module = unspanned_lua_token_parser::module([
-            Token::Return,
-            Token::String(StringLiteral(str.clone())),
-        ])?;
-        let mut context = GlobalContext::new();
-        assert_eq!(
-            ast::eval_module(&module, &mut context)?,
-            ReturnValue::String(str)
-        );
-        Ok(())
-    }
 
     #[quickcheck]
     fn eval_and_truthy(lhs: LuaValue, rhs: LuaValue) -> Result<TestResult, LuaError> {
@@ -377,7 +139,6 @@ mod test {
     }
 
     #[test]
-    #[ignore = "This relies on fn def, fn call and assignment which are not implemented yet"]
     fn and_short_circuits() -> Result<(), LuaError> {
         let module = lua_parser::module(
             "side_effect_committed = nil
@@ -434,7 +195,6 @@ mod test {
     }
 
     #[test]
-    #[ignore = "This relies on fn def, fn call and assignment which are not implemented yet"]
     fn or_short_circuits() -> Result<(), LuaError> {
         let module = lua_parser::module(
             "
