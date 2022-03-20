@@ -36,7 +36,9 @@ pub(crate) fn binary_op_eval(
         GreaterOrEquals => greater_or_equals(lhs, rhs),
         Plus => binary_number_op(lhs, rhs, ArithmeticOperator::Add, std::ops::Add::add),
         Minus => binary_number_op(lhs, rhs, ArithmeticOperator::Sub, std::ops::Sub::sub),
-        Mul | Div | Exp | Concat => todo!(),
+        Mul => binary_number_op(lhs, rhs, ArithmeticOperator::Mul, std::ops::Mul::mul),
+        Div => binary_number_op(lhs, rhs, ArithmeticOperator::Div, std::ops::Div::div),
+        Exp | Concat => todo!(),
         And | Or | Equals | NotEquals => unreachable!(),
     }
     .map_err(EvalError::TypeError)
@@ -462,5 +464,103 @@ mod test {
         }
 
         Ok(())
+    }
+
+    #[quickcheck]
+    fn multiplication_on_convertible_values_is_the_product_of_those_values(
+        lhs: f64,
+        rhs: f64,
+    ) -> Result<(), LuaError> {
+        let module = lua_parser::module("return lhs * rhs")?;
+        let mut context = GlobalContext::new();
+
+        context.set("lhs", LuaValue::number(lhs));
+        context.set("rhs", LuaValue::number(rhs));
+        let res = ast::eval_module(&module, &mut context)?;
+        assert!(res.total_eq(&ReturnValue::number(lhs * rhs)));
+
+        context.set("lhs", LuaValue::String(lhs.to_string()));
+        context.set("rhs", LuaValue::number(rhs));
+        let res = ast::eval_module(&module, &mut context)?;
+        assert!(res.total_eq(&ReturnValue::number(lhs * rhs)));
+
+        context.set("lhs", LuaValue::number(lhs));
+        context.set("rhs", LuaValue::String(rhs.to_string()));
+        let res = ast::eval_module(&module, &mut context)?;
+        assert!(res.total_eq(&ReturnValue::number(lhs * rhs)));
+
+        context.set("lhs", LuaValue::String(lhs.to_string()));
+        context.set("rhs", LuaValue::String(rhs.to_string()));
+        let res = ast::eval_module(&module, &mut context)?;
+        assert!(res.total_eq(&ReturnValue::number(lhs * rhs)));
+
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn multiplication_on_incompatible_types_is_not_supported(
+        lhs: LuaValue,
+        rhs: LuaValue,
+    ) -> Result<TestResult, LuaError> {
+        if let (Some(_), Some(_)) = (lhs.as_number(), rhs.as_number()) {
+            return Ok(TestResult::discard());
+        }
+        let module = lua_parser::module("return lhs * rhs")?;
+        let mut context = GlobalContext::new();
+        context.set("lhs", lhs);
+        context.set("rhs", rhs);
+        let res = ast::eval_module(&module, &mut context);
+        assert!(res.is_err());
+
+        Ok(TestResult::passed())
+    }
+
+    #[quickcheck]
+    fn division_of_convertible_values_is_the_division_of_those_values(
+        lhs: f64,
+        rhs: f64,
+    ) -> Result<(), LuaError> {
+        let module = lua_parser::module("return lhs / rhs")?;
+        let mut context = GlobalContext::new();
+
+        context.set("lhs", LuaValue::number(lhs));
+        context.set("rhs", LuaValue::number(rhs));
+        let res = ast::eval_module(&module, &mut context)?;
+        assert!(res.total_eq(&ReturnValue::number(lhs / rhs)));
+
+        context.set("lhs", LuaValue::String(lhs.to_string()));
+        context.set("rhs", LuaValue::number(rhs));
+        let res = ast::eval_module(&module, &mut context)?;
+        assert!(res.total_eq(&ReturnValue::number(lhs / rhs)));
+
+        context.set("lhs", LuaValue::number(lhs));
+        context.set("rhs", LuaValue::String(rhs.to_string()));
+        let res = ast::eval_module(&module, &mut context)?;
+        assert!(res.total_eq(&ReturnValue::number(lhs / rhs)));
+
+        context.set("lhs", LuaValue::String(lhs.to_string()));
+        context.set("rhs", LuaValue::String(rhs.to_string()));
+        let res = ast::eval_module(&module, &mut context)?;
+        assert!(res.total_eq(&ReturnValue::number(lhs / rhs)));
+
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn division_on_incompatible_types_is_not_supported(
+        lhs: LuaValue,
+        rhs: LuaValue,
+    ) -> Result<TestResult, LuaError> {
+        if let (Some(_), Some(_)) = (lhs.as_number(), rhs.as_number()) {
+            return Ok(TestResult::discard());
+        }
+        let module = lua_parser::module("return lhs / rhs")?;
+        let mut context = GlobalContext::new();
+        context.set("lhs", lhs);
+        context.set("rhs", rhs);
+        let res = ast::eval_module(&module, &mut context);
+        assert!(res.is_err());
+
+        Ok(TestResult::passed())
     }
 }
