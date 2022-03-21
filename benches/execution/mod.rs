@@ -1,5 +1,7 @@
 use criterion::criterion_group;
 
+mod heapsort;
+
 macro_rules! fib_bench {
     ($name: ident) => {
         pub mod $name {
@@ -39,4 +41,4 @@ fib_bench!(fib_rec);
 fib_bench!(fib_tailrec);
 fib_bench!(fib_loop);
 
-criterion_group!(benches, fib_rec::bench, fib_tailrec::bench, fib_loop::bench);
+criterion_group!(benches, fib_rec::bench, fib_tailrec::bench, fib_loop::bench, heapsort::bench);
