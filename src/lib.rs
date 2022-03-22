@@ -10,4 +10,5 @@ pub mod lang;
 pub mod lex;
 pub mod stdlib;
 pub mod syn;
+pub mod ast_vm;
 mod util;

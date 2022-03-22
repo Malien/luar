@@ -1,9 +1,9 @@
 use crate::{
-    lang::{ControlFlow, EvalError, LocalScope, ScopeHolder},
+    lang::{EvalError, LocalScope, ScopeHolder},
     syn::Block,
 };
 
-use super::{eval_ret, eval_stmnt};
+use super::{eval_ret, eval_stmnt, ControlFlow};
 
 pub(crate) fn eval_block(
     block: &Block,
@@ -23,7 +23,7 @@ pub(crate) fn eval_block(
 
 #[cfg(test)]
 mod test {
-    use crate::{error::LuaError, lang::ast, lang::GlobalContext, syn::lua_parser};
+    use crate::{ast_vm, error::LuaError, lang::GlobalContext, syn::lua_parser};
 
     #[test]
     fn early_returns_from_blocks_stop_flow_of_execution() -> Result<(), LuaError> {
@@ -34,7 +34,7 @@ mod test {
             return nil",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.assert_single().is_truthy());
         Ok(())
     }
@@ -51,7 +51,7 @@ mod test {
             return fn()",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.assert_single().is_truthy());
         Ok(())
     }

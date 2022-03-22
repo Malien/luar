@@ -4,11 +4,20 @@ use std::fmt;
 use super::{LuaType, LuaValue};
 use crate::lex::Ident;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum EvalError {
-    TypeError(TypeError),
+    #[error("{0}")]
+    TypeError(Box<TypeError>),
+    #[error("Assertion failed")]
     AssertionError,
+    #[error("IO Error: {0}")]
     IO(std::io::Error),
+}
+
+impl From<TypeError> for EvalError {
+    fn from(e: TypeError) -> Self {
+        Self::TypeError(Box::new(e))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -87,15 +96,15 @@ impl fmt::Display for ArithmeticOperator {
     }
 }
 
-impl fmt::Display for EvalError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::TypeError(err) => fmt::Display::fmt(err, f),
-            Self::AssertionError => f.write_str("Assertion failed"),
-            Self::IO(err) => write!(f, "IO Error: {}", err),
-        }
-    }
-}
+// impl fmt::Display for EvalError {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         match self {
+//             Self::TypeError(err) => fmt::Display::fmt(err, f),
+//             Self::AssertionError => f.write_str("Assertion failed"),
+//             Self::IO(err) => write!(f, "IO Error: {}", err),
+//         }
+//     }
+// }
 
 impl fmt::Display for TypeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -148,6 +157,21 @@ impl fmt::Display for ArithmeticError {
     }
 }
 
-impl Error for EvalError {}
+// impl Error for EvalError {}
 impl Error for TypeError {}
 impl Error for ArithmeticError {}
+
+#[macro_export]
+#[cfg(test)]
+macro_rules! assert_type_error {
+    ($pattern:pat, $value:expr) => {
+        if let Err(EvalError::TypeError(err)) = $value {
+            if let $pattern = err.as_ref() {
+            } else {
+                panic!("Unexpected result type");
+            }
+        } else {
+            panic!("Unexpected result type");
+        }
+    };
+}

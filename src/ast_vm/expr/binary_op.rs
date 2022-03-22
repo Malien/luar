@@ -1,7 +1,8 @@
 use crate::{
+    ast_vm::eval_expr,
     lang::{
-        ast::eval_expr, ArithmeticError, ArithmeticOperator, EvalError, LocalScope, LuaValue,
-        OrderingOperator, ScopeHolder, TypeError,
+        ArithmeticError, ArithmeticOperator, EvalError, LocalScope, LuaValue, OrderingOperator,
+        ScopeHolder, TypeError,
     },
     syn::{BinaryOperator, Expression},
 };
@@ -41,7 +42,7 @@ pub(crate) fn binary_op_eval(
         Exp | Concat => todo!(),
         And | Or | Equals | NotEquals => unreachable!(),
     }
-    .map_err(EvalError::TypeError)
+    .map_err(EvalError::from)
 }
 
 fn binary_number_op(
@@ -94,8 +95,9 @@ mod test {
     use quickcheck::TestResult;
 
     use crate::{
+        ast_vm,
         error::LuaError,
-        lang::{ast, GlobalContext, LuaFunction, LuaNumber, LuaValue, ReturnValue},
+        lang::{GlobalContext, LuaFunction, LuaNumber, LuaValue, ReturnValue},
         ne_vec,
         syn::lua_parser,
         util::NonEmptyVec,
@@ -110,7 +112,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs.clone());
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(LuaValue::total_eq(&res.assert_single(), &rhs));
         Ok(TestResult::passed())
     }
@@ -121,7 +123,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", LuaValue::Nil);
         context.set("rhs", rhs.clone());
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::Nil);
         Ok(())
     }
@@ -135,7 +137,7 @@ mod test {
         let ret_value = ReturnValue::MultiValue(values.clone());
         let mult_fn = LuaFunction::new(move |_, _| Ok(ret_value.clone()));
         context.set("mult", LuaValue::Function(mult_fn));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(ReturnValue::total_eq(&res, &values.move_first().into()));
         Ok(())
     }
@@ -153,7 +155,7 @@ mod test {
             return side_effect_committed",
         )?;
         let mut context = GlobalContext::new();
-        assert_eq!(ast::eval_module(&module, &mut context)?, ReturnValue::Nil);
+        assert_eq!(ast_vm::eval_module(&module, &mut context)?, ReturnValue::Nil);
         Ok(())
     }
 
@@ -166,7 +168,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", lhs.clone());
         context.set("rhs", rhs);
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(LuaValue::total_eq(&res.assert_single(), &lhs));
         Ok(TestResult::passed())
     }
@@ -177,7 +179,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", LuaValue::Nil);
         context.set("rhs", rhs.clone());
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(LuaValue::total_eq(&res.assert_single(), &rhs));
         Ok(())
     }
@@ -191,7 +193,7 @@ mod test {
         let ret_value = ReturnValue::MultiValue(values.clone());
         let mult_fn = LuaFunction::new(move |_, _| Ok(ret_value.clone()));
         context.set("mult", LuaValue::Function(mult_fn));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(ReturnValue::total_eq(&res, &values.move_first().into()));
         Ok(())
     }
@@ -211,7 +213,7 @@ mod test {
         ",
         )?;
         let mut context = GlobalContext::new();
-        assert_eq!(ast::eval_module(&module, &mut context)?, ReturnValue::Nil);
+        assert_eq!(ast_vm::eval_module(&module, &mut context)?, ReturnValue::Nil);
         Ok(())
     }
 
@@ -226,7 +228,7 @@ mod test {
 
         let module = lua_parser::module("return value == value")?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(LuaValue::true_value(), res.assert_single());
         Ok(TestResult::passed())
     }
@@ -241,7 +243,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(expected, res.assert_single());
         Ok(())
     }
@@ -255,7 +257,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(LuaValue::true_value(), res.assert_single());
         Ok(())
     }
@@ -270,22 +272,22 @@ mod test {
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::number(rhs));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs + rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
         context.set("rhs", LuaValue::number(rhs));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs + rhs)));
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::String(rhs.to_string()));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs + rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
         context.set("rhs", LuaValue::String(rhs.to_string()));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs + rhs)));
 
         Ok(())
@@ -303,7 +305,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
-        let res = ast::eval_module(&module, &mut context);
+        let res = ast_vm::eval_module(&module, &mut context);
         assert!(res.is_err());
 
         Ok(TestResult::passed())
@@ -319,22 +321,22 @@ mod test {
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::number(rhs));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs - rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
         context.set("rhs", LuaValue::number(rhs));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs - rhs)));
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::String(rhs.to_string()));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs - rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
         context.set("rhs", LuaValue::String(rhs.to_string()));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs - rhs)));
 
         Ok(())
@@ -352,7 +354,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
-        let res = ast::eval_module(&module, &mut context);
+        let res = ast_vm::eval_module(&module, &mut context);
         assert!(res.is_err());
 
         Ok(TestResult::passed())
@@ -371,7 +373,7 @@ mod test {
             LuaValue::from_bool(lhs >= rhs),
             LuaValue::from_bool(lhs <= rhs)
         ];
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::MultiValue(expected));
         Ok(())
     }
@@ -391,7 +393,7 @@ mod test {
             LuaValue::from_bool(lhs >= rhs),
             LuaValue::from_bool(lhs <= rhs)
         ];
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::MultiValue(expected));
         Ok(())
     }
@@ -415,7 +417,7 @@ mod test {
                 LuaValue::from_bool(lhs >= rhs),
                 LuaValue::from_bool(lhs <= rhs)
             ];
-            let res = ast::eval_module(&module, &mut context)?;
+            let res = ast_vm::eval_module(&module, &mut context)?;
             assert_eq!(res, ReturnValue::MultiValue(expected));
         }
         {
@@ -429,7 +431,7 @@ mod test {
                 LuaValue::from_bool(lhs >= rhs),
                 LuaValue::from_bool(lhs <= rhs)
             ];
-            let res = ast::eval_module(&module, &mut context)?;
+            let res = ast_vm::eval_module(&module, &mut context)?;
             assert_eq!(res, ReturnValue::MultiValue(expected));
         }
 
@@ -455,7 +457,7 @@ mod test {
         context.set("value", val);
 
         for module in modules {
-            let res = ast::eval_module(&module, &mut context);
+            let res = ast_vm::eval_module(&module, &mut context);
             if is_comparable {
                 assert!(res.is_ok());
             } else {
@@ -476,22 +478,22 @@ mod test {
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::number(rhs));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs * rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
         context.set("rhs", LuaValue::number(rhs));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs * rhs)));
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::String(rhs.to_string()));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs * rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
         context.set("rhs", LuaValue::String(rhs.to_string()));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs * rhs)));
 
         Ok(())
@@ -509,7 +511,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
-        let res = ast::eval_module(&module, &mut context);
+        let res = ast_vm::eval_module(&module, &mut context);
         assert!(res.is_err());
 
         Ok(TestResult::passed())
@@ -525,22 +527,22 @@ mod test {
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::number(rhs));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs / rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
         context.set("rhs", LuaValue::number(rhs));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs / rhs)));
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::String(rhs.to_string()));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs / rhs)));
 
         context.set("lhs", LuaValue::String(lhs.to_string()));
         context.set("rhs", LuaValue::String(rhs.to_string()));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs / rhs)));
 
         Ok(())
@@ -558,7 +560,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
-        let res = ast::eval_module(&module, &mut context);
+        let res = ast_vm::eval_module(&module, &mut context);
         assert!(res.is_err());
 
         Ok(TestResult::passed())

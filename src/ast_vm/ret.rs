@@ -31,8 +31,9 @@ pub(crate) fn eval_ret(
 #[cfg(test)]
 mod test {
     use crate::{
+        ast_vm,
         error::LuaError,
-        lang::{ast, GlobalContext, LuaFunction, LuaValue, ReturnValue},
+        lang::{GlobalContext, LuaFunction, LuaValue, ReturnValue},
         lex::Ident,
         syn::{Expression, FunctionCall, FunctionCallArgs, Module, Return, Var},
         util::NonEmptyVec,
@@ -60,7 +61,7 @@ mod test {
         for (val, ident) in values.iter().zip(idents) {
             context.set(ident, val.clone());
         }
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         if values.len() == 1 {
             assert!(res.total_eq(&values.move_first().into()));
         } else {
@@ -105,7 +106,7 @@ mod test {
         for (val, ident) in v1.iter().zip(idents) {
             context.set(ident, val.clone());
         }
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         let combined = NonEmptyVec::try_new(v1.into_iter().chain(v2).collect()).unwrap();
         assert!(res.total_eq(&ReturnValue::MultiValue(combined)));
         Ok(())

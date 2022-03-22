@@ -56,7 +56,7 @@ function assert_sorted(N, tbl)
 end
 
 local iterations = 4
-local element_count = 10000
+local element_count = 1000
 
 local i = 0
 while i ~= iterations do

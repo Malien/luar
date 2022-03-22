@@ -1,6 +1,12 @@
-use std::error::Error;
+use std::{collections::HashSet, error::Error, mem::size_of};
 
-use luar::{lang::ast, stdlib, syn};
+use luar::{
+    ast_vm,
+    error::LuaError,
+    lang::{EvalError, LuaValue, TypeError},
+    stdlib,
+    syn::{self, ParseError, ParseErrorWithSourcePosition, RawParseError},
+};
 
 fn repl() -> Result<(), Box<dyn Error>> {
     use std::io::{BufRead, Write};
@@ -10,7 +16,7 @@ fn repl() -> Result<(), Box<dyn Error>> {
     std::io::stdout().flush()?;
     for line in std::io::stdin().lock().lines() {
         let module = syn::lua_parser::module(&line?)?;
-        let res = ast::eval_module(&module, &mut context);
+        let res = ast_vm::eval_module(&module, &mut context);
         match res {
             Ok(value) => println!("{}", value),
             Err(err) => println!("Error: {}", err),
@@ -28,11 +34,22 @@ fn eval_file(filename: &str) -> Result<(), Box<dyn Error>> {
     let mut buffer = String::new();
     file.read_to_string(&mut buffer)?;
     let module = syn::lua_parser::module(&buffer)?;
-    ast::eval_module(&module, &mut stdlib::std_context())?;
+    ast_vm::eval_module(&module, &mut stdlib::std_context())?;
     Ok(())
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    println!("LuaError: {}", size_of::<LuaError>());
+    println!("EvalError: {}", size_of::<EvalError>());
+    println!("ParseError: {}", size_of::<ParseError>());
+    println!("TypeError: {}", size_of::<TypeError>());
+    println!("LuaValue: {}", size_of::<LuaValue>());
+    println!("HashSet: {}", size_of::<HashSet::<&'static str>>());
+    println!(
+        "ParseErrorWithSourcePosition: {}",
+        size_of::<ParseErrorWithSourcePosition>()
+    );
+    println!("RawParseError: {}", size_of::<RawParseError>());
     if let Some(filename) = std::env::args().skip(1).next() {
         eval_file(&filename)
     } else {

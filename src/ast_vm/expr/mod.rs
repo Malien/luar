@@ -43,8 +43,9 @@ pub(crate) fn eval_expr(
 #[cfg(test)]
 mod test {
     use crate::{
+        ast_vm,
         error::LuaError,
-        lang::{ast, GlobalContext, ReturnValue},
+        lang::{GlobalContext, ReturnValue},
         lex::{NumberLiteral, StringLiteral, Token},
         syn::{lua_parser, unspanned_lua_token_parser},
         test_util::Finite,
@@ -54,7 +55,7 @@ mod test {
     fn eval_nil() -> Result<(), LuaError> {
         let module = lua_parser::module("return nil")?;
         let mut context = GlobalContext::new();
-        assert_eq!(ast::eval_module(&module, &mut context)?, ReturnValue::Nil);
+        assert_eq!(ast_vm::eval_module(&module, &mut context)?, ReturnValue::Nil);
         Ok(())
     }
 
@@ -63,7 +64,7 @@ mod test {
         let module =
             unspanned_lua_token_parser::module([Token::Return, Token::Number(NumberLiteral(num))])?;
         let mut context = GlobalContext::new();
-        assert!(ast::eval_module(&module, &mut context)?.total_eq(&ReturnValue::number(num)));
+        assert!(ast_vm::eval_module(&module, &mut context)?.total_eq(&ReturnValue::number(num)));
         Ok(())
     }
 
@@ -75,7 +76,7 @@ mod test {
         ])?;
         let mut context = GlobalContext::new();
         assert_eq!(
-            ast::eval_module(&module, &mut context)?,
+            ast_vm::eval_module(&module, &mut context)?,
             ReturnValue::String(str)
         );
         Ok(())

@@ -1,12 +1,10 @@
 use crate::{
-    lang::{
-        ControlFlow, FunctionContext, GlobalContext, LocalScope, LuaFunction, LuaValue, ScopeHolder,
-    },
+    lang::{FunctionContext, GlobalContext, LocalScope, LuaFunction, LuaValue, ScopeHolder},
     lex::Ident,
     syn::{FunctionDeclaration, FunctionName},
 };
 
-use super::{assign_to_var, eval_block};
+use super::{assign_to_var, eval_block, ControlFlow};
 
 pub(crate) fn eval_fn_decl(
     decl: &FunctionDeclaration,
@@ -47,8 +45,9 @@ mod test {
     use itertools::Itertools;
 
     use crate::{
+        ast_vm,
         error::LuaError,
-        lang::{ast, GlobalContext, LuaValue, ReturnValue},
+        lang::{GlobalContext, LuaValue, ReturnValue},
         lex::Ident,
         ne_vec,
         syn::{
@@ -62,7 +61,7 @@ mod test {
     fn fn_declaration_puts_function_in_scope(ident: Ident) -> Result<(), LuaError> {
         let module = lua_parser::module(&format!("function {}() end", ident))?;
         let mut context = GlobalContext::new();
-        ast::eval_module(&module, &mut context)?;
+        ast_vm::eval_module(&module, &mut context)?;
         assert!(context.get(&ident).is_function());
         Ok(())
     }
@@ -75,7 +74,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         context.set("value", ret_value.clone());
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(context.get("myfn").is_function());
         assert!(res.assert_single().total_eq(&ret_value));
 
@@ -107,9 +106,9 @@ mod test {
         };
 
         let mut context = GlobalContext::new();
-        let res_block = ast::eval_module(&block_module, &mut context);
+        let res_block = ast_vm::eval_module(&block_module, &mut context);
         context = GlobalContext::new();
-        let res_fn = ast::eval_module(&fn_module, &mut context);
+        let res_fn = ast_vm::eval_module(&fn_module, &mut context);
 
         let is_same = match (res_block, res_fn) {
             (Err(_), Err(_)) => true,
@@ -141,7 +140,7 @@ mod test {
         for (value, ident) in values.iter().zip(idents) {
             context.set(ident, value.clone());
         }
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         if values.len() == 1 {
             assert!(res.first_value().total_eq(values.first()));
         } else {
@@ -161,7 +160,7 @@ mod test {
             return executed",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.assert_single().is_truthy());
         Ok(())
     }
@@ -178,7 +177,7 @@ mod test {
             ident, ident, ident, ident
         ))?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         let expected = ReturnValue::MultiValue(ne_vec![
             LuaValue::string("local"),
             LuaValue::string("global"),
@@ -200,7 +199,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         context.set("value", value.clone());
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         let expected = ReturnValue::MultiValue(ne_vec![value, LuaValue::Nil]);
         assert!(res.total_eq(&expected));
         Ok(())
@@ -215,7 +214,7 @@ mod test {
             return myfn(1, 2)",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         let expected = ReturnValue::MultiValue(ne_vec![
             LuaValue::number(1),
             LuaValue::number(2),
@@ -235,9 +234,52 @@ mod test {
             return myfn(1, 2, 3, 4)",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
-        let expected = ReturnValue::MultiValue(ne_vec![LuaValue::number(1), LuaValue::number(2)]);
+        let res = ast_vm::eval_module(&module, &mut context)?;
+        let expected =
+            ReturnValue::MultiValue(ne_vec![LuaValue::number(1i32), LuaValue::number(2i32)]);
         assert_eq!(res, expected);
+        Ok(())
+    }
+
+    macro_rules! mv_num {
+        ($($num:expr),*) => {
+            ReturnValue::MultiValue(ne_vec![$(LuaValue::number($num as i32),)*])
+        };
+    }
+
+    #[test]
+    fn multiple_return_is_propagated() -> Result<(), LuaError> {
+        let module = lua_parser::module(
+            "function mult() 
+                return 1, 2
+            end
+            function m1()
+                return mult()
+            end
+            function m2()
+                return 3, mult()
+            end
+            function m3()
+                return mult(), 3
+            end",
+        )?;
+        let mut context = GlobalContext::new();
+        ast_vm::eval_module(&module, &mut context)?;
+        let expectations = [
+            ("mult", mv_num![1, 2]),
+            ("m1", mv_num![1, 2]),
+            ("m2", mv_num![3, 1, 2]),
+            ("m3", mv_num![1, 3]),
+        ];
+        for (func, expected) in expectations {
+            let res = context
+                .get(func)
+                .unwrap_function_ref()
+                .clone()
+                .call(&mut context, &[])?;
+            assert_eq!(res, expected);
+        }
+
         Ok(())
     }
 }

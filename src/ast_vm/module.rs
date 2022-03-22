@@ -1,9 +1,9 @@
 use crate::{
-    lang::{ControlFlow, EvalError, GlobalContext, LocalScope, ReturnValue, ScopeHolder},
+    lang::{EvalError, GlobalContext, LocalScope, ReturnValue, ScopeHolder},
     syn::{Chunk, Module},
 };
 
-use super::{eval_fn_decl, eval_ret, eval_stmnt};
+use super::{eval_fn_decl, eval_ret, eval_stmnt, ControlFlow};
 
 pub fn eval_module(module: &Module, context: &mut GlobalContext) -> Result<ReturnValue, EvalError> {
     let mut scope = context.top_level_scope();

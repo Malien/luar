@@ -1,8 +1,6 @@
 use crate::{
-    lang::{
-        ast::{eval_block, eval_expr},
-        ControlFlow, LocalScope, ScopeHolder,
-    },
+    ast_vm::{eval_block, eval_expr, ControlFlow},
+    lang::{LocalScope, ScopeHolder},
     syn::WhileLoop,
 };
 
@@ -22,8 +20,9 @@ pub(crate) fn eval_while_loop(
 #[cfg(test)]
 mod test {
     use crate::{
+        ast_vm,
         error::LuaError,
-        lang::{ast, GlobalContext, LuaValue, ReturnValue},
+        lang::{GlobalContext, LuaValue, ReturnValue},
         ne_vec,
         syn::lua_parser,
     };
@@ -37,13 +36,13 @@ mod test {
             return side_effect_committed",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.assert_single().is_falsy());
         Ok(())
     }
 
     #[test]
-    fn while_loop_with_truthy_condition_executes_body_at_least_once() -> Result<(), LuaError> {
+    fn while_loop_with_truthy_condition_executes_body_at_least_vm_once() -> Result<(), LuaError> {
         let module = lua_parser::module(
             "while not side_effect_committed do
                 side_effect_committed = 1
@@ -51,7 +50,7 @@ mod test {
             return side_effect_committed",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.assert_single().is_truthy());
         Ok(())
     }
@@ -68,9 +67,9 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         context.set("i", LuaValue::number(times));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         let expected =
-            ReturnValue::MultiValue(ne_vec![LuaValue::number(0), LuaValue::number(times)]);
+            ReturnValue::MultiValue(ne_vec![LuaValue::number(0i32), LuaValue::number(times)]);
         assert_eq!(res, expected);
         Ok(())
     }
@@ -83,7 +82,7 @@ mod test {
             end",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.assert_single().is_truthy());
         Ok(())
     }

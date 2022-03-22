@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::lang::{EvalError, LuaFunction, LuaNumber, LuaType, GlobalContext};
+use crate::lang::{EvalError, GlobalContext, LuaFunction, LuaNumber, LuaType};
 
 #[cfg(test)]
 use crate::test_util::{with_thread_gen, GenExt};
@@ -65,6 +65,20 @@ impl LuaValue {
         panic!("Called unwrap_table() on a {:?}", self)
     }
 
+    pub fn unwrap_function(self) -> LuaFunction {
+        if let Self::Function(function) = self {
+            return function;
+        }
+        panic!("Called unwrap_function() on a {:?}", self)
+    }
+
+    pub fn unwrap_function_ref(&self) -> &LuaFunction {
+        if let Self::Function(function) = self {
+            return function;
+        }
+        panic!("Called unwrap_function() on a {:?}", self)
+    }
+
     pub fn total_eq(&self, other: &LuaValue) -> bool {
         match (self, other) {
             (Self::Nil, Self::Nil) => true,
@@ -126,7 +140,7 @@ impl LuaValue {
             Self::Number(_) => LuaType::Number,
             Self::String(_) => LuaType::String,
             Self::Function(_) => LuaType::Function,
-            Self::Table(_) => LuaType::Table
+            Self::Table(_) => LuaType::Table,
         }
     }
 

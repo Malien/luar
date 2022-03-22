@@ -21,7 +21,7 @@ macro_rules! fib_bench {
                     );
 
                     b.iter(|| {
-                        ::luar::lang::ast::eval_module(&module, &mut context).unwrap();
+                        ::luar::ast_vm::eval_module(&module, &mut context).unwrap();
                     });
                 });
 
@@ -41,4 +41,10 @@ fib_bench!(fib_rec);
 fib_bench!(fib_tailrec);
 fib_bench!(fib_loop);
 
-criterion_group!(benches, fib_rec::bench, fib_tailrec::bench, fib_loop::bench, heapsort::bench);
+criterion_group!(
+    benches,
+    fib_rec::bench,
+    fib_tailrec::bench,
+    fib_loop::bench,
+    heapsort::bench
+);

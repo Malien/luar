@@ -1,5 +1,6 @@
+use super::{eval_fn_call, ControlFlow};
 use crate::{
-    lang::{ControlFlow, EvalError, LocalScope, ScopeHolder, ast::eval_fn_call},
+    lang::{EvalError, LocalScope, ScopeHolder},
     syn::Statement,
 };
 

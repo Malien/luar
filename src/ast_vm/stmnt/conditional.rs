@@ -1,8 +1,6 @@
 use crate::{
-    lang::{
-        ast::{eval_block, eval_expr},
-        ControlFlow, EvalError, LocalScope, ScopeHolder,
-    },
+    ast_vm::{eval_block, eval_expr, ControlFlow},
+    lang::{EvalError, LocalScope, ScopeHolder},
     syn::{Conditional, ConditionalTail},
 };
 
@@ -31,8 +29,9 @@ pub(crate) fn eval_conditional(
 mod test {
 
     use crate::{
+        ast_vm,
         error::LuaError,
-        lang::{ast, GlobalContext, LuaValue, ReturnValue},
+        lang::{GlobalContext, LuaValue, ReturnValue},
         ne_vec,
         syn::lua_parser,
     };
@@ -46,7 +45,7 @@ mod test {
             return result",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.assert_single().is_falsy());
         Ok(())
     }
@@ -60,7 +59,7 @@ mod test {
             return result",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.assert_single().is_truthy());
         Ok(())
     }
@@ -76,7 +75,7 @@ mod test {
             return result",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::string("true branch"));
         Ok(())
     }
@@ -92,7 +91,7 @@ mod test {
             return result",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::string("false branch"));
         Ok(())
     }
@@ -114,7 +113,7 @@ mod test {
             return result, side_effect_committed",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         let expected =
             ReturnValue::MultiValue(ne_vec![LuaValue::string("if branch"), LuaValue::Nil]);
         assert_eq!(res, expected);
@@ -135,7 +134,7 @@ mod test {
             return result",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::string("elseif branch"));
         Ok(())
     }
@@ -152,7 +151,7 @@ mod test {
             return result",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::Nil);
         Ok(())
     }
@@ -171,7 +170,7 @@ mod test {
             return result",
         )?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::string("else branch"));
         Ok(())
     }

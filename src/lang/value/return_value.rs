@@ -77,6 +77,14 @@ impl ReturnValue {
         Self::String(value.into())
     }
 
+    pub fn true_value() -> Self {
+        Self::number(1i32)
+    }
+
+    pub fn false_value() -> Self {
+        Self::Nil
+    }
+
     pub fn is_multiple_return(&self) -> bool {
         matches!(self, Self::MultiValue(_))
     }

@@ -29,7 +29,7 @@ fn call_value(
     if let LuaValue::Function(func) = func {
         func.call(context, args)
     } else {
-        Err(EvalError::TypeError(TypeError::IsNotCallable(func.clone())))
+        Err(EvalError::from(TypeError::IsNotCallable(func.clone())))
     }
 }
 
@@ -58,11 +58,10 @@ mod test {
     use quickcheck::TestResult;
 
     use crate::error::LuaError;
-    use crate::lang::{
-        ast, EvalError, GlobalContext, LuaFunction, LuaValue, ReturnValue, TypeError,
-    };
+    use crate::lang::{EvalError, GlobalContext, LuaFunction, LuaValue, ReturnValue, TypeError};
     use crate::syn;
     use crate::util::NonEmptyVec;
+    use crate::{assert_type_error, ast_vm};
 
     #[test]
     fn eval_fn_call() -> Result<(), LuaError> {
@@ -78,7 +77,7 @@ mod test {
         });
         let mut context = GlobalContext::new();
         context.set("myfn", LuaValue::Function(myfn));
-        ast::eval_module(&module, &mut context)?;
+        ast_vm::eval_module(&module, &mut context)?;
         let called = called.borrow();
         assert!(*called);
         Ok(())
@@ -94,7 +93,7 @@ mod test {
             move |_, _| Ok(ret_value.clone())
         });
         context.set("myfn", LuaValue::Function(myfn));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(ret_value.total_eq(&res));
         Ok(())
     }
@@ -108,11 +107,8 @@ mod test {
         let module = syn::lua_parser::module("value()")?;
         let mut context = GlobalContext::new();
         context.set("value", value);
-        let res = ast::eval_module(&module, &mut context);
-        assert!(matches!(
-            res,
-            Err(EvalError::TypeError(TypeError::IsNotCallable(_)))
-        ));
+        let res = ast_vm::eval_module(&module, &mut context);
+        assert_type_error!(TypeError::IsNotCallable(_), res);
         Ok(TestResult::passed())
     }
 
@@ -126,7 +122,7 @@ mod test {
             move |_, _| Ok(ret_values.clone())
         });
         context.set("myfn", LuaValue::Function(myfn));
-        let res = ast::eval_module(&module, &mut context)?;
+        let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(ret_values.total_eq(&res));
         Ok(())
     }

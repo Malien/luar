@@ -60,7 +60,7 @@ pub fn floor(args: &[LuaValue]) -> Result<LuaValue, EvalError> {
             got: LuaType::Nil,
         })
     }
-    .map_err(EvalError::TypeError)
+    .map_err(EvalError::from)
 }
 
 pub fn assert(args: &[LuaValue]) -> Result<LuaValue, EvalError> {

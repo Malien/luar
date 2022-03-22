@@ -1,6 +1,7 @@
 use criterion::Criterion;
 use luar::{
-    lang::{ast, LuaKey, LuaValue, TableValue},
+    ast_vm,
+    lang::{LuaKey, LuaValue, TableValue},
     stdlib::std_context,
     syn::lua_parser,
 };
@@ -43,7 +44,7 @@ pub fn bench(c: &mut Criterion) {
                 context
             },
             |mut context| {
-                ast::eval_module(&module, &mut context).unwrap();
+                ast_vm::eval_module(&module, &mut context).unwrap();
             },
             criterion::BatchSize::SmallInput,
         );

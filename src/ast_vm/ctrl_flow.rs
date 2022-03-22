@@ -1,4 +1,4 @@
-use super::ReturnValue;
+use crate::lang::ReturnValue;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ControlFlow {

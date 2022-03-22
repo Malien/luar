@@ -1,4 +1,7 @@
-use crate::{syn::{Expression, UnaryOperator}, lang::{LocalScope, ScopeHolder, LuaValue, EvalError, TypeError, ArithmeticError}};
+use crate::{
+    lang::{ArithmeticError, EvalError, LocalScope, LuaValue, ScopeHolder, TypeError},
+    syn::{Expression, UnaryOperator},
+};
 
 use super::eval_expr;
 
@@ -10,7 +13,7 @@ pub(crate) fn eval_unary_op_expr(
     eval_expr(expr, scope).and_then(|value| {
         unary_op_eval(op, value.first_value())
             .map_err(TypeError::Arithmetic)
-            .map_err(EvalError::TypeError)
+            .map_err(EvalError::from)
     })
 }
 
@@ -35,9 +38,10 @@ mod test {
         use quickcheck::Arbitrary;
 
         use crate::{
+            assert_type_error, ast_vm,
             error::LuaError,
             lang::{
-                ast, ArithmeticError, EvalError, GlobalContext, ReturnValue, ScopeHolder, TypeError,
+                ArithmeticError, EvalError, GlobalContext, ReturnValue, ScopeHolder, TypeError,
             },
             lex::{NumberLiteral, StringLiteral},
             syn,
@@ -56,7 +60,7 @@ mod test {
         fn eval_negation(Finite(num): Finite<f64>) -> Result<(), EvalError> {
             let mut context = GlobalContext::new();
             let expr = negation_expr(num);
-            let res = ast::eval_expr(&expr, &mut context.top_level_scope())?
+            let res = ast_vm::eval_expr(&expr, &mut context.top_level_scope())?
                 .assert_single()
                 .unwrap_number()
                 .as_f64();
@@ -68,7 +72,7 @@ mod test {
         fn eval_negation_on_nan() -> Result<(), EvalError> {
             let mut context = GlobalContext::new();
             let expr = negation_expr(f64::NAN);
-            let res = ast::eval_expr(&expr, &mut context.top_level_scope())?
+            let res = ast_vm::eval_expr(&expr, &mut context.top_level_scope())?
                 .assert_single()
                 .unwrap_number()
                 .as_f64();
@@ -80,7 +84,7 @@ mod test {
         fn eval_negation_on_inf() -> Result<(), EvalError> {
             let mut context = GlobalContext::new();
             let expr = negation_expr(f64::INFINITY);
-            let res = ast::eval_expr(&expr, &mut context.top_level_scope())?
+            let res = ast_vm::eval_expr(&expr, &mut context.top_level_scope())?
                 .assert_single()
                 .unwrap_number()
                 .as_f64();
@@ -92,7 +96,7 @@ mod test {
         fn eval_negation_on_neg_inf() -> Result<(), EvalError> {
             let mut context = GlobalContext::new();
             let expr = negation_expr(f64::NEG_INFINITY);
-            let res = ast::eval_expr(&expr, &mut context.top_level_scope())?
+            let res = ast_vm::eval_expr(&expr, &mut context.top_level_scope())?
                 .assert_single()
                 .unwrap_number()
                 .as_f64();
@@ -107,7 +111,7 @@ mod test {
                 op: syn::UnaryOperator::Minus,
                 exp: Box::new(syn::Expression::String(StringLiteral(format!("{}", num)))),
             };
-            let res = ast::eval_expr(&expr, &mut context.top_level_scope())?
+            let res = ast_vm::eval_expr(&expr, &mut context.top_level_scope())?
                 .assert_single()
                 .unwrap_number()
                 .as_f64();
@@ -129,13 +133,8 @@ mod test {
                     op: syn::UnaryOperator::Minus,
                     exp: Box::new(exp),
                 };
-                let res = ast::eval_expr(&expr, &mut context.top_level_scope());
-                assert!(matches!(
-                    res,
-                    Err(EvalError::TypeError(TypeError::Arithmetic(
-                        ArithmeticError::UnaryMinus(_)
-                    )))
-                ));
+                let res = ast_vm::eval_expr(&expr, &mut context.top_level_scope());
+                assert_type_error!(TypeError::Arithmetic(ArithmeticError::UnaryMinus(_)), res);
             }
         }
 
@@ -144,8 +143,8 @@ mod test {
             let mut context = GlobalContext::new();
             let expr = syn::lua_parser::expression("not nil")?;
             assert_eq!(
-                ast::eval_expr(&expr, &mut context.top_level_scope())?,
-                ReturnValue::number(1)
+                ast_vm::eval_expr(&expr, &mut context.top_level_scope())?,
+                ReturnValue::true_value()
             );
             Ok(())
         }
@@ -177,7 +176,7 @@ mod test {
                 exp: Box::new(expr),
             };
             assert_eq!(
-                ast::eval_expr(&expr, &mut context.top_level_scope())?,
+                ast_vm::eval_expr(&expr, &mut context.top_level_scope())?,
                 ReturnValue::Nil
             );
             Ok(())

@@ -28,8 +28,9 @@ pub(crate) fn eval_tbl_constructor(
 #[cfg(test)]
 mod test {
     use crate::{
+        ast_vm::{self, expr::table_constructor::eval_tbl_constructor},
         error::LuaError,
-        lang::{ast::{self, expr::table_constructor::eval_tbl_constructor}, GlobalContext, LuaKey, LuaValue, TableValue, ScopeHolder},
+        lang::{GlobalContext, LuaKey, LuaValue, TableValue, ScopeHolder},
         lex::Ident,
         syn::{lua_parser, Expression, TableConstructor, Var},
         test_util::vec_of_idents,
@@ -40,7 +41,7 @@ mod test {
     fn empty_table_constructor_creates_empty_table() -> Result<(), LuaError> {
         let module = lua_parser::module("return {}")?;
         let mut context = GlobalContext::new();
-        let res = ast::eval_module(&module, &mut context)?.assert_single();
+        let res = ast_vm::eval_module(&module, &mut context)?.assert_single();
         assert!(res.is_table());
         assert!(res.unwrap_table().is_empty());
         Ok(())
