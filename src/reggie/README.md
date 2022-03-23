@@ -171,13 +171,13 @@ Global return. Values that are present in RD0-RDN and ExtRD registers are export
 
 The amount of values returned depends on [VC](#value-count) register. -->
 
-#### fn_decl
+- #### fn_decl
 
 `TODO`
 
 ### Instructions accessible in all scopes
 
-#### lda_XYZ
+- #### lda_XYZ
 
 Load value from register XYZ into an appropriate accumulator register.
 
@@ -187,7 +187,7 @@ Load value from register XYZ into an appropriate accumulator register.
 
 The type of register (Y) determines the type of an accumulator (AY). X cannot specify an accumulator register
 
-#### str_XYZ
+- #### str_XYZ
 
 Stores the value from an accumulator register AY into an register XYZ.
 
@@ -197,7 +197,7 @@ Stores the value from an accumulator register AY into an register XYZ.
 
 The type of register (Y) determines the type of an accumulator (AY). X cannot specify an accumulator register
 
-#### mov_ABC_XBZ
+- #### mov_ABC_XBZ
 
 Moves the value of register ABC into XBZ, where
 
@@ -207,90 +207,90 @@ Moves the value of register ABC into XBZ, where
 -   X is the destination register type (`R`, `ExtR`, `L`)
 -   z is the destination register number
 
-#### lda_gl
+- #### lda_gl
 
 Loads global value described by AS register into a AD register. If the value is not present in global scope, AD is set to the dynamic value of `nil`.
 
-#### F_add_XZ
+- #### F_add_XZ
 
 Adds the value of the register XFZ to the current value of accumulator register AF.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-#### F_mul_XZ
+- #### F_mul_XZ
 
 Multiplies the value of the register XFZ to the current value of accumulator register AF.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-#### F_sub_XZ
+- #### F_sub_XZ
 
 Multiplies the value of the register XFZ to the current value of accumulator register AF.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-#### F_div_XZ
+- #### F_div_XZ
 
 Divides the value of the register XFZ to the current value of accumulator register AF.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-#### I_add_XZ
+- #### I_add_XZ
 
 Adds the value of the register XIZ to the current value of accumulator register AI.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-#### I_mul_XZ
+- #### I_mul_XZ
 
 Multiplies the value of the register XIZ to the current value of accumulator register AI.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-#### I_sub_XI
+- #### I_sub_XI
 
 Multiplies the value of the register XIZ to the current value of accumulator register AF.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-#### I_div_XZ
+- #### I_div_XZ
 
 Performs integer division of the value of the register XIZ to the current value of accumulator register AF.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-#### I_mod_XZ
+- #### I_mod_XZ
 
 Return the modulo of the value of the accumulator register AF divided by value in the register XIZ. The result is stored in AF.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-#### set_vc
+- #### set_vc
 
 Sets the [VC](#value-count) register from the current value in AI. AI is treated to have an unsigned value.
 
-#### call
+- #### call
 
 [Calls](#function-call-convention) the value located in the register AC. Creates new stack frame. Sets the register [RA](#return-address) in the callee's stack frame
 
-#### typed_call
+- #### typed_call
 
 [Performs the typed call](#function-call-convention) of the value located in AC. Creates new stack frame. Sets the register [RA](#return-address) in the callee's stack frame
 
-#### ret
+- #### ret
 
 Jumps to instruction pointed in [RA](#return-address), discards current call frame.
 
-#### test_XYZ
+- #### test_XYZ
 
 Compares the values in AY to the value in register XYZ. Sets the [TR](#test-result) register the the corresponding value.
 
@@ -303,15 +303,15 @@ in case Y is `I`, do a signed integer comparison
 in case Y is `S`, do lexicographical comparison
 in case Y is `D`, do any of the above if types are the same, if they differ, convert to string and compare lexicographically. If any of the operands types are `N`, `T`, `U` or `C`, panic with the `order` error
 
-#### type_test
+- #### type_test
 
 Do a type test of a value in AD, and set [TTR](#type-test-result) to the appropriate value.
 
-#### jmp &lt;offset&gt;
+- #### jmp &lt;offset&gt;
 
 Unconditional jump to the instruction by relative offset from the current [PC](#program-counter) value.
 
-#### (jmplt, jmpgt, jmpeq, jmpne, jmple, jmpge) &lt;offset&gt;
+- #### (jmplt, jmpgt, jmpeq, jmpne, jmple, jmpge) &lt;offset&gt;
 
 Conditional jump by the offset &lt;offset&gt; depending on the value of [TR](#test-result) register.
 
@@ -322,7 +322,7 @@ Conditional jump by the offset &lt;offset&gt; depending on the value of [TR](#te
 -   `jmple` jump if [TR](#test-result) is set to `LT` or `EQ`
 -   `jmpge` jump if [TR](#test-result) is set to `GT` or `EQ`
 
-#### (jmpN, jmpF, jmpI, jmpC, jmpT, jmpU) &lt;offset&gt;
+- #### (jmpN, jmpF, jmpI, jmpC, jmpT, jmpU) &lt;offset&gt;
 
 Conditional jump by the offset &lt;offset&gt; depending on the value of [TTR](#type-test-result) register.
 
@@ -333,6 +333,6 @@ Conditional jump by the offset &lt;offset&gt; depending on the value of [TTR](#t
 -   `jmpT` jump if [TTR](#type-test-result) is set to `T`
 -   `jmpU` jump if [TTR](#type-test-result) is set to `U`
 
-#### panic
+- #### panic
 
 `TODO`
