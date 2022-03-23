@@ -1,6 +1,7 @@
 {
     "cSpell.words": [
         "Arglist",
+        "bytecode",
         "decllist",
         "denum",
         "effecty",
@@ -25,6 +26,7 @@
         "tailrec",
         "thiserror",
         "unspanned",
+        "userdata",
         "varlist"
     ]
 }
