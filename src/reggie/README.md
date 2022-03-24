@@ -100,7 +100,9 @@ Is set to appropriate value of `N`, `F`, `S`, `T`, `C`, `U` when performing [typ
 
 ### Global scope
 
-There is two scopes of instruction in Reggie bytecode: global and local. Global scope can execute all of the instructions local scope can (including return) but also gains ability to provide function definitions. Values can be defined with name association in the global scope. The values of global scopes can be queried, modified and added from any place, including the host Reggie's runtime and FFI calls.
+There is two scopes of instruction in Reggie bytecode: global and local. Global scope can execute all of the instructions local scope can (including return) but also gains ability to provide function definitions. Values can be defined with name association in the [global scope](#global-values). The values of global scopes can be queried, modified and added from any place, including the host Reggie's runtime and FFI calls.
+
+Values on the global are stored in cells. There is two ways to address a global: either with it's associated string name, or via it's global_cell_ref.
 
 ### Functions
 
@@ -122,9 +124,19 @@ Bot `call` and `typed_call` set [RA](#return-address) register in the callee's s
 
 It is to be noted, that calling a function is expected to clobber all of the argument, extended argument, accumulator, and special use registers, so relying on them staying unchanged after the call is complete is a futile effort. In order to persist values after function call, it is advised to put them into local registers, since those are restored after the function call is done.
 
+### Foreign function interface (FFI)
+
 ### Error handling
 
 `TODO`
+
+## Optimizations and the JIT
+
+Reggie is expected to do static and dynamic optimizations, including JIT compilation. The bytecode specification is designed to accomplish such endeavors. This means that a single function declaration may have different compiled representations, depending on desired optimizations.
+
+### Global values
+
+A single function may depend not strictly on it's arguments, but also on a values global values. Local values, such as arguments (and potentially upvalues in the future) are a lot easier to track and optimize. Global values on the other hand can change in unrelated places, such as in a different module, in a host environment, or in the FFI call. In order to provide better code generation, a function definition may register a hook on a value change, meaning that a change of a global value type may bring unexpected performance pitfalls, such as code de-optimization. The changes made to globals are expected to be tracked, so both reads and writes are going to be affected by it.
 
 ## VM data values
 
@@ -170,7 +182,7 @@ It is to be noted, that calling a function is expected to clobber all of the arg
 
 ### Instructions accessible in global scope
 
-<!-#### gl_ret
+<!-- #### gl_ret
 
 Global return. Values that are present in RD0-RDN and ExtRD registers are exported to the outside of the module (to whomever may have required it), and control flow of the code execution is terminated and execution jumps to the caller of the module defined in [RA](#return-address) register.
 
@@ -212,9 +224,25 @@ Moves the value of register ABC into XBZ, where
 -   X is the destination register type (`R`, `ExtR`, `L`)
 -   z is the destination register number
 
-#### lda_gl
+#### lda_X_gl &lt;global_cell_ref&gt;
+
+Loads global value referenced by &lt;global_cell_ref&gt;. Value is stored into the register AX. If the value of a global is not X, behavior is undefined.
+
+-   X is the [type of register's value](#type-notation) (`F`, `I`, `S`, `T`, `C`, `U`, `D`)
+
+#### lda_dyn_gl
 
 Loads global value described by AS register into a AD register. If the value is not present in global scope, AD is set to the dynamic value of `nil`.
+
+#### str_X_gl &lt;global_cell_ref&gt;
+
+Store value in AX into a global value referenced by &lt;global_cell_ref&gt;
+
+-   X is the [type of register's value](#type-notation) (`F`, `I`, `S`, `T`, `C`, `U`, `D`)
+
+### str_dyn_gl
+
+Stores values in AD into the global with the name described in AS. If global cell for value with such name does not exist, it is created on the fly.
 
 #### F_add_XZ
 
@@ -293,21 +321,23 @@ Concatenate string value in AS with value in register XSZ. Put the result into A
 
 #### D_concat_XZ
 
-Concatenate string value in AS with value in XDZ. 
+Concatenate string value in AS with value in XDZ.
 
 -   X is the type of register (`R`, `ExtR`, `L`)
 -   Z is the register's number
 
 Depending on the type of XDZ:
-- If the type of value in XDZ is a string, it is equivalent to `S_concat_XZ`.
-- If the type of value is I or F, convert it to string (equivalent to `I_to_s` and `F_to_s`), and proceed with concatenation of strings.
-- Otherwise raise `string` error
+
+-   If the type of value in XDZ is a string, it is equivalent to `S_concat_XZ`.
+-   If the type of value is I or F, convert it to string (equivalent to `I_to_s` and `F_to_s`), and proceed with concatenation of strings.
+-   Otherwise raise `string` error
 
 #### I_to_s
 
 Transform integer value of AI into string representation, and put result back at AS.
 
 #### F_to_s
+
 Transform float value of AF into string representation, and put result back at AS.
 
 #### D_to_s
@@ -315,9 +345,10 @@ Transform float value of AF into string representation, and put result back at A
 Transform dynamic value of AD into string representation, and put result back at AS.
 
 Depending on the type of AD:
-- If the type is string, unwrap value, and just move it to AS.
-- If the type is I or F, do the string conversion (as in `I_to_s` and `F_to_s`)
-- Otherwise raise `string` error
+
+-   If the type is string, unwrap value, and just move it to AS.
+-   If the type is I or F, do the string conversion (as in `I_to_s` and `F_to_s`)
+-   Otherwise raise `string` error
 
 #### set_vc
 
