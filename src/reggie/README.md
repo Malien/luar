@@ -66,7 +66,8 @@ The VM also defines couple of special use-case registers, such as:
 -   Program counter (PC)
 -   Return address (RA)
 -   Value count (VC)
--   Test result (TR)
+-   Equality flag (EF)
+-   Ordering flag (OF)
 -   Type test result (TTR)
 
 #### Program counter
@@ -81,9 +82,13 @@ Is the byte-offset of the instruction that currently executing function should j
 
 Program readable and writable global register. It contains the amount of argument the function was called with, or the amount of arguments function returns.
 
-#### Test result
+#### Equality flag
 
-Is set to appropriate value of `EQ` `NE` `LT` `GT` when [comparing two values](#test). Is global to the runtime, cannot be read nor set directly.
+Is set to appropriate value of `EQ` `NE` when [comparing two values for equality](#eqtestxyz) or [ordering](#testxyz). Is global to the runtime, cannot be read nor set directly.
+
+#### Ordering flag
+
+Is set to appropriate value of `LT` or `GT` when [comparing two values](#testxyz) for ordering.
 
 #### Type test result
 
@@ -165,19 +170,19 @@ It is to be noted, that calling a function is expected to clobber all of the arg
 
 ### Instructions accessible in global scope
 
-<!-- #### gl_ret
+<!-#### gl_ret
 
 Global return. Values that are present in RD0-RDN and ExtRD registers are exported to the outside of the module (to whomever may have required it), and control flow of the code execution is terminated and execution jumps to the caller of the module defined in [RA](#return-address) register.
 
 The amount of values returned depends on [VC](#value-count) register. -->
 
-- #### fn_decl
+#### fn_decl
 
 `TODO`
 
 ### Instructions accessible in all scopes
 
-- #### lda_XYZ
+#### lda_XYZ
 
 Load value from register XYZ into an appropriate accumulator register.
 
@@ -187,7 +192,7 @@ Load value from register XYZ into an appropriate accumulator register.
 
 The type of register (Y) determines the type of an accumulator (AY). X cannot specify an accumulator register
 
-- #### str_XYZ
+#### str_XYZ
 
 Stores the value from an accumulator register AY into an register XYZ.
 
@@ -197,7 +202,7 @@ Stores the value from an accumulator register AY into an register XYZ.
 
 The type of register (Y) determines the type of an accumulator (AY). X cannot specify an accumulator register
 
-- #### mov_ABC_XBZ
+#### mov_ABC_XBZ
 
 Moves the value of register ABC into XBZ, where
 
@@ -207,122 +212,236 @@ Moves the value of register ABC into XBZ, where
 -   X is the destination register type (`R`, `ExtR`, `L`)
 -   z is the destination register number
 
-- #### lda_gl
+#### lda_gl
 
 Loads global value described by AS register into a AD register. If the value is not present in global scope, AD is set to the dynamic value of `nil`.
 
-- #### F_add_XZ
+#### F_add_XZ
 
 Adds the value of the register XFZ to the current value of accumulator register AF.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-- #### F_mul_XZ
+#### F_mul_XZ
 
 Multiplies the value of the register XFZ to the current value of accumulator register AF.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-- #### F_sub_XZ
+#### F_sub_XZ
 
 Multiplies the value of the register XFZ to the current value of accumulator register AF.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-- #### F_div_XZ
+#### F_div_XZ
 
 Divides the value of the register XFZ to the current value of accumulator register AF.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-- #### I_add_XZ
+#### I_add_XZ
 
 Adds the value of the register XIZ to the current value of accumulator register AI.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-- #### I_mul_XZ
+#### I_mul_XZ
 
 Multiplies the value of the register XIZ to the current value of accumulator register AI.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-- #### I_sub_XI
+#### I_sub_XI
 
 Multiplies the value of the register XIZ to the current value of accumulator register AF.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-- #### I_div_XZ
+#### I_div_XZ
 
 Performs integer division of the value of the register XIZ to the current value of accumulator register AF.
 
 -   X is the type of source register
 -   Z is the number of source register
 
-- #### I_mod_XZ
+<!-- #### I_mod_XZ
 
 Return the modulo of the value of the accumulator register AF divided by value in the register XIZ. The result is stored in AF.
 
 -   X is the type of source register
--   Z is the number of source register
+-   Z is the number of source register -->
 
-- #### set_vc
+#### D_add_XZ, D_mul_XZ, D_sub_XZ, D_div_XZ<!--, D_mod_XZ -->
+
+If dynamic type of value in AD or XDZ is not a number (F, I) or a string (S), panic with `arith` error.
+
+If type of value is string (S), perform conversion to numeric (F). If conversion fails, panic with `arith` error.
+
+In the end, perform operations equivalent to I and F variants
+
+#### S_concat_XZ
+
+Concatenate string value in AS with value in register XSZ. Put the result into AS.
+
+#### D_concat_XZ
+
+Concatenate string value in AS with value in XDZ. 
+
+-   X is the type of register (`R`, `ExtR`, `L`)
+-   Z is the register's number
+
+Depending on the type of XDZ:
+- If the type of value in XDZ is a string, it is equivalent to `S_concat_XZ`.
+- If the type of value is I or F, convert it to string (equivalent to `I_to_s` and `F_to_s`), and proceed with concatenation of strings.
+- Otherwise raise `string` error
+
+#### I_to_s
+
+Transform integer value of AI into string representation, and put result back at AS.
+
+#### F_to_s
+Transform float value of AF into string representation, and put result back at AS.
+
+#### D_to_s
+
+Transform dynamic value of AD into string representation, and put result back at AS.
+
+Depending on the type of AD:
+- If the type is string, unwrap value, and just move it to AS.
+- If the type is I or F, do the string conversion (as in `I_to_s` and `F_to_s`)
+- Otherwise raise `string` error
+
+#### set_vc
 
 Sets the [VC](#value-count) register from the current value in AI. AI is treated to have an unsigned value.
 
-- #### call
+#### call
 
 [Calls](#function-call-convention) the value located in the register AC. Creates new stack frame. Sets the register [RA](#return-address) in the callee's stack frame
 
-- #### typed_call
+#### typed_call
 
 [Performs the typed call](#function-call-convention) of the value located in AC. Creates new stack frame. Sets the register [RA](#return-address) in the callee's stack frame
 
-- #### ret
+#### D_call
+
+If value in register AD is a function, perform the same operations as in `call` with function value in register AD unwrapped.
+
+Otherwise panic with `not_callable` error
+
+#### ret
 
 Jumps to instruction pointed in [RA](#return-address), discards current call frame.
 
-- #### test_XYZ
+#### eq_test_XYZ
 
-Compares the values in AY to the value in register XYZ. Sets the [TR](#test-result) register the the corresponding value.
+Tests the values in AY and in the register XYZ for equality. Sets the [EF](#equality-flag) to the corresponding value.
+
+-   X is the type of register (e.g. `R`, `ExtR`, `L`)
+-   Y is the type of register's value (can only be `S`, `T`, `C`, `D`)
+-   Z is the number of register
+
+Depending on the result:
+
+-   If values are equal, set [EF](#equality-flag) to `EQ`
+-   If values are not equal, set [EF](#equality-flag) to `NE`
+
+Depending on the type of Y:
+
+-   if Y is S, test strings to be byte-identical
+-   if Y is T, test to be references to the same table
+-   if Y is C, test to be references to the same function (even if different compilation variations)
+-   if Y is D, test if type is the same, and if they are, do value equality
+    -   if dynamic type is F, compare according to IEEE-754 specification
+    -   if dynamic type is I, compare integers for bit equivalence
+    -   If dynamic type is N, values are always equal
+    -   If dynamic type is S, T or C, do typed test as described above
+
+#### test_XYZ
+
+Compares the values in AY to the value in register XYZ. Sets the [EF](#equality-flag) and [OF](#ordering-flag) registers to the corresponding value.
 
 -   X is the type of register (e.g. `R`, `ExtR`, `L`)
 -   Y is the type of register's value (can only be `F`, `I`, `S`, `D`)
 -   Z is the number of register
 
-in case Y is `F`, compare values as specified in IEEE-754
-in case Y is `I`, do a signed integer comparison
-in case Y is `S`, do lexicographical comparison
-in case Y is `D`, do any of the above if types are the same, if they differ, convert to string and compare lexicographically. If any of the operands types are `N`, `T`, `U` or `C`, panic with the `order` error
+Depending on the result:
 
-- #### type_test
+-   If values are equal, set [EF](#equality-flag) to `EQ`
+-   If value is greater, set [OF](#ordering-flag) to `GT` and [EF](#equality-flag) to `NE`
+-   If value is lesser, set [OF](#ordering-flag) to `LT` and [EF](#equality-flag) to `NE`
+
+Depending on the type T:
+
+-   in case Y is `F`, compare values as specified in IEEE-754
+-   in case Y is `I`, do a signed integer comparison
+-   in case Y is `S`, do lexicographical comparison
+-   in case Y is `D`, do any of the above if types are the same, if they differ, convert to string and compare lexicographically. If any of the operands types are `N`, `T`, `U` or `C`, panic with the `order` error
+
+#### type_test
 
 Do a type test of a value in AD, and set [TTR](#type-test-result) to the appropriate value.
 
-- #### jmp &lt;offset&gt;
+### nil_test
+
+Test if value in register AD is `nil`, and set [EF](#equality-flag) to `EQ` if it is, or `NE` otherwise
+
+#### const_F &lt;value&gt;
+
+Put a floating point value into AF register
+
+#### const_I &lt;value&gt;
+
+Put an integer value into AI register
+
+#### const_N
+
+Put an nil value into AD register
+
+#### const_S &lt;str_idx&gt;
+
+Put a string value at index &lt;str_idx&gt; into AS register
+
+#### wrap_X
+
+Take value from accumulator AX, wrap it into dynamic value, and store in register AD
+
+-   X is a `F`, `I`, `C`, `S`, `U` for type of register
+
+#### cast_X
+
+Take the current value from AD and try to unwrap it into type X
+
+If the value is of type X, unwrap it and put in the corresponding register AX. Set the register [EF](#equality-flag) to `EQ`
+
+If the value is of type other than X, set [EF](#equality-flag) register to `NE`
+
+-   X is a `F`, `I`, `C`, `S`, `U` for type of register
+
+#### jmp &lt;offset&gt;
 
 Unconditional jump to the instruction by relative offset from the current [PC](#program-counter) value.
 
-- #### (jmplt, jmpgt, jmpeq, jmpne, jmple, jmpge) &lt;offset&gt;
+#### (jmplt, jmpgt, jmpeq, jmpne, jmple, jmpge) &lt;offset&gt;
 
-Conditional jump by the offset &lt;offset&gt; depending on the value of [TR](#test-result) register.
+Conditional jump by the offset &lt;offset&gt; depending on the values of [EF](#equality-flag) and [OF](#ordering-flag) register.
 
--   `jmplt` jump if [TR](#test-result) is set to `LT`
--   `jmpgt` jump if [TR](#test-result) is set to `GT`
--   `jmpeq` jump if [TR](#test-result) is set to `EQ`
--   `jmpne` jump if [TR](#test-result) is set to `LT`, `GT`, or `NE`
--   `jmple` jump if [TR](#test-result) is set to `LT` or `EQ`
--   `jmpge` jump if [TR](#test-result) is set to `GT` or `EQ`
+-   `jmplt` jump if [EF](#equality-flag) is set to `NE` and [OF](#ordering-flag) is set to `LT`
+-   `jmpgt` jump if [EF](#equality-flag) is set to `NE` and [OF](#ordering-flag) is set to `GT`
+-   `jmpeq` jump if [EF](#equality-flag) is set to `EQ`
+-   `jmpne` jump if [EF](#equality-flag) is set to `NE`,
+-   `jmple` jump if [OF](#ordering-flag) is set to `LT`
+-   `jmpge` jump if [OF](#ordering-flag) is set to `GT`
 
-- #### (jmpN, jmpF, jmpI, jmpC, jmpT, jmpU) &lt;offset&gt;
+#### (jmpN, jmpF, jmpI, jmpC, jmpT, jmpU) &lt;offset&gt;
 
 Conditional jump by the offset &lt;offset&gt; depending on the value of [TTR](#type-test-result) register.
 
@@ -333,6 +452,6 @@ Conditional jump by the offset &lt;offset&gt; depending on the value of [TTR](#t
 -   `jmpT` jump if [TTR](#type-test-result) is set to `T`
 -   `jmpU` jump if [TTR](#type-test-result) is set to `U`
 
-- #### panic
+#### panic
 
 `TODO`

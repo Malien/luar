@@ -1,0 +1,10 @@
+{
+    "Ordering flag": {
+        "prefix": "OF",
+        "body": "[OF](#ordering-flag)"
+    },
+    "Equality flag": {
+        "prefix": "EF",
+        "body": "[EF](#equality-flag)"
+    }
+}
