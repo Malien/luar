@@ -13,6 +13,18 @@ use super::{ToTokenStream, Token};
 #[derive(Debug, Clone, Copy, PartialOrd)]
 pub struct NumberLiteral(pub f64);
 
+impl NumberLiteral {
+    pub fn is_integer(self) -> bool {
+        ((self.0 as i32) as f64) == self.0
+    }
+    pub fn as_i32(self) -> i32 {
+        self.0 as i32
+    }
+    pub fn as_f64(self) -> f64 {
+        self.0
+    }
+}
+
 impl PartialEq for NumberLiteral {
     fn eq(&self, other: &Self) -> bool {
         let a = self.0;

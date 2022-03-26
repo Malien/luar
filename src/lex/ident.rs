@@ -58,14 +58,8 @@ impl From<Ident> for String {
     }
 }
 
-impl<'a> From<&'a Ident> for &'a String {
-    fn from(Ident(str): &'a Ident) -> Self {
-        str
-    }
-}
-
-impl<'a> AsRef<str> for &'a Ident {
-    fn as_ref(&self) -> &'a str {
+impl AsRef<str> for Ident {
+    fn as_ref(&self) -> &str {
         self.0.as_ref()
     }
 }

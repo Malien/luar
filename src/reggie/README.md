@@ -240,7 +240,7 @@ Store value in AX into a global value referenced by &lt;global_cell_ref&gt;
 
 -   X is the [type of register's value](#type-notation) (`F`, `I`, `S`, `T`, `C`, `U`, `D`)
 
-### str_dyn_gl
+#### str_dyn_gl
 
 Stores values in AD into the global with the name described in AS. If global cell for value with such name does not exist, it is created on the fly.
 
@@ -421,7 +421,7 @@ Depending on the type T:
 
 Do a type test of a value in AD, and set [TTR](#type-test-result) to the appropriate value.
 
-### nil_test
+#### nil_test
 
 Test if value in register AD is `nil`, and set [EF](#equality-flag) to `EQ` if it is, or `NE` otherwise
 
@@ -457,13 +457,17 @@ If the value is of type other than X, set [EF](#equality-flag) register to `NE`
 
 -   X is a `F`, `I`, `C`, `S`, `U` for type of register
 
-#### jmp &lt;offset&gt;
+#### label
 
-Unconditional jump to the instruction by relative offset from the current [PC](#program-counter) value.
+Sets a label in the function execution, to be able for execution flow to jump here. Labels are indexed in the order they appear in the function definition.
 
-#### (jmplt, jmpgt, jmpeq, jmpne, jmple, jmpge) &lt;offset&gt;
+#### jmp &lt;label_idx&gt;
 
-Conditional jump by the offset &lt;offset&gt; depending on the values of [EF](#equality-flag) and [OF](#ordering-flag) register.
+Unconditional jump to the instruction followed by label instruction with the idx of &lt;label_idx&gt;.
+
+#### (jmplt, jmpgt, jmpeq, jmpne, jmple, jmpge) &lt;label_idx&gt;
+
+Conditional jump to the label with idx of &lt;label_idx&gt; depending on the values of [EF](#equality-flag) and [OF](#ordering-flag) register.
 
 -   `jmplt` jump if [EF](#equality-flag) is set to `NE` and [OF](#ordering-flag) is set to `LT`
 -   `jmpgt` jump if [EF](#equality-flag) is set to `NE` and [OF](#ordering-flag) is set to `GT`
@@ -472,9 +476,9 @@ Conditional jump by the offset &lt;offset&gt; depending on the values of [EF](#e
 -   `jmple` jump if [OF](#ordering-flag) is set to `LT`
 -   `jmpge` jump if [OF](#ordering-flag) is set to `GT`
 
-#### (jmpN, jmpF, jmpI, jmpC, jmpT, jmpU) &lt;offset&gt;
+#### (jmpN, jmpF, jmpI, jmpC, jmpT, jmpU) &lt;label_idx&gt;
 
-Conditional jump by the offset &lt;offset&gt; depending on the value of [TTR](#type-test-result) register.
+Conditional jump to the label with idx of &lt;label_idx&gt; depending on the value of [TTR](#type-test-result) register.
 
 -   `jmpN` jump if [TTR](#type-test-result) is set to `N`
 -   `jmpF` jump if [TTR](#type-test-result) is set to `F`

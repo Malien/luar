@@ -1,4 +1,4 @@
-use std::{str::FromStr, hash::Hash};
+use std::{hash::Hash, str::FromStr};
 
 use crate::util::eq_with_nan;
 
