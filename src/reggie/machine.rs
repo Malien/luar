@@ -44,16 +44,34 @@ pub enum TypeTestResult {
     Userdata,
 }
 
+#[derive(Debug, Clone)]
 pub struct GlobalValueCell {
     value: LuaValue,
 }
 
+impl Default for GlobalValueCell {
+    fn default() -> Self {
+        Self { value: LuaValue::Nil }
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct GlobalValues {
     // Maybe it's better to utilize some kind of a amortized linked-list-like
     // structure to provide reference stability, as it is more efficient for
     // JIT-ted code to reference globals by their stable pointer value
     cells: Vec<GlobalValueCell>,
     mapping: HashMap<String, GlobalCellID>,
+}
+
+impl GlobalValues {
+    pub fn cell_for_name(&mut self, ident: impl Into<String>) -> GlobalCellID {
+        *self.mapping.entry(ident.into()).or_insert_with(|| {
+            let idx = self.cells.len();
+            self.cells.push(GlobalValueCell::default());
+            GlobalCellID(idx.try_into().unwrap())
+        })
+    }
 }
 
 pub struct Machine {

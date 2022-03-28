@@ -1,11 +1,11 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct LocalRegCount {
-    pub f: usize,
-    pub i: usize,
-    pub s: usize,
-    pub t: usize,
-    pub c: usize,
-    pub d: usize,
+    pub f: u16,
+    pub i: u16,
+    pub s: u16,
+    pub t: u16,
+    pub c: u16,
+    pub d: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

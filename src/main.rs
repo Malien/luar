@@ -50,6 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         size_of::<ParseErrorWithSourcePosition>()
     );
     println!("RawParseError: {}", size_of::<RawParseError>());
+
     if let Some(filename) = std::env::args().skip(1).next() {
         eval_file(&filename)
     } else {
