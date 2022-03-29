@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::{
-    fn_meta::{FnMeta, LocalRegCount, ReturnCount},
+    fn_meta::{FnMeta, LocalRegCount, MetaCount},
     ids::{GlobalCellID, LocalRegisterID},
     machine::GlobalValues,
     ops::Instruction,
@@ -63,7 +63,10 @@ impl<'a> FunctionCompilationState<'a> {
         }
     }
 
-    fn with_args(args: Vec<impl Into<String>>, global_values: &'a mut GlobalValues) -> Self {
+    fn with_args(
+        args: impl IntoIterator<Item = impl Into<String>>,
+        global_values: &'a mut GlobalValues,
+    ) -> Self {
         Self {
             global_values,
             alloc: Default::default(),
@@ -168,26 +171,24 @@ pub fn compile_function(
     global_values: &mut GlobalValues,
 ) -> (FnMeta, Vec<Instruction>) {
     use Instruction::*;
-    let arg_mapping: HashMap<&str, usize> = decl.args.iter().map(AsRef::as_ref).zip(0..).collect();
-
     let return_count = decl.body.ret.as_ref().map(|ret| ret.0.len()).unwrap_or(0);
-    let mut state = FunctionCompilationState::new(global_values);
+    let mut state = FunctionCompilationState::with_args(decl.args.iter().cloned(), global_values);
     let mut root_scope = LocalFnCompState::new(&mut state);
 
     if let Some(syn::Return(exprs)) = &decl.body.ret {
         if let Some(expr) = exprs.first() {
             compile_expr(expr, &mut root_scope);
-            state.instructions.push(StrRD(ArgumentRegisterID(0)));
+            root_scope.push_instr(StrRD(ArgumentRegisterID(0)));
         }
     }
 
     state.instructions.push(Ret);
 
     let meta = FnMeta {
-        arg_count: decl.args.len(),
+        arg_count: decl.args.len().into(),
         const_strings: state.strings,
         label_mappings: vec![],
-        return_count: ReturnCount::Known(return_count),
+        return_count: MetaCount::Known(return_count),
         local_count: state.alloc.into_used_register_count(),
     };
     return (meta, state.instructions);
@@ -255,7 +256,7 @@ fn compile_binary_op(
 #[cfg(test)]
 mod test {
     use crate::reggie::{
-        fn_meta::{LocalRegCount, ReturnCount},
+        fn_meta::{LocalRegCount, MetaCount},
         ids::{ArgumentRegisterID, LocalRegisterID, StringID},
         machine::GlobalValues,
         ops::Instruction,
@@ -277,10 +278,10 @@ mod test {
                 assert_eq!(
                     meta,
                     FnMeta {
-                        arg_count: 0,
+                        arg_count: 0.into(),
                         const_strings: vec![],
                         label_mappings: vec![],
-                        return_count: ReturnCount::Known(1),
+                        return_count: 1.into(),
                         local_count: LocalRegCount::default(),
                     }
                 );
@@ -328,10 +329,10 @@ mod test {
         assert_eq!(
             meta,
             FnMeta {
-                arg_count: 0,
+                arg_count: 0.into(),
                 const_strings: vec!["hello".to_string()],
                 label_mappings: vec![],
-                return_count: ReturnCount::Known(1),
+                return_count: MetaCount::Known(1),
                 local_count: LocalRegCount::default(),
             }
         );
@@ -358,10 +359,10 @@ mod test {
         assert_eq!(
             meta,
             FnMeta {
-                arg_count: 0,
+                arg_count: 0.into(),
                 const_strings: vec![],
                 label_mappings: vec![],
-                return_count: ReturnCount::Known(0),
+                return_count: MetaCount::Known(0),
                 local_count: LocalRegCount::default(),
             }
         );
@@ -380,10 +381,10 @@ mod test {
         assert_eq!(
             meta,
             FnMeta {
-                arg_count: 0,
+                arg_count: 0.into(),
                 const_strings: vec![],
                 label_mappings: vec![],
-                return_count: ReturnCount::Known(0),
+                return_count: MetaCount::Known(0),
                 local_count: LocalRegCount::default(),
             }
         );
@@ -420,10 +421,10 @@ mod test {
         assert_eq!(
             meta,
             FnMeta {
-                arg_count: 0,
+                arg_count: 0.into(),
                 const_strings: vec![],
                 label_mappings: vec![],
-                return_count: ReturnCount::Known(1),
+                return_count: MetaCount::Known(1),
                 local_count: LocalRegCount {
                     d: 1,
                     ..Default::default()
@@ -455,10 +456,10 @@ mod test {
             return 1 - 2
         end",
         FnMeta {
-            arg_count: 0,
+            arg_count: 0.into(),
             const_strings: vec![],
             label_mappings: vec![],
-            return_count: ReturnCount::Known(1),
+            return_count: MetaCount::Known(1),
             local_count: LocalRegCount {
                 d: 1,
                 ..Default::default()
@@ -482,10 +483,10 @@ mod test {
             return 1 * 2
         end",
         FnMeta {
-            arg_count: 0,
+            arg_count: 0.into(),
             const_strings: vec![],
             label_mappings: vec![],
-            return_count: ReturnCount::Known(1),
+            return_count: MetaCount::Known(1),
             local_count: LocalRegCount {
                 d: 1,
                 ..Default::default()
@@ -509,10 +510,10 @@ mod test {
             return 1 / 2
         end",
         FnMeta {
-            arg_count: 0,
+            arg_count: 0.into(),
             const_strings: vec![],
             label_mappings: vec![],
-            return_count: ReturnCount::Known(1),
+            return_count: MetaCount::Known(1),
             local_count: LocalRegCount {
                 d: 1,
                 ..Default::default()
@@ -542,11 +543,14 @@ mod test {
         assert_eq!(
             meta,
             FnMeta {
-                arg_count: 2,
+                arg_count: 2.into(),
                 const_strings: vec![],
                 label_mappings: vec![],
-                return_count: ReturnCount::Known(1),
-                local_count: LocalRegCount::default(),
+                return_count: MetaCount::Known(1),
+                local_count: LocalRegCount {
+                    d: 1,
+                    ..Default::default()
+                },
             }
         );
 
@@ -555,7 +559,9 @@ mod test {
             instructions,
             vec![
                 LdaRD(ArgumentRegisterID(0)),
-                DAddR(ArgumentRegisterID(1)),
+                StrLD(LocalRegisterID(0)),
+                LdaRD(ArgumentRegisterID(1)),
+                DAddL(LocalRegisterID(0)),
                 StrRD(ArgumentRegisterID(0)),
                 Ret,
             ]

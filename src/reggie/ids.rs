@@ -12,3 +12,6 @@ pub struct StringID(pub u16);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct JmpLabel(pub u16);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BlockID(pub u32);

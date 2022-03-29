@@ -1,9 +1,11 @@
 {
     "Ordering flag": {
+        "scope": "markdown",
         "prefix": "OF",
         "body": "[OF](#ordering-flag)"
     },
     "Equality flag": {
+        "scope": "markdown",
         "prefix": "EF",
         "body": "[EF](#equality-flag)"
     }

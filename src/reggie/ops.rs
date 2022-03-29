@@ -229,5 +229,6 @@ pub enum Instruction {
     JmpT(JmpLabel),
     // jmpU
     JmpU(JmpLabel),
+    
     // panic not needed (and not spec'd) for now
 }

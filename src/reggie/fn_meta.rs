@@ -12,18 +12,24 @@ pub struct LocalRegCount {
 pub struct FnID(usize);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ReturnCount {
+pub enum MetaCount {
     Known(usize),
     Unknown
+}
+
+impl From<usize> for MetaCount {
+    fn from(v: usize) -> Self {
+        Self::Known(v)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FnMeta {
     // pub identity: FnID,
     // pub source: syn::FunctionDeclaration,
-    pub arg_count: usize,
+    pub arg_count: MetaCount,
     pub local_count: LocalRegCount,
-    pub return_count: ReturnCount,
+    pub return_count: MetaCount,
     pub label_mappings: Vec<usize>,
     pub const_strings: Vec<String>,
     // pub global_deps: 
