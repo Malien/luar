@@ -14,7 +14,7 @@ pub struct FnID(usize);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MetaCount {
     Known(usize),
-    Unknown
+    Unknown,
 }
 
 impl From<usize> for MetaCount {
@@ -24,7 +24,7 @@ impl From<usize> for MetaCount {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FnMeta {
+pub struct CodeMeta {
     // pub identity: FnID,
     // pub source: syn::FunctionDeclaration,
     pub arg_count: MetaCount,
@@ -32,5 +32,5 @@ pub struct FnMeta {
     pub return_count: MetaCount,
     pub label_mappings: Vec<usize>,
     pub const_strings: Vec<String>,
-    // pub global_deps: 
+    // pub global_deps:
 }

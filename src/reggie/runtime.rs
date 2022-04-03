@@ -1,8 +1,10 @@
 use crate::lang::{ArithmeticError, ArithmeticOperator, EvalError, LuaValue, TypeError};
 
 use super::{
-    ids::BlockID,
+    compiler::CompiledModule,
+    ids::{BlockID, StringID},
     machine::{Machine, ProgramCounter, StackFrame},
+    meta::MetaCount,
     ops::Instruction,
 };
 
@@ -67,6 +69,27 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                     std::ops::Add::add,
                 )?;
                 machine.accumulators.d = res;
+                position += 1;
+            }
+            Instruction::ConstN => {
+                machine.accumulators.d = LuaValue::Nil;
+                position += 1;
+            }
+            Instruction::ConstF(value) => {
+                machine.accumulators.f = value;
+                position += 1;
+            }
+            Instruction::WrapF => {
+                machine.accumulators.d = LuaValue::number(machine.accumulators.f);
+                position += 1;
+            }
+            Instruction::ConstS(StringID(string_id)) => {
+                machine.accumulators.s = Some(block.meta.const_strings[string_id as usize].clone());
+                position += 1;
+            }
+            Instruction::WrapS => {
+                machine.accumulators.d =
+                    LuaValue::String(machine.accumulators.s.as_ref().unwrap().clone());
                 position += 1;
             }
 
@@ -173,11 +196,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::TestLD(_) => todo!(),
             Instruction::TypeTest => todo!(),
             Instruction::NilTest => todo!(),
-            Instruction::ConstF(_) => todo!(),
-            Instruction::ConstN => todo!(),
-            Instruction::ConstS(_) => todo!(),
-            Instruction::WrapF => todo!(),
-            Instruction::WrapS => todo!(),
             Instruction::WrapC => todo!(),
             Instruction::WrapT => todo!(),
             Instruction::WrapU => todo!(),
@@ -225,8 +243,9 @@ fn binary_number_op(
     }
 }
 
-pub fn call_block(machine: &mut Machine, block_id: BlockID) {
+pub fn call_block(machine: &mut Machine, block_id: BlockID) -> Result<&[LuaValue], EvalError> {
     let block = &machine.code_blocks[block_id];
+    let return_count = block.meta.return_count;
     let stack_frame = StackFrame::new(
         &block.meta,
         ProgramCounter {
@@ -239,73 +258,116 @@ pub fn call_block(machine: &mut Machine, block_id: BlockID) {
         block: block_id,
         position: 0,
     };
-    eval_loop(machine);
+    eval_loop(machine)?;
+    Ok(collect_dyn_returns(machine, return_count))
+}
+
+pub fn call_module(
+    module: CompiledModule,
+    machine: &mut Machine,
+) -> Result<&[LuaValue], EvalError> {
+    machine.code_blocks.extend(module.blocks);
+    let top_level_block = machine.code_blocks.add(module.top_level);
+    call_block(machine, top_level_block)
+}
+
+pub fn collect_dyn_returns(machine: &mut Machine, return_count: MetaCount) -> &[LuaValue] {
+    let count = match return_count {
+        MetaCount::Known(count) => count,
+        MetaCount::Unknown => machine.value_count as usize,
+    };
+
+    &machine.argument_registers.d[..count]
 }
 
 #[cfg(test)]
 mod test {
     use crate::lang::LuaValue;
-    use crate::reggie::fn_meta::{FnMeta, LocalRegCount, MetaCount};
-    use crate::reggie::ids::{ArgumentRegisterID, LocalRegisterID};
+    use crate::reggie::ids::{ArgumentRegisterID, LocalRegisterID, StringID};
     use crate::reggie::machine::{CodeBlock, Machine};
+    use crate::reggie::meta::{CodeMeta, LocalRegCount};
     use crate::reggie::ops::Instruction::*;
     use crate::reggie::runtime::call_block;
     use ntest::timeout;
 
-    macro_rules! test_instructions {
-        ($name: ident, $instr: expr, $locals: expr, $post_condition: expr) => {
+    macro_rules! test_instructions_with_meta {
+        ($name: ident, [$($instr: expr),*$(,)?], $meta: expr, $post_condition: expr) => {
             #[test]
             #[timeout(5000)]
             fn $name() {
-                let meta = FnMeta {
-                    arg_count: MetaCount::Known(0),
-                    local_count: $locals,
-                    return_count: MetaCount::Known(0),
-                    label_mappings: vec![],
-                    const_strings: vec![],
-                };
-
                 let mut machine = Machine::new();
                 let block_id = machine.code_blocks.add(CodeBlock {
-                    meta,
-                    instructions: $instr,
+                    meta: $meta,
+                    instructions: vec![$($instr,)*],
                 });
-                call_block(&mut machine, block_id);
+                call_block(&mut machine, block_id).unwrap();
 
                 ($post_condition)(machine);
             }
         };
     }
 
-    macro_rules! test_instructions_without_locals {
-        ($name: ident, $instr: expr, $post_condition: expr) => {
-            test_instructions!($name, $instr, LocalRegCount::default(), $post_condition);
+    macro_rules! test_instructions_with_locals {
+        ($name: ident, [$($instr: expr),*$(,)?], $locals: expr, $post_condition: expr) => {
+            test_instructions_with_meta! {
+                $name,
+                [$($instr,)*],
+                CodeMeta {
+                    arg_count: 0.into(),
+                    local_count: $locals,
+                    return_count: 0.into(),
+                    label_mappings: vec![],
+                    const_strings: vec![],
+                },
+                $post_condition
+            }
         };
     }
 
-    test_instructions_without_locals!(eval_ret_fn_call, vec![Ret], |_| {});
+    macro_rules! test_instructions {
+        ($name: ident, [$($instr: expr),*], $post_condition: expr) => {
+            test_instructions_with_locals! {$name, [$($instr,)*], LocalRegCount::default(), $post_condition}
+        };
+    }
 
-    test_instructions_without_locals!(eval_const_i, vec![ConstI(42), Ret], |machine: Machine| {
+    macro_rules! test_instructions_with_strings {
+        ($name: ident, [$($instr: expr),*], [$($strings: expr),*], $post_condition: expr) => {
+            test_instructions_with_meta! {
+                $name,
+                [$($instr,)*],
+                CodeMeta {
+                    arg_count: 0.into(),
+                    local_count: LocalRegCount::default(),
+                    return_count: 0.into(),
+                    label_mappings: vec![],
+                    const_strings: vec![
+                        $($strings.to_owned(),)*
+                    ],
+                },
+                $post_condition
+            }
+        };
+    }
+
+    test_instructions!(eval_ret_fn_call, [Ret], |_| {});
+
+    test_instructions!(eval_const_i, [ConstI(42), Ret], |machine: Machine| {
         assert_eq!(machine.accumulators.i, 42);
     });
 
-    test_instructions_without_locals!(
-        eval_wrap_i,
-        vec![ConstI(42), WrapI, Ret],
-        |machine: Machine| {
-            assert_eq!(machine.accumulators.d, LuaValue::number(42));
-        }
-    );
+    test_instructions!(eval_wrap_i, [ConstI(42), WrapI, Ret], |machine: Machine| {
+        assert_eq!(machine.accumulators.d, LuaValue::number(42));
+    });
 
-    test_instructions_without_locals!(
+    test_instructions!(
         eval_str_rd,
-        vec![ConstI(42), WrapI, StrRD(ArgumentRegisterID(0)), Ret],
+        [ConstI(42), WrapI, StrRD(ArgumentRegisterID(0)), Ret],
         |machine: Machine| { assert_eq!(machine.argument_registers.d[0], LuaValue::number(42)) }
     );
 
-    test_instructions!(
+    test_instructions_with_locals!(
         eval_str_and_lda_ld,
-        vec![
+        [
             ConstI(42),
             WrapI,
             StrLD(LocalRegisterID(0)),
@@ -321,9 +383,9 @@ mod test {
         |machine: Machine| { assert_eq!(machine.accumulators.d, LuaValue::number(42)) }
     );
 
-    test_instructions_without_locals!(
+    test_instructions!(
         eval_str_and_lda_rd,
-        vec![
+        [
             ConstI(42),
             WrapI,
             StrRD(ArgumentRegisterID(0)),
@@ -335,9 +397,9 @@ mod test {
         |machine: Machine| { assert_eq!(machine.accumulators.d, LuaValue::number(42)) }
     );
 
-    test_instructions!(
+    test_instructions_with_locals!(
         eval_1_plus_2_local_regs,
-        vec![
+        [
             ConstI(1),
             WrapI,
             StrLD(LocalRegisterID(0)),
@@ -356,9 +418,9 @@ mod test {
         }
     );
 
-    test_instructions!(
+    test_instructions_with_locals!(
         eval_1_plus_2_arg_regs,
-        vec![
+        [
             ConstI(1),
             WrapI,
             StrRD(ArgumentRegisterID(0)),
@@ -375,5 +437,35 @@ mod test {
         |machine: Machine| {
             assert_eq!(machine.argument_registers.d[0], LuaValue::number(3));
         }
+    );
+
+    test_instructions!(
+        eval_const_n,
+        [ConstI(42), WrapI, ConstN, Ret],
+        |machine: Machine| { assert_eq!(machine.argument_registers.d[0], LuaValue::Nil) }
+    );
+
+    test_instructions!(eval_const_f, [ConstF(42.4), Ret], |machine: Machine| {
+        assert_eq!(machine.accumulators.f, 42.4)
+    });
+
+    test_instructions!(
+        eval_wrap_f,
+        [ConstF(42.4), WrapF, Ret],
+        |machine: Machine| { assert_eq!(machine.accumulators.d, LuaValue::number(42.4)) }
+    );
+
+    test_instructions_with_strings!(
+        eval_const_s,
+        [ConstS(StringID(0)), Ret],
+        ["hello"],
+        |machine: Machine| { assert_eq!(machine.accumulators.s, Some("hello".to_owned())) }
+    );
+
+    test_instructions_with_strings!(
+        eval_wrap_s,
+        [ConstS(StringID(0)), WrapS, Ret],
+        ["hello"],
+        |machine: Machine| { assert_eq!(machine.accumulators.d, LuaValue::string("hello")) }
     );
 }

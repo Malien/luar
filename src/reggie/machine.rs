@@ -1,10 +1,10 @@
-use std::{array, collections::HashMap};
+use std::collections::HashMap;
 
 use crate::lang::{LuaFunction, LuaValue, TableRef};
 
 use super::{
-    fn_meta::{FnMeta, LocalRegCount},
     ids::{BlockID, GlobalCellID},
+    meta::CodeMeta,
     ops::Instruction,
 };
 
@@ -86,8 +86,9 @@ pub struct ProgramCounter {
     pub position: u32,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct CodeBlock {
-    pub meta: FnMeta,
+    pub meta: CodeMeta,
     pub instructions: Vec<Instruction>,
 }
 pub struct CodeBlocks(Vec<CodeBlock>);
@@ -114,6 +115,12 @@ impl CodeBlocks {
     }
 }
 
+impl Extend<CodeBlock> for CodeBlocks {
+    fn extend<T: IntoIterator<Item = CodeBlock>>(&mut self, iter: T) {
+        self.0.extend(iter);
+    }
+}
+
 pub struct LocalValues {
     pub f: Vec<f64>,
     pub i: Vec<i32>,
@@ -124,7 +131,7 @@ pub struct LocalValues {
 }
 
 impl LocalValues {
-    pub fn new(meta: &FnMeta) -> Self {
+    pub fn new(meta: &CodeMeta) -> Self {
         Self {
             f: vec![0.0; meta.local_count.f as usize],
             i: vec![0; meta.local_count.i as usize],
@@ -142,7 +149,7 @@ pub struct StackFrame {
 }
 
 impl StackFrame {
-    pub fn new(meta: &FnMeta, return_addr: ProgramCounter) -> Self {
+    pub fn new(meta: &CodeMeta, return_addr: ProgramCounter) -> Self {
         StackFrame {
             return_addr,
             local_values: LocalValues::new(meta),
