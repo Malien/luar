@@ -1,6 +1,7 @@
 use crate::{
     reggie::{
         compiler::{LocalFnCompState, VarLookup},
+        ids::LocalRegisterID,
         ops::Instruction,
     },
     syn,
@@ -53,14 +54,34 @@ fn compile_binary_op(
     state.push_instr(StrLD(reg));
     compile_expr(rhs, state);
 
-    let instr = match op {
-        syn::BinaryOperator::Plus => DAddL,
-        syn::BinaryOperator::Minus => DSubL,
-        syn::BinaryOperator::Mul => DMulL,
-        syn::BinaryOperator::Div => DDivL,
-        _ => todo!(),
-    };
+    if let syn::BinaryOperator::Equals = op {
+        compile_eq_op(state, reg);
+    } else {
+        let instr = match op {
+            syn::BinaryOperator::Plus => DAddL,
+            syn::BinaryOperator::Minus => DSubL,
+            syn::BinaryOperator::Mul => DMulL,
+            syn::BinaryOperator::Div => DDivL,
+            syn::BinaryOperator::Equals => unreachable!(),
+            _ => todo!(),
+        };
 
-    state.push_instr(instr(reg));
+        state.push_instr(instr(reg));
+    }
+
     state.reg().free_dyn();
+}
+
+fn compile_eq_op(state: &mut LocalFnCompState, lhs_value: LocalRegisterID) {
+    use Instruction::*;
+    let true_lbl = state.alloc_label();
+    let cont_lbl = state.alloc_label();
+    state.push_instr(EqTestLD(lhs_value));
+    state.push_instr(JmpEQ(true_lbl));
+    state.push_instr(ConstN);
+    state.push_instr(Jmp(cont_lbl));
+    state.push_label(true_lbl);
+    state.push_instr(ConstI(1));
+    state.push_instr(WrapI);
+    state.push_label(cont_lbl);
 }

@@ -32,9 +32,9 @@ pub fn compile_function(
     let meta = CodeMeta {
         arg_count: decl.args.len().into(),
         const_strings: state.strings,
-        label_mappings: vec![],
+        label_mappings: state.label_alloc.into_mappings(),
         return_count: MetaCount::Known(return_count),
-        local_count: state.alloc.into_used_register_count(),
+        local_count: state.reg_alloc.into_used_register_count(),
     };
 
     CodeBlock {

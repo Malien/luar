@@ -28,11 +28,22 @@ pub struct Accumulators {
     pub d: LuaValue,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EqualityFlag {
     NE,
     EQ,
 }
 
+impl EqualityFlag {
+    pub fn from_bool(v: bool) -> Self {
+        match v {
+            true => Self::EQ,
+            false => Self::NE
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderingFlag {
     LT,
     GT,
@@ -53,6 +64,12 @@ pub struct GlobalValueCell {
     value: LuaValue,
 }
 
+impl GlobalValueCell {
+    pub fn with_value(value: LuaValue) -> Self {
+        Self { value }
+    }
+}
+
 impl Default for GlobalValueCell {
     fn default() -> Self {
         Self {
@@ -70,13 +87,37 @@ pub struct GlobalValues {
     mapping: HashMap<String, GlobalCellID>,
 }
 
+fn alloc_cell(cells: &mut Vec<GlobalValueCell>, cell: GlobalValueCell) -> GlobalCellID {
+    let idx = cells.len();
+    cells.push(cell);
+    GlobalCellID(idx.try_into().unwrap())
+}
+
 impl GlobalValues {
     pub fn cell_for_name<I: Into<String> + AsRef<str>>(&mut self, ident: I) -> GlobalCellID {
-        *self.mapping.entry(ident.into()).or_insert_with(|| {
-            let idx = self.cells.len();
-            self.cells.push(GlobalValueCell::default());
-            GlobalCellID(idx.try_into().unwrap())
-        })
+        *self
+            .mapping
+            .entry(ident.into())
+            .or_insert_with(|| alloc_cell(&mut self.cells, GlobalValueCell::default()))
+    }
+
+    pub fn set<I: Into<String> + AsRef<str>>(&mut self, ident: I, value: LuaValue) -> GlobalCellID {
+        use std::collections::hash_map::Entry::*;
+        match self.mapping.entry(ident.into()) {
+            Occupied(entry) => {
+                let id = *entry.get();
+                self.cells[id.0 as usize].value = value;
+                id
+            }
+            Vacant(entry) => *entry.insert(alloc_cell(
+                &mut self.cells,
+                GlobalValueCell::with_value(value),
+            )),
+        }
+    }
+
+    pub fn value_of_cell(&self, cell_id: GlobalCellID) -> &LuaValue {
+        &self.cells[cell_id.0 as usize].value
     }
 }
 

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::reggie::ids::ArgumentRegisterID;
 
-use super::{meta::LocalRegCount, ids::{LocalRegisterID, GlobalCellID, StringID}, ops::Instruction, machine::GlobalValues};
+use super::{meta::LocalRegCount, ids::{LocalRegisterID, GlobalCellID, StringID, JmpLabel}, ops::Instruction, machine::GlobalValues};
 
 pub mod expr;
 pub mod func;
@@ -36,6 +36,29 @@ impl RegisterAllocator {
 }
 
 #[derive(Debug, Clone, Default)]
+pub struct LabelAllocator {
+    current: u16,
+    label_mapping: Vec<usize>
+}
+
+impl LabelAllocator {
+    pub fn alloc(&mut self) -> JmpLabel {
+        let label = JmpLabel(self.current);
+        self.current += 1;
+        label
+    }
+
+    pub fn associate_label(&mut self, label: JmpLabel, instruction_position: usize) {
+        self.label_mapping.resize(label.0 as usize + 1, 0);
+        self.label_mapping[label.0 as usize] = instruction_position;
+    }
+
+    pub fn into_mappings(self) -> Vec<usize> {
+        self.label_mapping
+    }
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct LocalScope(HashMap<String, LocalRegisterID>);
 
 #[derive(Debug, Clone, Default)]
@@ -44,7 +67,8 @@ pub struct ArgumentScope(HashMap<String, ArgumentRegisterID>);
 #[derive(Debug)]
 pub struct FunctionCompilationState<'a> {
     global_values: &'a mut GlobalValues,
-    alloc: RegisterAllocator,
+    reg_alloc: RegisterAllocator,
+    label_alloc: LabelAllocator,
     strings: Vec<String>,
     instructions: Vec<Instruction>,
     arguments: ArgumentScope,
@@ -55,7 +79,8 @@ impl<'a> FunctionCompilationState<'a> {
     pub fn new(global_values: &'a mut GlobalValues) -> Self {
         Self {
             global_values,
-            alloc: Default::default(),
+            reg_alloc: Default::default(),
+            label_alloc: Default::default(),
             strings: Default::default(),
             instructions: Default::default(),
             arguments: Default::default(),
@@ -69,7 +94,8 @@ impl<'a> FunctionCompilationState<'a> {
     ) -> Self {
         Self {
             global_values,
-            alloc: Default::default(),
+            reg_alloc: Default::default(),
+            label_alloc: Default::default(),
             strings: Default::default(),
             instructions: Default::default(),
             arguments: ArgumentScope(
@@ -101,7 +127,7 @@ pub enum VarLookup {
 
 impl<'a, 'b> LocalFnCompState<'a, 'b> {
     pub fn reg(&mut self) -> &mut RegisterAllocator {
-        &mut self.func_state.alloc
+        &mut self.func_state.reg_alloc
     }
 
     pub fn strings(&mut self) -> &mut Vec<String> {
@@ -171,5 +197,15 @@ impl<'a, 'b> LocalFnCompState<'a, 'b> {
 
     pub fn global_values(&mut self) -> &mut GlobalValues {
         self.func_state.global_values()
+    }
+
+    pub fn alloc_label(&mut self) -> JmpLabel {
+        self.func_state.label_alloc.alloc()
+    }
+
+    pub fn push_label(&mut self, label: JmpLabel) {
+        let instruction_position = self.func_state.instructions.len();
+        self.push_instr(Instruction::Label);
+        self.func_state.label_alloc.associate_label(label, instruction_position);
     }
 }

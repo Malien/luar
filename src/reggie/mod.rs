@@ -41,11 +41,13 @@ fn to_ffi_return_value(values: &[LuaValue]) -> ReturnValue {
 
 #[cfg(test)]
 mod test {
+    use quickcheck::TestResult;
+
     use crate::{
         error::LuaError,
         lang::{LuaValue, ReturnValue},
         lex::{NumberLiteral, StringLiteral, Token},
-        reggie::{compiler::compile_module, eval_module, machine::Machine, runtime::call_module},
+        reggie::{compiler::compile_module, eval_module, eval_str, machine::Machine, runtime::call_module},
         syn::{lua_parser, unspanned_lua_token_parser},
         test_util::Finite,
     };
@@ -92,4 +94,50 @@ mod test {
         );
         Ok(())
     }
+
+    #[quickcheck]
+    fn value_is_equal_to_itself(value: LuaValue) -> Result<TestResult, LuaError> {
+        if let LuaValue::Number(num) = value {
+            if num.as_f64().is_nan() {
+                // NaN does not equal itself
+                return Ok(TestResult::discard());
+            }
+        }
+
+        let mut machine = Machine::new();
+        machine.global_values.set("value", value);
+        let res = eval_str("return value == value", &mut machine)?;
+        assert_eq!(LuaValue::true_value(), res.assert_single());
+        Ok(TestResult::passed())
+    }
+
+    #[quickcheck]
+    fn different_values_do_not_equal_themselves(
+        lhs: LuaValue,
+        rhs: LuaValue,
+    ) -> Result<(), LuaError> {
+        let expected = LuaValue::from_bool(lhs == rhs);
+        let module = lua_parser::module("return lhs == rhs")?;
+        let mut machine = Machine::new();
+        machine.global_values.set("lhs", lhs);
+        machine.global_values.set("rhs", rhs);
+        let res = eval_module(&module, &mut machine)?;
+        assert_eq!(expected, res.assert_single());
+        Ok(())
+    }
+
+    #[quickcheck]
+    fn not_equals_is_the_negation_of_equality(
+        lhs: LuaValue,
+        rhs: LuaValue,
+    ) -> Result<(), LuaError> {
+        let module = lua_parser::module("return (not (lhs ~= rhs)) == (lhs == rhs)")?;
+        let mut machine = Machine::new();
+        machine.global_values.set("lhs", lhs);
+        machine.global_values.set("rhs", rhs);
+        let res = eval_module(&module, &mut machine)?;
+        assert_eq!(LuaValue::true_value(), res.assert_single());
+        Ok(())
+    }
+
 }

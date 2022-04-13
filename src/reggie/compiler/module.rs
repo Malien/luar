@@ -62,9 +62,9 @@ pub fn compile_module(module: &syn::Module, global_values: &mut GlobalValues) ->
             instructions: state.instructions,
             meta: CodeMeta {
                 arg_count: MetaCount::Known(0),
-                local_count: state.alloc.into_used_register_count(),
+                local_count: state.reg_alloc.into_used_register_count(),
                 return_count: MetaCount::Known(return_count),
-                label_mappings: vec![],
+                label_mappings: state.label_alloc.into_mappings(),
                 const_strings: state.strings,
             },
         },

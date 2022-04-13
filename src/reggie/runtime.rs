@@ -2,8 +2,8 @@ use crate::lang::{ArithmeticError, ArithmeticOperator, EvalError, LuaValue, Type
 
 use super::{
     compiler::CompiledModule,
-    ids::{BlockID, StringID},
-    machine::{Machine, ProgramCounter, StackFrame},
+    ids::{ArgumentRegisterID, BlockID, JmpLabel, LocalRegisterID, StringID},
+    machine::{EqualityFlag, Machine, ProgramCounter, StackFrame, OrderingFlag},
     meta::MetaCount,
     ops::Instruction,
 };
@@ -94,6 +94,73 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             }
             Instruction::ConstC(_) => todo!(),
             Instruction::WrapC => todo!(),
+            Instruction::LdaDGl(cell_id) => {
+                machine.accumulators.d = machine.global_values.value_of_cell(cell_id).clone();
+                position += 1;
+            }
+            Instruction::EqTestRD(ArgumentRegisterID(reg)) => {
+                machine.equality_flag = EqualityFlag::from_bool(
+                    machine.accumulators.d == machine.argument_registers.d[reg as usize],
+                );
+                position += 1;
+            }
+            Instruction::EqTestLD(LocalRegisterID(reg)) => {
+                machine.equality_flag = EqualityFlag::from_bool(
+                    machine.accumulators.d == frame.local_values.d[reg as usize],
+                );
+                position += 1;
+            }
+            Instruction::Jmp(JmpLabel(jmp_label)) => {
+                position = block.meta.label_mappings[jmp_label as usize]
+                    .try_into()
+                    .unwrap();
+            }
+            Instruction::Label => {
+                /* nop */
+                position += 1;
+            }
+            Instruction::JmpEQ(JmpLabel(jmp_label)) => {
+                if machine.equality_flag == EqualityFlag::EQ {
+                    position = block.meta.label_mappings[jmp_label as usize].try_into().unwrap();
+                } else {
+                    position += 1;
+                }
+            },
+            Instruction::JmpNE(JmpLabel(jmp_label)) => {
+                if machine.equality_flag == EqualityFlag::NE {
+                    position = block.meta.label_mappings[jmp_label as usize].try_into().unwrap();
+                } else {
+                    position += 1;
+                }
+            },
+            Instruction::JmpLT(JmpLabel(jmp_label)) => {
+                if machine.equality_flag == EqualityFlag::NE && machine.ordering_flag == OrderingFlag::LT {
+                    position = block.meta.label_mappings[jmp_label as usize].try_into().unwrap();
+                } else {
+                    position += 1;
+                }
+            },
+            Instruction::JmpGT(JmpLabel(jmp_label)) => {
+                if machine.equality_flag == EqualityFlag::NE && machine.ordering_flag == OrderingFlag::GT {
+                    position = block.meta.label_mappings[jmp_label as usize].try_into().unwrap();
+                } else {
+                    position += 1;
+                }
+            },
+            Instruction::JmpLE(JmpLabel(jmp_label)) => {
+                if machine.ordering_flag == OrderingFlag::LT {
+                    position = block.meta.label_mappings[jmp_label as usize].try_into().unwrap();
+                } else {
+                    position += 1;
+                }
+            },
+            Instruction::JmpGE(JmpLabel(jmp_label)) => {
+                if machine.ordering_flag == OrderingFlag::GT {
+                    position = block.meta.label_mappings[jmp_label as usize].try_into().unwrap();
+                } else {
+                    position += 1;
+                }
+            },
 
             Instruction::LdaRF(_) => todo!(),
             Instruction::LdaRS(_) => todo!(),
@@ -125,7 +192,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::LdaTGl(_) => todo!(),
             Instruction::LdaCGl(_) => todo!(),
             Instruction::LdaUGl(_) => todo!(),
-            Instruction::LdaDGl(_) => todo!(),
             Instruction::StrFGl(_) => todo!(),
             Instruction::StrIGl(_) => todo!(),
             Instruction::StrSGl(_) => todo!(),
@@ -174,14 +240,12 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::EqTestRT(_) => todo!(),
             Instruction::EqTestRC(_) => todo!(),
             Instruction::EqTestRU(_) => todo!(),
-            Instruction::EqTestRD(_) => todo!(),
             Instruction::EqTestLF(_) => todo!(),
             Instruction::EqTestLS(_) => todo!(),
             Instruction::EqTestLI(_) => todo!(),
             Instruction::EqTestLT(_) => todo!(),
             Instruction::EqTestLC(_) => todo!(),
             Instruction::EqTestLU(_) => todo!(),
-            Instruction::EqTestLD(_) => todo!(),
             Instruction::TestRF(_) => todo!(),
             Instruction::TestRS(_) => todo!(),
             Instruction::TestRI(_) => todo!(),
@@ -206,14 +270,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::CastC => todo!(),
             Instruction::CastT => todo!(),
             Instruction::CastU => todo!(),
-            Instruction::Label => todo!(),
-            Instruction::Jmp(_) => todo!(),
-            Instruction::JmpLT(_) => todo!(),
-            Instruction::JmpGT(_) => todo!(),
-            Instruction::JmpEQ(_) => todo!(),
-            Instruction::JmpNE(_) => todo!(),
-            Instruction::JmpLE(_) => todo!(),
-            Instruction::JmpGE(_) => todo!(),
             Instruction::JmpN(_) => todo!(),
             Instruction::JmpF(_) => todo!(),
             Instruction::JmpI(_) => todo!(),
@@ -284,10 +340,13 @@ pub fn collect_dyn_returns(machine: &mut Machine, return_count: MetaCount) -> &[
 #[cfg(test)]
 mod test {
     use crate::lang::LuaValue;
-    use crate::reggie::ids::{ArgumentRegisterID, LocalRegisterID, StringID};
-    use crate::reggie::machine::{CodeBlock, Machine};
+    use crate::reggie::ids::{ArgumentRegisterID, JmpLabel, LocalRegisterID, StringID};
+    use crate::reggie::machine::{
+        CodeBlock, EqualityFlag, EqualityFlag::EQ, EqualityFlag::NE, Machine, OrderingFlag,
+        OrderingFlag::GT, OrderingFlag::LT,
+    };
     use crate::reggie::meta::{CodeMeta, LocalRegCount};
-    use crate::reggie::ops::Instruction::*;
+    use crate::reggie::ops::Instruction::{self, *};
     use crate::reggie::runtime::call_block;
     use ntest::timeout;
 
@@ -350,24 +409,24 @@ mod test {
         };
     }
 
-    test_instructions!(eval_ret_fn_call, [Ret], |_| {});
+    test_instructions!(ret_fn_call, [Ret], |_| {});
 
-    test_instructions!(eval_const_i, [ConstI(42), Ret], |machine: Machine| {
+    test_instructions!(const_i, [ConstI(42), Ret], |machine: Machine| {
         assert_eq!(machine.accumulators.i, 42);
     });
 
-    test_instructions!(eval_wrap_i, [ConstI(42), WrapI, Ret], |machine: Machine| {
+    test_instructions!(wrap_i, [ConstI(42), WrapI, Ret], |machine: Machine| {
         assert_eq!(machine.accumulators.d, LuaValue::number(42));
     });
 
     test_instructions!(
-        eval_str_rd,
+        str_rd,
         [ConstI(42), WrapI, StrRD(ArgumentRegisterID(0)), Ret],
         |machine: Machine| { assert_eq!(machine.argument_registers.d[0], LuaValue::number(42)) }
     );
 
     test_instructions_with_locals!(
-        eval_str_and_lda_ld,
+        str_and_lda_ld,
         [
             ConstI(42),
             WrapI,
@@ -385,7 +444,7 @@ mod test {
     );
 
     test_instructions!(
-        eval_str_and_lda_rd,
+        str_and_lda_rd,
         [
             ConstI(42),
             WrapI,
@@ -399,7 +458,7 @@ mod test {
     );
 
     test_instructions_with_locals!(
-        eval_1_plus_2_local_regs,
+        plus_1_and_2_local_regs,
         [
             ConstI(1),
             WrapI,
@@ -420,7 +479,7 @@ mod test {
     );
 
     test_instructions_with_locals!(
-        eval_1_plus_2_arg_regs,
+        plus_1_and_2_arg_regs,
         [
             ConstI(1),
             WrapI,
@@ -441,32 +500,137 @@ mod test {
     );
 
     test_instructions!(
-        eval_const_n,
+        const_n,
         [ConstI(42), WrapI, ConstN, Ret],
         |machine: Machine| { assert_eq!(machine.argument_registers.d[0], LuaValue::Nil) }
     );
 
-    test_instructions!(eval_const_f, [ConstF(42.4), Ret], |machine: Machine| {
+    test_instructions!(const_f, [ConstF(42.4), Ret], |machine: Machine| {
         assert_eq!(machine.accumulators.f, 42.4)
     });
 
-    test_instructions!(
-        eval_wrap_f,
-        [ConstF(42.4), WrapF, Ret],
-        |machine: Machine| { assert_eq!(machine.accumulators.d, LuaValue::number(42.4)) }
-    );
+    test_instructions!(wrap_f, [ConstF(42.4), WrapF, Ret], |machine: Machine| {
+        assert_eq!(machine.accumulators.d, LuaValue::number(42.4))
+    });
 
     test_instructions_with_strings!(
-        eval_const_s,
+        const_s,
         [ConstS(StringID(0)), Ret],
         ["hello"],
         |machine: Machine| { assert_eq!(machine.accumulators.s, Some("hello".to_owned())) }
     );
 
     test_instructions_with_strings!(
-        eval_wrap_s,
+        wrap_s,
         [ConstS(StringID(0)), WrapS, Ret],
         ["hello"],
         |machine: Machine| { assert_eq!(machine.accumulators.d, LuaValue::string("hello")) }
     );
+
+    #[quickcheck]
+    #[timeout(5000)]
+    fn lda_d_gl(value: LuaValue) {
+        let mut machine = Machine::new();
+        let cell_id = machine.global_values.set("value", value.clone());
+        let block_id = machine.code_blocks.add(CodeBlock {
+            meta: CodeMeta {
+                arg_count: 0.into(),
+                local_count: LocalRegCount::default(),
+                return_count: 0.into(),
+                label_mappings: vec![],
+                const_strings: vec![],
+            },
+            instructions: vec![LdaDGl(cell_id), Ret],
+        });
+        call_block(&mut machine, block_id).unwrap();
+        assert!(machine.accumulators.d.total_eq(&value));
+    }
+
+    #[quickcheck]
+    #[timeout(5000)]
+    fn eq_test_d(lhs: LuaValue, rhs: LuaValue) {
+        let mut machine = Machine::new();
+        let expected = EqualityFlag::from_bool(lhs == rhs);
+        machine.argument_registers.d[0] = lhs;
+        machine.argument_registers.d[1] = rhs;
+        let block_id = machine.code_blocks.add(CodeBlock {
+            meta: CodeMeta {
+                arg_count: 2.into(),
+                local_count: LocalRegCount::default(),
+                return_count: 0.into(),
+                label_mappings: vec![],
+                const_strings: vec![],
+            },
+            instructions: vec![
+                LdaRD(ArgumentRegisterID(0)),
+                EqTestRD(ArgumentRegisterID(1)),
+                Ret,
+            ],
+        });
+        call_block(&mut machine, block_id).unwrap();
+        assert_eq!(machine.equality_flag, expected);
+    }
+
+    test_instructions_with_meta!(
+        jmp,
+        [ConstI(1), Jmp(JmpLabel(0)), ConstI(2), Label, Ret],
+        CodeMeta {
+            arg_count: 0.into(),
+            const_strings: vec![],
+            label_mappings: vec![3],
+            local_count: LocalRegCount::default(),
+            return_count: 0.into()
+        },
+        |machine: Machine| { assert_eq!(machine.accumulators.i, 1) }
+    );
+
+    static CONDITIONAL_JMP_BEHAVIOR: [(
+        fn(JmpLabel) -> Instruction,
+        Option<EqualityFlag>,
+        Option<OrderingFlag>,
+    ); 6] = [
+        (JmpEQ, Some(EQ), None),
+        (JmpNE, Some(NE), None),
+        (JmpLT, Some(NE), Some(LT)),
+        (JmpGT, Some(NE), Some(GT)),
+        (JmpLE, None, Some(LT)),
+        (JmpGE, None, Some(GT)),
+    ];
+
+    static FLAGS_PERMUTATION: [(EqualityFlag, OrderingFlag); 4] =
+        [(EQ, LT), (EQ, GT), (NE, LT), (NE, GT)];
+
+    #[test]
+    fn conditional_jumps() {
+        let mut machine = Machine::new();
+        for (jmp_instr, triggered_eq_flag, triggered_ord_flag) in CONDITIONAL_JMP_BEHAVIOR {
+            for (eq_flag, ord_flag) in FLAGS_PERMUTATION {
+                let block_id = machine.code_blocks.add(CodeBlock {
+                    meta: CodeMeta {
+                        arg_count: 0.into(),
+                        local_count: LocalRegCount::default(),
+                        return_count: 0.into(),
+                        label_mappings: vec![3],
+                        const_strings: vec![],
+                    },
+                    instructions: vec![ConstI(1), jmp_instr(JmpLabel(0)), ConstI(2), Label, Ret],
+                });
+                machine.equality_flag = eq_flag;
+                machine.ordering_flag = ord_flag;
+                call_block(&mut machine, block_id).unwrap();
+                let eq_flag_matches = triggered_eq_flag
+                    .map(|flag| flag == eq_flag)
+                    .unwrap_or(true);
+                let ord_flag_matches = triggered_ord_flag
+                    .map(|flag| flag == ord_flag)
+                    .unwrap_or(true);
+                let expected_value = if eq_flag_matches && ord_flag_matches {
+                    1
+                } else {
+                    2
+                };
+                assert_eq!(machine.accumulators.i, expected_value);
+            }
+        }
+    }
 }
