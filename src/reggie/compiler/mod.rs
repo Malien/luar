@@ -81,6 +81,10 @@ impl<'a> FunctionCompilationState<'a> {
             scope_vars: Default::default(),
         }
     }
+
+    pub fn global_values(&mut self) -> &mut GlobalValues {
+        self.global_values
+    }
 }
 
 #[derive(Debug)]
@@ -163,5 +167,9 @@ impl<'a, 'b> LocalFnCompState<'a, 'b> {
             func_state,
             scope: 0,
         }
+    }
+
+    pub fn global_values(&mut self) -> &mut GlobalValues {
+        self.func_state.global_values()
     }
 }

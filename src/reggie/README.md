@@ -441,6 +441,10 @@ Put an nil value into AD register
 
 Put a string value at index &lt;str_idx&gt; into AS register
 
+#### const_C &lt;block_idx&gt;
+
+Put a function block, defined at index &lt;block_idx&gt; in code block definitions section of module metadata into AC register
+
 #### wrap_X
 
 Take value from accumulator AX, wrap it into dynamic value, and store in register AD

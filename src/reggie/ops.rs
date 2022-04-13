@@ -1,4 +1,4 @@
-use super::ids::{ArgumentRegisterID, GlobalCellID, JmpLabel, LocalRegisterID, StringID};
+use super::ids::{ArgumentRegisterID, GlobalCellID, JmpLabel, LocalRegisterID, StringID, LocalBlockID};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Instruction {
@@ -57,10 +57,10 @@ pub enum Instruction {
     StrDGl(GlobalCellID),
 
     // lda_dyn_gl
-    LdaDynGl(GlobalCellID),
+    LdaDynGl,
 
     // str_dyn_gl
-    StrDynGl(GlobalCellID),
+    StrDynGl,
 
     // F_add_XZ
     FAddR(ArgumentRegisterID),
@@ -183,6 +183,8 @@ pub enum Instruction {
     ConstN,
     // const_S
     ConstS(StringID),
+    // const_C
+    ConstC(LocalBlockID),
 
     // wrap_X
     WrapF,

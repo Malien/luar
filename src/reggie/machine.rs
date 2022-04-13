@@ -71,7 +71,7 @@ pub struct GlobalValues {
 }
 
 impl GlobalValues {
-    pub fn cell_for_name(&mut self, ident: impl Into<String>) -> GlobalCellID {
+    pub fn cell_for_name<I: Into<String> + AsRef<str>>(&mut self, ident: I) -> GlobalCellID {
         *self.mapping.entry(ident.into()).or_insert_with(|| {
             let idx = self.cells.len();
             self.cells.push(GlobalValueCell::default());

@@ -1,13 +1,14 @@
 use crate::{
     reggie::{
+        ids::{ArgumentRegisterID, LocalBlockID},
         machine::{CodeBlock, GlobalValues},
         meta::{CodeMeta, MetaCount},
-        ops::Instruction, ids::ArgumentRegisterID,
+        ops::Instruction,
     },
     syn,
 };
 
-use super::{expr::compile_expr, FunctionCompilationState, LocalFnCompState};
+use super::{compile_function, expr::compile_expr, FunctionCompilationState, LocalFnCompState};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledModule {
@@ -16,8 +17,7 @@ pub struct CompiledModule {
 }
 
 pub fn compile_module(module: &syn::Module, global_values: &mut GlobalValues) -> CompiledModule {
-    let mut functions = Vec::new();
-    let mut statements = Vec::new();
+    let mut blocks = Vec::new();
 
     let return_count = module.ret.as_ref().map(|ret| ret.0.len()).unwrap_or(0);
     let mut state = FunctionCompilationState::new(global_values);
@@ -25,12 +25,29 @@ pub fn compile_module(module: &syn::Module, global_values: &mut GlobalValues) ->
 
     for chunk in &module.chunks {
         match chunk {
-            syn::Chunk::FnDecl(func) => functions.push(func),
-            syn::Chunk::Statement(statement) => statements.push(statement),
+            syn::Chunk::FnDecl(decl) => {
+                let global_values = root_scope.global_values();
+                let func = compile_function(decl, global_values);
+                let local_block_id = LocalBlockID(blocks.len().try_into().unwrap());
+                blocks.push(func);
+                match &decl.name {
+                    syn::FunctionName::Plain(syn::Var::Named(name)) => {
+                        let cell = global_values.cell_for_name(name.as_ref());
+                        root_scope.push_instr(Instruction::ConstC(local_block_id));
+                        root_scope.push_instr(Instruction::WrapC);
+                        root_scope.push_instr(Instruction::StrDGl(cell));
+                    }
+                    _ => todo!(),
+                }
+            }
+            syn::Chunk::Statement(statement) => todo!("Compiling statement \"{}\" is not implemented", statement),
         };
     }
 
     if let Some(syn::Return(expressions)) = &module.ret {
+        if expressions.len() > 1 {
+            todo!();
+        }
         if let Some(expr) = expressions.first() {
             compile_expr(expr, &mut root_scope);
             root_scope.push_instr(Instruction::StrRD(ArgumentRegisterID(0)));
@@ -40,7 +57,7 @@ pub fn compile_module(module: &syn::Module, global_values: &mut GlobalValues) ->
     root_scope.push_instr(Instruction::Ret);
 
     CompiledModule {
-        blocks: vec![],
+        blocks,
         top_level: CodeBlock {
             instructions: state.instructions,
             meta: CodeMeta {
@@ -60,7 +77,8 @@ mod test {
     use crate::{
         error::LuaError,
         reggie::{
-            ids::{ArgumentRegisterID, LocalRegisterID, StringID},
+            compiler::compile_function,
+            ids::{ArgumentRegisterID, LocalRegisterID, StringID, LocalBlockID},
             machine::{CodeBlock, GlobalValues},
             meta::{CodeMeta, LocalRegCount, MetaCount},
             ops::Instruction,
@@ -286,4 +304,28 @@ mod test {
             }
         }
     );
+
+    #[test]
+    fn compile_function_declaration() -> Result<(), LuaError> {
+        let module = syn::lua_parser::module("function foo() return 42 end")?;
+        let function_decl = syn::lua_parser::function_declaration("function foo() return 42 end")?;
+        let mut global_values = GlobalValues::default();
+        let module = compile_module(&module, &mut global_values);
+        let func = compile_function(&function_decl, &mut GlobalValues::default());
+
+        assert_eq!(module.top_level.meta.return_count, MetaCount::Known(0));
+        assert_eq!(module.top_level.meta.local_count, LocalRegCount::default());
+        assert_eq!(
+            module.top_level.instructions,
+            vec![
+                ConstC(LocalBlockID(0)),
+                WrapC,
+                StrDGl(global_values.cell_for_name("foo")),
+                Ret
+            ]
+        );
+        assert_eq!(module.blocks, vec![func]);
+
+        Ok(())
+    }
 }

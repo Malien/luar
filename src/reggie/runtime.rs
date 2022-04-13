@@ -92,6 +92,8 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                     LuaValue::String(machine.accumulators.s.as_ref().unwrap().clone());
                 position += 1;
             }
+            Instruction::ConstC(_) => todo!(),
+            Instruction::WrapC => todo!(),
 
             Instruction::LdaRF(_) => todo!(),
             Instruction::LdaRS(_) => todo!(),
@@ -131,8 +133,8 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::StrCGl(_) => todo!(),
             Instruction::StrUGl(_) => todo!(),
             Instruction::StrDGl(_) => todo!(),
-            Instruction::LdaDynGl(_) => todo!(),
-            Instruction::StrDynGl(_) => todo!(),
+            Instruction::LdaDynGl => todo!(),
+            Instruction::StrDynGl => todo!(),
             Instruction::FAddR(_) => todo!(),
             Instruction::FAddL(_) => todo!(),
             Instruction::FMulR(_) => todo!(),
@@ -196,7 +198,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::TestLD(_) => todo!(),
             Instruction::TypeTest => todo!(),
             Instruction::NilTest => todo!(),
-            Instruction::WrapC => todo!(),
             Instruction::WrapT => todo!(),
             Instruction::WrapU => todo!(),
             Instruction::CastF => todo!(),

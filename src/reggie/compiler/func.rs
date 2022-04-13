@@ -1,8 +1,8 @@
 use crate::reggie::{
     compiler::{expr::compile_expr, FunctionCompilationState, LocalFnCompState},
-    meta::{CodeMeta, MetaCount},
     ids::ArgumentRegisterID,
-    machine::GlobalValues,
+    machine::{CodeBlock, GlobalValues},
+    meta::{CodeMeta, MetaCount},
     ops::Instruction,
 };
 use crate::syn;
@@ -10,11 +10,15 @@ use crate::syn;
 pub fn compile_function(
     decl: &syn::FunctionDeclaration,
     global_values: &mut GlobalValues,
-) -> (CodeMeta, Vec<Instruction>) {
+) -> CodeBlock {
     use Instruction::*;
     let return_count = decl.body.ret.as_ref().map(|ret| ret.0.len()).unwrap_or(0);
     let mut state = FunctionCompilationState::with_args(decl.args.iter().cloned(), global_values);
     let mut root_scope = LocalFnCompState::new(&mut state);
+
+    for statement in &decl.body.statements {
+        todo!("Compiling statement \"{}\" in function body is not implemented yet", statement);
+    }
 
     if let Some(syn::Return(exprs)) = &decl.body.ret {
         if let Some(expr) = exprs.first() {
@@ -32,15 +36,19 @@ pub fn compile_function(
         return_count: MetaCount::Known(return_count),
         local_count: state.alloc.into_used_register_count(),
     };
-    return (meta, state.instructions);
+
+    CodeBlock {
+        meta,
+        instructions: state.instructions,
+    }
 }
 
 #[cfg(test)]
 mod test {
     use crate::reggie::{
-        meta::{LocalRegCount, MetaCount},
         ids::{ArgumentRegisterID, LocalRegisterID, StringID},
-        machine::GlobalValues,
+        machine::{CodeBlock, GlobalValues},
+        meta::{LocalRegCount, MetaCount},
         ops::Instruction,
     };
     use crate::{error::LuaError, reggie::meta::CodeMeta, syn};
@@ -54,7 +62,7 @@ mod test {
             #[test]
             fn $name() -> Result<(), LuaError> {
                 let function = syn::lua_parser::function_declaration($code)?;
-                let (meta, instructions) =
+                let CodeBlock { meta, instructions } =
                     compile_function(&function, &mut GlobalValues::default());
 
                 assert_eq!(
@@ -106,7 +114,8 @@ mod test {
                 return 'hello'
             end",
         )?;
-        let (meta, instructions) = compile_function(&function, &mut GlobalValues::default());
+        let CodeBlock { meta, instructions } =
+            compile_function(&function, &mut GlobalValues::default());
 
         assert_eq!(
             meta,
@@ -136,7 +145,8 @@ mod test {
     #[test]
     fn compile_empty_fn() -> Result<(), LuaError> {
         let function = syn::lua_parser::function_declaration("function foo() end")?;
-        let (meta, instructions) = compile_function(&function, &mut GlobalValues::default());
+        let CodeBlock { meta, instructions } =
+            compile_function(&function, &mut GlobalValues::default());
 
         assert_eq!(
             meta,
@@ -158,7 +168,8 @@ mod test {
     #[test]
     fn compile_empty_empty_return_fn() -> Result<(), LuaError> {
         let function = syn::lua_parser::function_declaration("function foo() return end")?;
-        let (meta, instructions) = compile_function(&function, &mut GlobalValues::default());
+        let CodeBlock { meta, instructions } =
+            compile_function(&function, &mut GlobalValues::default());
 
         assert_eq!(
             meta,
@@ -182,7 +193,7 @@ mod test {
             #[test]
             fn $name() -> Result<(), LuaError> {
                 let function = syn::lua_parser::function_declaration($fn)?;
-                let (meta, instructions) =
+                let CodeBlock { meta, instructions } =
                     compile_function(&function, &mut GlobalValues::default());
                 assert_eq!(meta, $meta);
                 assert_eq!(instructions, $instr);
@@ -198,7 +209,8 @@ mod test {
                 return 1 + 2
             end",
         )?;
-        let (meta, instructions) = compile_function(&function, &mut GlobalValues::default());
+        let CodeBlock { meta, instructions } =
+            compile_function(&function, &mut GlobalValues::default());
         assert_eq!(
             meta,
             CodeMeta {
@@ -319,7 +331,8 @@ mod test {
                 return a + b
             end",
         )?;
-        let (meta, instructions) = compile_function(&function, &mut GlobalValues::default());
+        let CodeBlock { meta, instructions } =
+            compile_function(&function, &mut GlobalValues::default());
 
         assert_eq!(
             meta,
