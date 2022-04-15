@@ -2,7 +2,7 @@ use std::iter::FromIterator;
 
 use peg::{Parse, ParseElem};
 
-use crate::lex::{ToTokenStream, Token};
+use luar_lex::{ToTokenStream, Token};
 
 use super::TokenSpan;
 

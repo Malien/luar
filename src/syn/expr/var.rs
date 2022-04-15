@@ -1,10 +1,8 @@
 use std::iter;
 
+use luar_lex::{DynTokens, Ident, ToTokenStream, Token};
+
 use super::Expression;
-use crate::lex::DynTokens;
-use crate::lex::Ident;
-use crate::lex::ToTokenStream;
-use crate::lex::Token;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Var {
@@ -41,11 +39,11 @@ impl ToTokenStream for Var {
 
 #[cfg(test)]
 mod test {
+    use luar_lex::{Ident, ToTokenStream, Token};
     use quickcheck::{empty_shrinker, Arbitrary, Gen};
     use std::iter;
 
     use crate::{
-        lex::{Ident, ToTokenStream, Token},
         syn::{
             expr::{Expression, Var},
             unspanned_lua_token_parser, RawParseError,
@@ -133,7 +131,10 @@ mod test {
     }
 
     #[quickcheck]
-    fn parse_single_member_lookup(base: Ident, expression: Expression) -> Result<(), RawParseError>{
+    fn parse_single_member_lookup(
+        base: Ident,
+        expression: Expression,
+    ) -> Result<(), RawParseError> {
         let mut tokens = vec![Token::Ident(base.clone()), Token::OpenSquareBracket];
         tokens.extend(expression.clone().to_tokens());
         tokens.push(Token::CloseSquareBracket);

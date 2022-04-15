@@ -1,8 +1,9 @@
 use std::error::Error;
 use std::fmt;
 
+use luar_lex::Ident;
+
 use super::{LuaType, LuaValue};
-use crate::lex::Ident;
 
 #[derive(Debug, thiserror::Error)]
 pub enum EvalError {

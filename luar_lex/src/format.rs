@@ -154,7 +154,7 @@ macro_rules! fmt_tokens {
     ($type:ty) => {
         impl std::fmt::Display for $type {
             fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-                crate::lex::format::format_tokens(&mut self.clone().to_tokens(), fmt)
+                luar_lex::format::format_tokens(&mut self.clone().to_tokens(), fmt)
             }
         }
     };

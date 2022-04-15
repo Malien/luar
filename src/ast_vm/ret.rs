@@ -31,13 +31,13 @@ pub(crate) fn eval_ret(
 
 #[cfg(test)]
 mod test {
+    use luar_lex::Ident;
     use non_empty::NonEmptyVec;
 
     use crate::{
         ast_vm,
         error::LuaError,
         lang::{GlobalContext, LuaFunction, LuaValue, ReturnValue},
-        lex::Ident,
         syn::{Expression, FunctionCall, FunctionCallArgs, Module, Return, Var},
     };
 

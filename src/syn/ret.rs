@@ -1,11 +1,8 @@
 use std::iter::*;
 
-use crate::{
-    fmt_tokens,
-    lex::{DynTokens, ToTokenStream, Token},
-    syn::expr::Expression,
-    util::FlatIntersperseExt,
-};
+use luar_lex::{fmt_tokens, DynTokens, ToTokenStream, Token};
+
+use crate::{syn::expr::Expression, util::FlatIntersperseExt};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Return(pub Vec<Expression>);
@@ -39,11 +36,11 @@ fmt_tokens!(Return);
 
 #[cfg(test)]
 mod test {
+    use luar_lex::{format::format_tokens, ToTokenStream, Token};
     use non_empty::NonEmptyVec;
     use quickcheck::{Arbitrary, Gen};
 
     use crate::{
-        lex::{format::format_tokens, ToTokenStream, Token},
         syn::{expr::Expression, unspanned_lua_token_parser, Return},
         util::FlatIntersperseExt,
     };

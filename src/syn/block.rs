@@ -1,7 +1,4 @@
-use crate::{
-    fmt_tokens,
-    lex::{DynTokens, ToTokenStream},
-};
+use luar_lex::{fmt_tokens, DynTokens, ToTokenStream};
 
 use super::{Return, Statement};
 
@@ -30,11 +27,11 @@ fmt_tokens!(Block);
 
 #[cfg(test)]
 mod test {
+    use luar_lex::{format::format_tokens, ToTokenStream};
     use quickcheck::{Arbitrary, Gen};
 
     use crate::{
         assert_parses,
-        lex::{format::format_tokens, ToTokenStream},
         syn::{Return, Statement},
         test_util::GenExt,
     };

@@ -1,7 +1,4 @@
-use crate::{
-    fmt_tokens,
-    lex::{DynTokens, ToTokenStream},
-};
+use luar_lex::{fmt_tokens, DynTokens, ToTokenStream};
 
 use super::{FunctionDeclaration, Return, Statement};
 

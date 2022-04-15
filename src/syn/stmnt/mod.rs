@@ -1,7 +1,4 @@
-use crate::{
-    fmt_tokens,
-    lex::{DynTokens, ToTokenStream},
-};
+use luar_lex::{fmt_tokens, DynTokens, ToTokenStream};
 
 mod assignment;
 pub use assignment::*;
@@ -50,9 +47,9 @@ fmt_tokens!(Statement);
 mod test {
     use quickcheck::Arbitrary;
 
-    use crate::lex::{ToTokenStream, Token};
     use crate::syn::expr::function_call::FunctionCall;
     use crate::syn::unspanned_lua_token_parser;
+    use luar_lex::{ToTokenStream, Token};
 
     use super::{Assignment, Conditional, Declaration, RepeatLoop, Statement, WhileLoop};
 
@@ -77,7 +74,7 @@ mod test {
                 Self::While(while_loop) => Box::new(while_loop.shrink().map(Self::While)),
                 Self::Repeat(repeat_loop) => Box::new(repeat_loop.shrink().map(Self::Repeat)),
                 Self::If(conditional) => Box::new(conditional.shrink().map(Self::If)),
-                Self::FunctionCall(call) => Box::new(call.shrink().map(Self::FunctionCall))
+                Self::FunctionCall(call) => Box::new(call.shrink().map(Self::FunctionCall)),
             }
         }
     }

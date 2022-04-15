@@ -1,11 +1,7 @@
+use luar_lex::{fmt_tokens, DynTokens, Ident, ToTokenStream, Token};
 use non_empty::NonEmptyVec;
 
-use crate::{
-    fmt_tokens,
-    lex::{DynTokens, Ident, ToTokenStream, Token},
-    syn::expr::Expression,
-    util::FlatIntersperseExt,
-};
+use crate::{syn::expr::Expression, util::FlatIntersperseExt};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Declaration {
@@ -41,15 +37,17 @@ fmt_tokens!(Declaration);
 
 #[cfg(test)]
 mod test {
-    use super::Declaration;
-    use crate::{
-        input_parsing_expectation,
-        lex::{Ident, NumberLiteral, ToTokenStream, Token},
-        syn::{expr::Expression, unspanned_lua_token_parser},
-    };
     use logos::Logos;
+    use luar_lex::{Ident, NumberLiteral, ToTokenStream, Token};
     use non_empty::NonEmptyVec;
     use quickcheck::Arbitrary;
+
+    use crate::{
+        input_parsing_expectation,
+        syn::{expr::Expression, unspanned_lua_token_parser},
+    };
+
+    use super::Declaration;
 
     impl Arbitrary for Declaration {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {

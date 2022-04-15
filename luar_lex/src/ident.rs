@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-#[cfg(test)]
+#[cfg(feature = "quickcheck")]
 use quickcheck::Arbitrary;
 use regex::Regex;
 use std::{iter, str::FromStr};
@@ -70,13 +70,13 @@ impl std::fmt::Display for Ident {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "quickcheck")]
 const VALID_IDENT_CHARS: &'static str =
     "1234567890_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-#[cfg(test)]
+#[cfg(feature = "quickcheck")]
 const VALID_IDENT_BYTES: &[u8] = VALID_IDENT_CHARS.as_bytes();
 
-#[cfg(test)]
+#[cfg(feature = "quickcheck")]
 impl Arbitrary for Ident {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         if g.size() == 0 {

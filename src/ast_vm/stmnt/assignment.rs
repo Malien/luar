@@ -40,6 +40,7 @@ mod test {
     use std::collections::HashSet;
 
     use itertools::Itertools;
+    use luar_lex::{Ident, Token};
     use non_empty::NonEmptyVec;
     use quickcheck::TestResult;
 
@@ -50,11 +51,9 @@ mod test {
             EvalError, GlobalContext, LuaFunction, LuaKey, LuaValue, NaNLessTable, ReturnValue,
             TableRef, TableValue, TypeError,
         },
-        lex::{Ident, Token},
         run_lua_test,
         syn::{lua_parser, unspanned_lua_token_parser, Module, RawParseError},
         test_util::vec_of_idents,
-        
     };
 
     #[quickcheck]

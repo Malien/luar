@@ -426,11 +426,26 @@ dependencies = [
  "lazy_static",
  "libc",
  "logos",
+ "luar_lex",
  "mlua",
  "non_empty",
  "ntest",
  "num",
  "peg",
+ "quickcheck",
+ "quickcheck_macros",
+ "thiserror",
+]
+
+[[package]]
+name = "luar_lex"
+version = "0.1.0"
+dependencies = [
+ "indoc",
+ "insta",
+ "lazy_static",
+ "logos",
+ "num",
  "quickcheck",
  "quickcheck_macros",
  "regex",

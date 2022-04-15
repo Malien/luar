@@ -1,11 +1,9 @@
 use std::iter;
 
+use luar_lex::{fmt_tokens, DynTokens, Ident, ToTokenStream, Token};
+
 use super::Expression;
-use crate::{
-    fmt_tokens,
-    lex::{DynTokens, Ident, ToTokenStream, Token},
-    util::FlatIntersperseExt
-};
+use crate::util::FlatIntersperseExt;
 
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct TableConstructor {
@@ -91,14 +89,14 @@ fmt_tokens!(TableConstructor);
 mod test {
     use super::lfieldlist_tokens;
     use super::TableConstructor;
-    use crate::lex::Ident;
-    use crate::lex::ToTokenStream;
-    use crate::lex::Token;
     use crate::syn::unspanned_lua_token_parser;
     use crate::syn::Expression;
     use crate::test_util::arbitrary_recursive_vec;
     use crate::test_util::with_thread_gen;
     use crate::test_util::QUICKCHECK_RECURSIVE_DEPTH;
+    use luar_lex::Ident;
+    use luar_lex::ToTokenStream;
+    use luar_lex::Token;
     use quickcheck::empty_shrinker;
     use quickcheck::{Arbitrary, Gen, TestResult};
     use std::iter;

@@ -1,6 +1,7 @@
+use luar_lex::Ident;
+
 use crate::{
     lang::{FunctionContext, GlobalContext, LocalScope, LuaFunction, LuaValue, ScopeHolder},
-    lex::Ident,
     syn::{FunctionDeclaration, FunctionName},
 };
 
@@ -43,13 +44,13 @@ fn declare_arguments(scope: &mut LocalScope<impl ScopeHolder>, names: &[Ident], 
 #[cfg(test)]
 mod test {
     use itertools::Itertools;
-    use non_empty::{NonEmptyVec, ne_vec};
+    use luar_lex::Ident;
+    use non_empty::{ne_vec, NonEmptyVec};
 
     use crate::{
         ast_vm,
         error::LuaError,
         lang::{GlobalContext, LuaValue, ReturnValue},
-        lex::Ident,
         syn::{
             lua_parser, Block, Chunk, Expression, FunctionCall, FunctionCallArgs,
             FunctionDeclaration, FunctionName, Module, Return, Var,

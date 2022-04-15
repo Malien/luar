@@ -1,6 +1,6 @@
 use std::iter;
 
-use crate::{lex::{ToTokenStream, Token}, fmt_tokens};
+use luar_lex::{fmt_tokens, ToTokenStream, Token};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum BinaryOperator {
@@ -69,11 +69,12 @@ fmt_tokens!(UnaryOperator);
 
 #[cfg(test)]
 pub mod test {
-    use crate::{lex::Token, syn::unspanned_lua_token_parser};
+    use crate::syn::unspanned_lua_token_parser;
 
     use super::{BinaryOperator, UnaryOperator};
     use indoc::indoc;
     use logos::Logos;
+    use luar_lex::Token;
     use quickcheck::{Arbitrary, Gen};
 
     impl Arbitrary for UnaryOperator {

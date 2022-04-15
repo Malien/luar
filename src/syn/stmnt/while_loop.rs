@@ -1,8 +1,6 @@
-use crate::{
-    fmt_tokens,
-    lex::{DynTokens, ToTokenStream, Token},
-    syn::{expr::Expression, Block},
-};
+use luar_lex::{fmt_tokens, DynTokens, ToTokenStream, Token};
+
+use crate::syn::{expr::Expression, Block};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WhileLoop {
@@ -28,14 +26,14 @@ fmt_tokens!(WhileLoop);
 
 #[cfg(test)]
 mod test {
+    use luar_lex::{Ident, NumberLiteral, ToTokenStream, Token};
     use non_empty::NonEmptyVec;
     use quickcheck::Arbitrary;
 
     use super::WhileLoop;
     use crate::{
-        lex::{Ident, NumberLiteral, ToTokenStream, Token},
+        input_parsing_expectation,
         syn::{expr::Expression, unspanned_lua_token_parser, Block, Declaration, Statement},
-         input_parsing_expectation,
     };
 
     impl Arbitrary for WhileLoop {

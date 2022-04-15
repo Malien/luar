@@ -1,6 +1,9 @@
-use crate::{
+use luar_lex::{
     fmt_tokens,
-    lex::{DynTokens, ToTokenStream, Token},
+    DynTokens, ToTokenStream, Token,
+};
+
+use crate::{
     syn::{expr::Expression, Block},
 };
 
@@ -67,10 +70,10 @@ fmt_tokens!(Conditional);
 mod test {
     use non_empty::NonEmptyVec;
     use quickcheck::{Arbitrary, Gen};
+    use luar_lex::{Ident, NumberLiteral, ToTokenStream};
 
     use crate::{
         input_parsing_expectation,
-        lex::{Ident, NumberLiteral, ToTokenStream},
         syn::{expr::Expression, unspanned_lua_token_parser, Declaration, Statement, Block},
         test_util::GenExt,
         

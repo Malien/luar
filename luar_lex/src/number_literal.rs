@@ -1,5 +1,5 @@
 use num::pow;
-#[cfg(test)]
+#[cfg(feature = "quickcheck")]
 use quickcheck::{Arbitrary, Gen};
 use std::{
     fmt::Formatter,
@@ -191,7 +191,7 @@ fn parse_exponent(chars: &mut Chars) -> Result<i32, NumberLiteralParseError> {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "quickcheck")]
 impl Arbitrary for NumberLiteral {
     fn arbitrary(g: &mut Gen) -> Self {
         Self(f64::arbitrary(g))
@@ -204,13 +204,36 @@ impl Arbitrary for NumberLiteral {
 
 #[cfg(test)]
 mod tests {
+    use std::cmp::Ordering;
+
     use num::pow;
     use quickcheck::TestResult;
 
-    use crate::{
-        test_util::{Finite, NonShrinkable},
-        util::close_relative_eq,
-    };
+    use crate::test_util::{Finite, NonShrinkable};
+
+    pub fn close_relative_eq(a: f64, b: f64) -> bool {
+        let absolute_value = partial_min(a.abs(), b.abs()).unwrap();
+        let magnitude = if absolute_value < 10f64 {
+            1f64
+        } else {
+            absolute_value
+        };
+        close_eq(a, b, 0.0000001 * magnitude)
+    }
+
+    fn partial_min<T: PartialOrd>(v1: T, v2: T) -> Option<T> {
+        PartialOrd::partial_cmp(&v1, &v2).map(|order| match order {
+            Ordering::Less | Ordering::Equal => v1,
+            Ordering::Greater => v2,
+        })
+    }
+
+    fn close_eq(a: f64, b: f64, eps: f64) -> bool {
+        if a.is_infinite() && b.is_infinite() {
+            return true;
+        }
+        (a - b).abs() < eps
+    }
 
     use super::NumberLiteral;
 

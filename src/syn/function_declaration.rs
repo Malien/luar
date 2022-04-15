@@ -3,13 +3,12 @@ use std::{
     iter::{Chain, Flatten, Once},
 };
 
-use crate::{
-    lex::{
-        format::{format_single_token, format_tokens, FormattingStyle, IndentationChange},
-        DynTokens, Ident, ToTokenStream, Token,
-    },
-    util::FlatIntersperseExt,
+use luar_lex::{
+    format::{format_single_token, format_tokens, FormattingStyle, IndentationChange},
+    DynTokens, Ident, ToTokenStream, Token,
 };
+
+use crate::util::FlatIntersperseExt;
 
 use super::{expr::Var, Block};
 
@@ -94,15 +93,14 @@ mod test {
     use indoc::indoc;
     use non_empty::NonEmptyVec;
     use quickcheck::{Arbitrary, Gen};
+    use luar_lex::Ident;
 
     use crate::{
         assert_parses, input_parsing_expectation,
-        lex::Ident,
         syn::{
             expr::{op::BinaryOperator, Expression, Var},
             Block, Conditional, ConditionalTail, Declaration, FunctionName, Return, Statement,
         },
-        
     };
 
     use super::FunctionDeclaration;

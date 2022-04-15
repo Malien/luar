@@ -1,8 +1,6 @@
-use crate::{
-    fmt_tokens,
-    lex::{DynTokens, Ident, ToTokenStream, Token},
-    util::FlatIntersperseExt,
-};
+use luar_lex::{fmt_tokens, DynTokens, Ident, ToTokenStream, Token};
+
+use crate::util::FlatIntersperseExt;
 
 use super::{Expression, TableConstructor, Var};
 
@@ -69,10 +67,15 @@ impl ToTokenStream for FunctionCallArgs {
 mod test {
     use quickcheck::{empty_shrinker, Arbitrary, Gen};
 
-    use crate::{lex::{Ident, ToTokenStream}, syn::{
+    use luar_lex::{Ident, ToTokenStream};
+
+    use crate::{
+        syn::{
             expr::{Expression, TableConstructor, Var},
             unspanned_lua_token_parser, ParseError,
-        }, test_util::{QUICKCHECK_RECURSIVE_DEPTH, arbitrary_recursive_vec, with_thread_gen}};
+        },
+        test_util::{arbitrary_recursive_vec, with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH},
+    };
 
     use super::{FunctionCall, FunctionCallArgs};
 

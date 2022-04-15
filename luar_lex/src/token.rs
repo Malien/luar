@@ -182,7 +182,7 @@ impl std::fmt::Display for Token {
 mod tests {
     use std::unreachable;
 
-    use crate::lex::{Ident, NumberLiteral, StringLiteral};
+    use crate::{Ident, NumberLiteral, StringLiteral};
 
     use super::Token;
     use logos::Logos;

@@ -35,6 +35,7 @@ fn unary_minus_eval(value: LuaValue) -> Result<LuaValue, ArithmeticError> {
 #[cfg(test)]
 mod test {
     mod expressions {
+        use luar_lex::{NumberLiteral, StringLiteral};
         use quickcheck::Arbitrary;
 
         use crate::{
@@ -43,7 +44,6 @@ mod test {
             lang::{
                 ArithmeticError, EvalError, GlobalContext, ReturnValue, ScopeHolder, TypeError,
             },
-            lex::{NumberLiteral, StringLiteral},
             syn,
             test_util::Finite,
             util::eq_with_nan,

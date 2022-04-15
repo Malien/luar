@@ -1,6 +1,7 @@
+use luar_lex::{NumberLiteral, StringLiteral};
+
 use crate::{
     lang::{EvalError, LocalScope, ReturnValue, ScopeHolder, TableRef},
-    lex::{NumberLiteral, StringLiteral},
     syn::Expression,
 };
 
@@ -42,11 +43,12 @@ pub(crate) fn eval_expr(
 
 #[cfg(test)]
 mod test {
+    use luar_lex::{NumberLiteral, StringLiteral, Token};
+
     use crate::{
         ast_vm,
         error::LuaError,
         lang::{GlobalContext, ReturnValue},
-        lex::{NumberLiteral, StringLiteral, Token},
         syn::{lua_parser, unspanned_lua_token_parser},
         test_util::Finite,
     };
@@ -55,7 +57,10 @@ mod test {
     fn eval_nil() -> Result<(), LuaError> {
         let module = lua_parser::module("return nil")?;
         let mut context = GlobalContext::new();
-        assert_eq!(ast_vm::eval_module(&module, &mut context)?, ReturnValue::Nil);
+        assert_eq!(
+            ast_vm::eval_module(&module, &mut context)?,
+            ReturnValue::Nil
+        );
         Ok(())
     }
 

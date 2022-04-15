@@ -1,4 +1,4 @@
-#[cfg(test)]
+#[cfg(feature = "quickcheck")]
 use quickcheck::{Arbitrary, Gen};
 use std::{iter, str::FromStr};
 use thiserror::Error;
@@ -33,7 +33,7 @@ impl FromStr for StringLiteral {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "quickcheck")]
 impl Arbitrary for StringLiteral {
     fn arbitrary(g: &mut Gen) -> Self {
         StringLiteral(String::arbitrary(g))

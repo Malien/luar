@@ -1,9 +1,9 @@
+use luar_lex::{fmt_tokens, DynTokens, ToTokenStream, Token};
 use non_empty::NonEmptyVec;
 
 use crate::{
-    fmt_tokens,
-    lex::{DynTokens, ToTokenStream, Token},
-    syn::expr::{Expression, Var}, util::FlatIntersperseExt,
+    syn::expr::{Expression, Var},
+    util::FlatIntersperseExt,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,9 +36,12 @@ fmt_tokens!(Assignment);
 
 #[cfg(test)]
 mod test {
-    use super::Assignment;
-    use crate::{lex::ToTokenStream, syn::unspanned_lua_token_parser};
+    use luar_lex::ToTokenStream;
     use quickcheck::Arbitrary;
+
+    use crate::syn::unspanned_lua_token_parser;
+
+    use super::Assignment;
 
     impl Arbitrary for Assignment {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {

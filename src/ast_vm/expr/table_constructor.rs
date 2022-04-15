@@ -27,13 +27,13 @@ pub(crate) fn eval_tbl_constructor(
 
 #[cfg(test)]
 mod test {
+    use luar_lex::Ident;
     use non_empty::NonEmptyVec;
 
     use crate::{
         ast_vm::{self, expr::table_constructor::eval_tbl_constructor},
         error::LuaError,
-        lang::{GlobalContext, LuaKey, LuaValue, TableValue, ScopeHolder},
-        lex::Ident,
+        lang::{GlobalContext, LuaKey, LuaValue, ScopeHolder, TableValue},
         syn::{lua_parser, Expression, TableConstructor, Var},
         test_util::vec_of_idents,
     };

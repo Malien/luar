@@ -1,8 +1,6 @@
-use crate::{
-    fmt_tokens,
-    lex::{DynTokens, ToTokenStream, Token},
-    syn::{expr::Expression, Block},
-};
+use luar_lex::{fmt_tokens, DynTokens, ToTokenStream, Token};
+
+use crate::syn::{expr::Expression, Block};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct RepeatLoop {
@@ -27,14 +25,13 @@ fmt_tokens!(RepeatLoop);
 
 #[cfg(test)]
 mod test {
+    use luar_lex::{Ident, NumberLiteral, ToTokenStream};
     use non_empty::NonEmptyVec;
     use quickcheck::Arbitrary;
 
     use crate::{
         input_parsing_expectation,
-        lex::{Ident, NumberLiteral, ToTokenStream},
-        syn::{expr::Expression, unspanned_lua_token_parser, Declaration, Statement, Block},
-        
+        syn::{expr::Expression, unspanned_lua_token_parser, Block, Declaration, Statement},
     };
 
     use super::RepeatLoop;
@@ -69,16 +66,19 @@ mod test {
     fn correctly_displays() {
         let repeat_loop = RepeatLoop {
             condition: Expression::Nil,
-            body: Block { statements: vec![
-                Statement::LocalDeclaration(Declaration {
-                    names: NonEmptyVec::of_single(Ident::new("foo")),
-                    initial_values: vec![Expression::Number(NumberLiteral(42f64))],
-                }),
-                Statement::LocalDeclaration(Declaration {
-                    names: NonEmptyVec::of_single(Ident::new("bar")),
-                    initial_values: vec![Expression::Number(NumberLiteral(69f64))],
-                }),
-            ], ret: None },
+            body: Block {
+                statements: vec![
+                    Statement::LocalDeclaration(Declaration {
+                        names: NonEmptyVec::of_single(Ident::new("foo")),
+                        initial_values: vec![Expression::Number(NumberLiteral(42f64))],
+                    }),
+                    Statement::LocalDeclaration(Declaration {
+                        names: NonEmptyVec::of_single(Ident::new("bar")),
+                        initial_values: vec![Expression::Number(NumberLiteral(69f64))],
+                    }),
+                ],
+                ret: None,
+            },
         };
         assert_eq!(
             "repeat\n\tlocal foo = 42\n\tlocal bar = 69\nuntil nil",
@@ -91,7 +91,10 @@ mod test {
         parses_empty,
         "repeat until 1",
         RepeatLoop {
-            body: Block { statements: vec![], ret: None },
+            body: Block {
+                statements: vec![],
+                ret: None
+            },
             condition: Expression::Number(NumberLiteral(1f64))
         }
     );
@@ -103,10 +106,13 @@ mod test {
             local foo = 42
         until 1",
         RepeatLoop {
-            body: Block { statements: vec![Statement::LocalDeclaration(Declaration {
-                names: NonEmptyVec::of_single(Ident::new("foo")),
-                initial_values: vec![Expression::Number(NumberLiteral(42f64))]
-            })], ret: None },
+            body: Block {
+                statements: vec![Statement::LocalDeclaration(Declaration {
+                    names: NonEmptyVec::of_single(Ident::new("foo")),
+                    initial_values: vec![Expression::Number(NumberLiteral(42f64))]
+                })],
+                ret: None
+            },
             condition: Expression::Number(NumberLiteral(1f64))
         }
     );
@@ -119,16 +125,19 @@ mod test {
             local bar = 69
         until 1",
         RepeatLoop {
-            body: Block { statements: vec![
-                Statement::LocalDeclaration(Declaration {
-                    names: NonEmptyVec::of_single(Ident::new("foo")),
-                    initial_values: vec![Expression::Number(NumberLiteral(42f64))]
-                }),
-                Statement::LocalDeclaration(Declaration {
-                    names: NonEmptyVec::of_single(Ident::new("bar")),
-                    initial_values: vec![Expression::Number(NumberLiteral(69f64))]
-                })
-            ], ret: None },
+            body: Block {
+                statements: vec![
+                    Statement::LocalDeclaration(Declaration {
+                        names: NonEmptyVec::of_single(Ident::new("foo")),
+                        initial_values: vec![Expression::Number(NumberLiteral(42f64))]
+                    }),
+                    Statement::LocalDeclaration(Declaration {
+                        names: NonEmptyVec::of_single(Ident::new("bar")),
+                        initial_values: vec![Expression::Number(NumberLiteral(69f64))]
+                    })
+                ],
+                ret: None
+            },
             condition: Expression::Number(NumberLiteral(1f64))
         }
     );
@@ -136,7 +145,10 @@ mod test {
     #[quickcheck]
     fn parses_empty_loop_with_arbitrary_condition(condition: Expression) {
         let repeat_loop = RepeatLoop {
-            body: Block { statements: vec![], ret: None },
+            body: Block {
+                statements: vec![],
+                ret: None,
+            },
             condition,
         };
         let tokens: Vec<_> = repeat_loop.clone().to_tokens().collect();
