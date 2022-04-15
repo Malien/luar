@@ -5,7 +5,7 @@ macro_rules! basic_expr_tests {
             use ::luar::error::LuaError;
             use ::luar::lang::{Engine, ReturnValue};
             use ::luar_lex::{NumberLiteral, StringLiteral, Token};
-            use ::luar::syn::{lua_parser, unspanned_lua_token_parser};
+            use ::luar_syn::{lua_parser, unspanned_lua_token_parser};
             use ::quickcheck::TestResult;
             use ::quickcheck_macros::quickcheck;
 

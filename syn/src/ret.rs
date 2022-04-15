@@ -2,7 +2,7 @@ use std::iter::*;
 
 use luar_lex::{fmt_tokens, DynTokens, ToTokenStream, Token};
 
-use crate::{syn::expr::Expression, util::FlatIntersperseExt};
+use crate::{expr::Expression, flat_intersperse::FlatIntersperseExt};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Return(pub Vec<Expression>);
@@ -34,31 +34,37 @@ impl Return {
 
 fmt_tokens!(Return);
 
+#[cfg(feature = "quickcheck")]
+impl quickcheck::Arbitrary for Return {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        Self(quickcheck::Arbitrary::arbitrary(g))
+    }
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        Box::new(self.0.shrink().map(Return))
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use luar_lex::{format::format_tokens, ToTokenStream, Token};
-    use non_empty::NonEmptyVec;
-    use quickcheck::{Arbitrary, Gen};
+    use luar_lex::Token;
 
-    use crate::{
-        syn::{expr::Expression, unspanned_lua_token_parser, Return},
-        util::FlatIntersperseExt,
+    use crate::{unspanned_lua_token_parser, Return};
+
+    #[cfg(feature = "quickcheck")]
+    use crate::{flat_intersperse::FlatIntersperseExt, Expression};
+    #[cfg(feature = "quickcheck")]
+    use ::{
+        luar_lex::{format::format_tokens, ToTokenStream},
+        non_empty::NonEmptyVec,
     };
 
-    impl Arbitrary for Return {
-        fn arbitrary(g: &mut Gen) -> Self {
-            Self(Arbitrary::arbitrary(g))
-        }
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            Box::new(self.0.shrink().map(Return))
-        }
-    }
-
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn correctly_displays_empty_return() {
         assert_eq!(format!("{}", Return::empty()), "return");
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn correctly_displays_return(expression: Expression) {
         assert_eq!(
@@ -67,6 +73,7 @@ mod test {
         );
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn correctly_displays_multiple_return(expressions: NonEmptyVec<Expression>) {
         let mut buf = String::new();
@@ -89,6 +96,7 @@ mod test {
         assert_eq!(parsed, Return::empty());
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_expression_return(expression: Expression) {
         let expected = Return::single(expression);
@@ -97,6 +105,7 @@ mod test {
         assert_eq!(parsed, expected);
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_multiple_return(expressions: Vec<Expression>) {
         let expected = Return(expressions.clone());

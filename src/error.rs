@@ -1,7 +1,6 @@
-use thiserror::Error;
-
 use crate::lang::EvalError;
-use crate::syn::{ParseError, ParseErrorWithSourcePosition, RawParseError};
+use luar_syn::{ParseError, ParseErrorWithSourcePosition, RawParseError};
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum LuaError {

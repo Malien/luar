@@ -67,47 +67,50 @@ impl ToTokenStream for UnaryOperator {
 fmt_tokens!(BinaryOperator);
 fmt_tokens!(UnaryOperator);
 
+#[cfg(feature = "quickcheck")]
+use quickcheck::{Arbitrary, Gen};
+
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for UnaryOperator {
+    fn arbitrary(g: &mut Gen) -> Self {
+        match u8::arbitrary(g) % 2 {
+            0 => UnaryOperator::Minus,
+            1 => UnaryOperator::Not,
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for BinaryOperator {
+    fn arbitrary(g: &mut Gen) -> Self {
+        match u8::arbitrary(g) % 14 {
+            0 => BinaryOperator::And,
+            1 => BinaryOperator::Or,
+            2 => BinaryOperator::Less,
+            3 => BinaryOperator::Greater,
+            4 => BinaryOperator::LessOrEquals,
+            5 => BinaryOperator::GreaterOrEquals,
+            6 => BinaryOperator::NotEquals,
+            7 => BinaryOperator::Equals,
+            8 => BinaryOperator::Concat,
+            9 => BinaryOperator::Plus,
+            10 => BinaryOperator::Minus,
+            11 => BinaryOperator::Mul,
+            12 => BinaryOperator::Div,
+            13 => BinaryOperator::Exp,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[cfg(test)]
 pub mod test {
-    use crate::syn::unspanned_lua_token_parser;
+    use crate::unspanned_lua_token_parser;
 
-    use super::{BinaryOperator, UnaryOperator};
     use indoc::indoc;
     use logos::Logos;
     use luar_lex::Token;
-    use quickcheck::{Arbitrary, Gen};
-
-    impl Arbitrary for UnaryOperator {
-        fn arbitrary(g: &mut Gen) -> Self {
-            match u8::arbitrary(g) % 2 {
-                0 => UnaryOperator::Minus,
-                1 => UnaryOperator::Not,
-                _ => unreachable!(),
-            }
-        }
-    }
-
-    impl Arbitrary for BinaryOperator {
-        fn arbitrary(g: &mut Gen) -> Self {
-            match u8::arbitrary(g) % 14 {
-                0 => BinaryOperator::And,
-                1 => BinaryOperator::Or,
-                2 => BinaryOperator::Less,
-                3 => BinaryOperator::Greater,
-                4 => BinaryOperator::LessOrEquals,
-                5 => BinaryOperator::GreaterOrEquals,
-                6 => BinaryOperator::NotEquals,
-                7 => BinaryOperator::Equals,
-                8 => BinaryOperator::Concat,
-                9 => BinaryOperator::Plus,
-                10 => BinaryOperator::Minus,
-                11 => BinaryOperator::Mul,
-                12 => BinaryOperator::Div,
-                13 => BinaryOperator::Exp,
-                _ => unreachable!(),
-            }
-        }
-    }
 
     #[test]
     fn operator_precedence_1() {

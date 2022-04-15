@@ -1,3 +1,5 @@
+use luar_syn::{FunctionDeclaration, Return};
+
 use crate::reggie::{
     compiler::{expr::compile_expr, FunctionCompilationState, LocalFnCompState},
     ids::ArgumentRegisterID,
@@ -5,22 +7,21 @@ use crate::reggie::{
     meta::{CodeMeta, MetaCount},
     ops::Instruction,
 };
-use crate::syn;
 
-pub fn compile_function(
-    decl: &syn::FunctionDeclaration,
-    global_values: &mut GlobalValues,
-) -> CodeBlock {
+pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalValues) -> CodeBlock {
     use Instruction::*;
     let return_count = decl.body.ret.as_ref().map(|ret| ret.0.len()).unwrap_or(0);
     let mut state = FunctionCompilationState::with_args(decl.args.iter().cloned(), global_values);
     let mut root_scope = LocalFnCompState::new(&mut state);
 
     for statement in &decl.body.statements {
-        todo!("Compiling statement \"{}\" in function body is not implemented yet", statement);
+        todo!(
+            "Compiling statement \"{}\" in function body is not implemented yet",
+            statement
+        );
     }
 
-    if let Some(syn::Return(exprs)) = &decl.body.ret {
+    if let Some(Return(exprs)) = &decl.body.ret {
         if let Some(expr) = exprs.first() {
             compile_expr(expr, &mut root_scope);
             root_scope.push_instr(StrRD(ArgumentRegisterID(0)));
@@ -51,7 +52,7 @@ mod test {
         meta::{LocalRegCount, MetaCount},
         ops::Instruction,
     };
-    use crate::{error::LuaError, reggie::meta::CodeMeta, syn};
+    use crate::{error::LuaError, reggie::meta::CodeMeta};
 
     use super::compile_function;
 
@@ -61,7 +62,7 @@ mod test {
         ($name: ident, $code: expr, $instr: expr) => {
             #[test]
             fn $name() -> Result<(), LuaError> {
-                let function = syn::lua_parser::function_declaration($code)?;
+                let function = luar_syn::lua_parser::function_declaration($code)?;
                 let CodeBlock { meta, instructions } =
                     compile_function(&function, &mut GlobalValues::default());
 
@@ -109,7 +110,7 @@ mod test {
 
     #[test]
     fn compile_return_str_fn() -> Result<(), LuaError> {
-        let function = syn::lua_parser::function_declaration(
+        let function = luar_syn::lua_parser::function_declaration(
             "function foo()
                 return 'hello'
             end",
@@ -144,7 +145,7 @@ mod test {
 
     #[test]
     fn compile_empty_fn() -> Result<(), LuaError> {
-        let function = syn::lua_parser::function_declaration("function foo() end")?;
+        let function = luar_syn::lua_parser::function_declaration("function foo() end")?;
         let CodeBlock { meta, instructions } =
             compile_function(&function, &mut GlobalValues::default());
 
@@ -167,7 +168,7 @@ mod test {
 
     #[test]
     fn compile_empty_empty_return_fn() -> Result<(), LuaError> {
-        let function = syn::lua_parser::function_declaration("function foo() return end")?;
+        let function = luar_syn::lua_parser::function_declaration("function foo() return end")?;
         let CodeBlock { meta, instructions } =
             compile_function(&function, &mut GlobalValues::default());
 
@@ -192,7 +193,7 @@ mod test {
         ($name: ident, $fn:expr, $meta:expr, $instr:expr) => {
             #[test]
             fn $name() -> Result<(), LuaError> {
-                let function = syn::lua_parser::function_declaration($fn)?;
+                let function = luar_syn::lua_parser::function_declaration($fn)?;
                 let CodeBlock { meta, instructions } =
                     compile_function(&function, &mut GlobalValues::default());
                 assert_eq!(meta, $meta);
@@ -204,7 +205,7 @@ mod test {
 
     #[test]
     fn compile_add_two_constants_fn() -> Result<(), LuaError> {
-        let function = syn::lua_parser::function_declaration(
+        let function = luar_syn::lua_parser::function_declaration(
             "function foo()
                 return 1 + 2
             end",
@@ -326,7 +327,7 @@ mod test {
 
     #[test]
     fn compile_simple_function() -> Result<(), LuaError> {
-        let function = syn::lua_parser::function_declaration(
+        let function = luar_syn::lua_parser::function_declaration(
             "function foo(a, b)
                 return a + b
             end",

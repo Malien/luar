@@ -53,7 +53,7 @@ pub fn find_source_position(source: &str, byte_offset: usize) -> Option<SourcePo
 mod test {
     use indoc::indoc;
 
-    use crate::syn::{find_source_position, SourcePosition};
+    use crate::{find_source_position, SourcePosition};
 
     #[test]
     fn span_traversal_correctly_identifies_position() {

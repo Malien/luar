@@ -43,41 +43,43 @@ impl ToTokenStream for Statement {
 
 fmt_tokens!(Statement);
 
-#[cfg(test)]
-mod test {
-    use quickcheck::Arbitrary;
+#[cfg(feature = "quickcheck")]
+use quickcheck::{Arbitrary, Gen};
 
-    use crate::syn::expr::function_call::FunctionCall;
-    use crate::syn::unspanned_lua_token_parser;
-    use luar_lex::{ToTokenStream, Token};
-
-    use super::{Assignment, Conditional, Declaration, RepeatLoop, Statement, WhileLoop};
-
-    impl Arbitrary for Statement {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            // let g = &mut g.next_iter();
-            match u8::arbitrary(g) % 6 {
-                0 => Statement::Assignment(Assignment::arbitrary(g)),
-                1 => Statement::LocalDeclaration(Declaration::arbitrary(g)),
-                2 => Statement::While(WhileLoop::arbitrary(g)),
-                3 => Statement::Repeat(RepeatLoop::arbitrary(g)),
-                4 => Statement::If(Conditional::arbitrary(g)),
-                5 => Statement::FunctionCall(FunctionCall::arbitrary(g)),
-                _ => unreachable!(),
-            }
-        }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            match self {
-                Self::Assignment(a) => Box::new(a.shrink().map(Self::Assignment)),
-                Self::LocalDeclaration(decl) => Box::new(decl.shrink().map(Self::LocalDeclaration)),
-                Self::While(while_loop) => Box::new(while_loop.shrink().map(Self::While)),
-                Self::Repeat(repeat_loop) => Box::new(repeat_loop.shrink().map(Self::Repeat)),
-                Self::If(conditional) => Box::new(conditional.shrink().map(Self::If)),
-                Self::FunctionCall(call) => Box::new(call.shrink().map(Self::FunctionCall)),
-            }
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for Statement {
+    fn arbitrary(g: &mut Gen) -> Self {
+        // let g = &mut g.next_iter();
+        match u8::arbitrary(g) % 6 {
+            0 => Statement::Assignment(Assignment::arbitrary(g)),
+            1 => Statement::LocalDeclaration(Declaration::arbitrary(g)),
+            2 => Statement::While(WhileLoop::arbitrary(g)),
+            3 => Statement::Repeat(RepeatLoop::arbitrary(g)),
+            4 => Statement::If(Conditional::arbitrary(g)),
+            5 => Statement::FunctionCall(FunctionCall::arbitrary(g)),
+            _ => unreachable!(),
         }
     }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        match self {
+            Self::Assignment(a) => Box::new(a.shrink().map(Self::Assignment)),
+            Self::LocalDeclaration(decl) => Box::new(decl.shrink().map(Self::LocalDeclaration)),
+            Self::While(while_loop) => Box::new(while_loop.shrink().map(Self::While)),
+            Self::Repeat(repeat_loop) => Box::new(repeat_loop.shrink().map(Self::Repeat)),
+            Self::If(conditional) => Box::new(conditional.shrink().map(Self::If)),
+            Self::FunctionCall(call) => Box::new(call.shrink().map(Self::FunctionCall)),
+        }
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "quickcheck")]
+mod test {
+    use crate::unspanned_lua_token_parser;
+    use luar_lex::{ToTokenStream, Token};
+
+    use super::Statement;
 
     #[quickcheck]
     fn parses_arbitrary_statement(expected: Statement) {

@@ -1,10 +1,7 @@
-use crate::{
-    lang::{
-        EvalError, GlobalContext, LocalScope, LuaValue, ReturnValue, ScopeHolder, TableRef,
-        TypeError,
-    },
-    syn::{FunctionCall, FunctionCallArgs},
+use crate::lang::{
+    EvalError, GlobalContext, LocalScope, LuaValue, ReturnValue, ScopeHolder, TableRef, TypeError,
 };
+use luar_syn::{FunctionCall, FunctionCallArgs};
 
 use super::{eval_expr, eval_tbl_constructor, eval_var};
 
@@ -52,20 +49,20 @@ fn eval_fn_args(
 
 #[cfg(test)]
 mod test {
+    use crate::{
+        assert_type_error, ast_vm,
+        error::LuaError,
+        lang::{EvalError, GlobalContext, LuaFunction, LuaValue, ReturnValue, TypeError},
+    };
+    use luar_syn::lua_parser;
+    use non_empty::NonEmptyVec;
+    use quickcheck::TestResult;
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    use non_empty::NonEmptyVec;
-    use quickcheck::TestResult;
-
-    use crate::error::LuaError;
-    use crate::lang::{EvalError, GlobalContext, LuaFunction, LuaValue, ReturnValue, TypeError};
-    use crate::syn;
-    use crate::{assert_type_error, ast_vm};
-
     #[test]
     fn eval_fn_call() -> Result<(), LuaError> {
-        let module = syn::lua_parser::module("myfn()")?;
+        let module = lua_parser::module("myfn()")?;
         let called = Rc::new(RefCell::new(false));
         let myfn = LuaFunction::new({
             let called = Rc::clone(&called);
@@ -86,7 +83,7 @@ mod test {
     #[quickcheck]
     fn eval_fn_return(ret_value: LuaValue) -> Result<(), LuaError> {
         let ret_value = ReturnValue::from(ret_value);
-        let module = syn::lua_parser::module("return myfn()")?;
+        let module = lua_parser::module("return myfn()")?;
         let mut context = GlobalContext::new();
         let myfn = LuaFunction::new({
             let ret_value = ret_value.clone();
@@ -104,7 +101,7 @@ mod test {
             return Ok(TestResult::discard());
         }
 
-        let module = syn::lua_parser::module("value()")?;
+        let module = lua_parser::module("value()")?;
         let mut context = GlobalContext::new();
         context.set("value", value);
         let res = ast_vm::eval_module(&module, &mut context);
@@ -114,7 +111,7 @@ mod test {
 
     #[quickcheck]
     fn eval_fn_call_multiple_returns(values: NonEmptyVec<LuaValue>) -> Result<(), LuaError> {
-        let module = syn::lua_parser::module("return myfn()")?;
+        let module = lua_parser::module("return myfn()")?;
         let mut context = GlobalContext::new();
         let ret_values = ReturnValue::MultiValue(values);
         let myfn = LuaFunction::new({

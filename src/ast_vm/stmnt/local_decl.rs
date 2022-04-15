@@ -1,9 +1,6 @@
+use crate::lang::{LocalScope, LuaValue, ScopeHolder};
 use luar_lex::Ident;
-
-use crate::{
-    lang::{LocalScope, LuaValue, ScopeHolder},
-    syn::Declaration,
-};
+use luar_syn::Declaration;
 
 use super::assignment::assignment_values;
 
@@ -32,15 +29,14 @@ fn multiple_local_assignment(
 
 #[cfg(test)]
 mod test {
-    use luar_lex::Ident;
-    use non_empty::ne_vec;
-
     use crate::{
         ast_vm,
         error::LuaError,
         lang::{GlobalContext, LuaValue, ReturnValue},
-        syn::lua_parser,
     };
+    use luar_lex::Ident;
+    use luar_syn::lua_parser;
+    use non_empty::ne_vec;
 
     #[quickcheck]
     fn local_decl_does_not_behave_like_global_assignment_in_global_scope(

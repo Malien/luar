@@ -1,0 +1,103 @@
+---
+source: syn/src/expr/op.rs
+expression: expression
+---
+BinaryOperator {
+    lhs: BinaryOperator {
+        lhs: BinaryOperator {
+            lhs: BinaryOperator {
+                lhs: BinaryOperator {
+                    lhs: BinaryOperator {
+                        lhs: UnaryOperator {
+                            op: Not,
+                            exp: BinaryOperator {
+                                lhs: Number(
+                                    NumberLiteral(
+                                        1.0,
+                                    ),
+                                ),
+                                op: Exp,
+                                rhs: Number(
+                                    NumberLiteral(
+                                        2.0,
+                                    ),
+                                ),
+                            },
+                        },
+                        op: Mul,
+                        rhs: UnaryOperator {
+                            op: Minus,
+                            exp: Number(
+                                NumberLiteral(
+                                    3.0,
+                                ),
+                            ),
+                        },
+                    },
+                    op: Plus,
+                    rhs: BinaryOperator {
+                        lhs: Number(
+                            NumberLiteral(
+                                4.0,
+                            ),
+                        ),
+                        op: Div,
+                        rhs: Number(
+                            NumberLiteral(
+                                5.0,
+                            ),
+                        ),
+                    },
+                },
+                op: Concat,
+                rhs: BinaryOperator {
+                    lhs: Number(
+                        NumberLiteral(
+                            6.0,
+                        ),
+                    ),
+                    op: Minus,
+                    rhs: Number(
+                        NumberLiteral(
+                            7.0,
+                        ),
+                    ),
+                },
+            },
+            op: Less,
+            rhs: Number(
+                NumberLiteral(
+                    8.0,
+                ),
+            ),
+        },
+        op: And,
+        rhs: BinaryOperator {
+            lhs: Number(
+                NumberLiteral(
+                    9.0,
+                ),
+            ),
+            op: Greater,
+            rhs: Number(
+                NumberLiteral(
+                    10.0,
+                ),
+            ),
+        },
+    },
+    op: Or,
+    rhs: BinaryOperator {
+        lhs: Number(
+            NumberLiteral(
+                11.0,
+            ),
+        ),
+        op: Equals,
+        rhs: Number(
+            NumberLiteral(
+                12.0,
+            ),
+        ),
+    },
+}

@@ -1,7 +1,8 @@
+use luar_syn::{Assignment, Expression, Var};
+
 use crate::{
     ast_vm::{assign_to_var, eval_expr, tail_values},
     lang::{EvalError, LocalScope, LuaValue, ScopeHolder},
-    syn::{Assignment, Expression, Var},
 };
 
 pub(crate) fn eval_assignment(
@@ -37,14 +38,6 @@ fn multiple_assignment<'a>(
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashSet;
-
-    use itertools::Itertools;
-    use luar_lex::{Ident, Token};
-    use non_empty::NonEmptyVec;
-    use quickcheck::TestResult;
-    use test_util::{run_lua_test, vec_of_idents};
-
     use crate::{
         assert_type_error, ast_vm,
         error::LuaError,
@@ -52,8 +45,14 @@ mod test {
             EvalError, GlobalContext, LuaFunction, LuaKey, LuaValue, NaNLessTable, ReturnValue,
             TableRef, TableValue, TypeError,
         },
-        syn::{lua_parser, unspanned_lua_token_parser, Module, RawParseError},
     };
+    use itertools::Itertools;
+    use luar_lex::{Ident, Token};
+    use luar_syn::{lua_parser, unspanned_lua_token_parser, Module, RawParseError};
+    use non_empty::NonEmptyVec;
+    use quickcheck::TestResult;
+    use std::collections::HashSet;
+    use test_util::{run_lua_test, vec_of_idents};
 
     #[quickcheck]
     fn eval_single_assignment(ident: Ident, v1: LuaValue, v2: LuaValue) -> Result<(), LuaError> {

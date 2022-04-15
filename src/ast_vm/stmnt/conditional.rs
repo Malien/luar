@@ -1,8 +1,8 @@
 use crate::{
     ast_vm::{eval_block, eval_expr, ControlFlow},
     lang::{EvalError, LocalScope, ScopeHolder},
-    syn::{Conditional, ConditionalTail},
 };
+use luar_syn::{Conditional, ConditionalTail};
 
 pub(crate) fn eval_conditional(
     conditional: &Conditional,

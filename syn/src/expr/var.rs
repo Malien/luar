@@ -37,55 +37,60 @@ impl ToTokenStream for Var {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use luar_lex::{Ident, ToTokenStream, Token};
-    use quickcheck::{empty_shrinker, Arbitrary, Gen};
-    use std::iter;
-    use test_util::{with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH};
+#[cfg(feature = "quickcheck")]
+use quickcheck::{empty_shrinker, Arbitrary, Gen};
+#[cfg(feature = "quickcheck")]
+use test_util::{with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH};
 
-    use crate::syn::{
-        expr::{Expression, Var},
-        unspanned_lua_token_parser, RawParseError,
-    };
-
-    impl Arbitrary for Var {
-        fn arbitrary(g: &mut Gen) -> Self {
-            if g.size() == 0 {
-                Var::Named(with_thread_gen(Ident::arbitrary))
-            } else {
-                let g = &mut Gen::new(QUICKCHECK_RECURSIVE_DEPTH.min(g.size() - 1));
-                match u8::arbitrary(g) % 2 {
-                    0 => Var::PropertyAccess {
-                        from: Box::new(Var::arbitrary(g)),
-                        property: with_thread_gen(Ident::arbitrary),
-                    },
-                    1 => Var::MemberLookup {
-                        from: Box::new(Var::arbitrary(g)),
-                        value: Box::new(Expression::arbitrary(g)),
-                    },
-                    _ => unreachable!(),
-                }
-            }
-        }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            match self {
-                Var::Named(_) => empty_shrinker(),
-                Var::PropertyAccess { from, .. } => Box::new(iter::once(from.as_ref().clone())),
-                // Var::MemberLookup { from, .. } => Box::new(iter::once(from.as_ref().clone())),
-                Var::MemberLookup { from, value } => {
-                    let from = Box::clone(from);
-                    Box::new(iter::once(from.as_ref().clone()).chain(value.shrink().map(
-                        move |expr| Var::MemberLookup {
-                            from: Box::clone(&from),
-                            value: expr,
-                        },
-                    )))
-                }
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for Var {
+    fn arbitrary(g: &mut Gen) -> Self {
+        if g.size() == 0 {
+            Var::Named(with_thread_gen(Ident::arbitrary))
+        } else {
+            let g = &mut Gen::new(QUICKCHECK_RECURSIVE_DEPTH.min(g.size() - 1));
+            match u8::arbitrary(g) % 2 {
+                0 => Var::PropertyAccess {
+                    from: Box::new(Var::arbitrary(g)),
+                    property: with_thread_gen(Ident::arbitrary),
+                },
+                1 => Var::MemberLookup {
+                    from: Box::new(Var::arbitrary(g)),
+                    value: Box::new(Expression::arbitrary(g)),
+                },
+                _ => unreachable!(),
             }
         }
     }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        match self {
+            Var::Named(_) => empty_shrinker(),
+            Var::PropertyAccess { from, .. } => Box::new(iter::once(from.as_ref().clone())),
+            Var::MemberLookup { from, value } => {
+                let from = Box::clone(from);
+                Box::new(
+                    iter::once(from.as_ref().clone()).chain(value.shrink().map(move |expr| {
+                        Var::MemberLookup {
+                            from: Box::clone(&from),
+                            value: expr,
+                        }
+                    })),
+                )
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "quickcheck")]
+mod test {
+    use luar_lex::{Ident, ToTokenStream, Token};
+
+    use crate::{
+        expr::{Expression, Var},
+        unspanned_lua_token_parser, RawParseError,
+    };
 
     #[quickcheck]
     fn parse_named_var(ident: Ident) {

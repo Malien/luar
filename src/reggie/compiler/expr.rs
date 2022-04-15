@@ -1,36 +1,35 @@
-use crate::{
-    reggie::{
-        compiler::{LocalFnCompState, VarLookup},
-        ids::LocalRegisterID,
-        ops::Instruction,
-    },
-    syn,
+use luar_syn::{BinaryOperator, Expression, Var};
+
+use crate::reggie::{
+    compiler::{LocalFnCompState, VarLookup},
+    ids::LocalRegisterID,
+    ops::Instruction,
 };
 
-pub fn compile_expr(expr: &syn::Expression, state: &mut LocalFnCompState) {
+pub fn compile_expr(expr: &Expression, state: &mut LocalFnCompState) {
     use Instruction::*;
 
     match expr {
-        syn::Expression::Nil => {
+        Expression::Nil => {
             state.push_instr(ConstN);
         }
-        syn::Expression::Number(num) if num.is_integer() => {
+        Expression::Number(num) if num.is_integer() => {
             state.push_instr(ConstI(num.as_i32()));
             state.push_instr(WrapI);
         }
-        syn::Expression::Number(num) => {
+        Expression::Number(num) => {
             state.push_instr(ConstF(num.as_f64()));
             state.push_instr(WrapF);
         }
-        syn::Expression::String(str) => {
+        Expression::String(str) => {
             let str_id = state.alloc_string(str.0.clone());
             state.push_instr(ConstS(str_id));
             state.push_instr(WrapS);
         }
-        syn::Expression::BinaryOperator { lhs, op, rhs } => {
+        Expression::BinaryOperator { lhs, op, rhs } => {
             compile_binary_op(*op, lhs, rhs, state);
         }
-        syn::Expression::Variable(syn::Var::Named(ident)) => {
+        Expression::Variable(Var::Named(ident)) => {
             match state.lookup_var(ident.as_ref()) {
                 VarLookup::Argument(reg) => state.push_instr(LdaRD(reg)),
                 VarLookup::Local(reg) => state.push_instr(LdaLD(reg)),
@@ -42,9 +41,9 @@ pub fn compile_expr(expr: &syn::Expression, state: &mut LocalFnCompState) {
 }
 
 fn compile_binary_op(
-    op: syn::BinaryOperator,
-    lhs: &syn::Expression,
-    rhs: &syn::Expression,
+    op: BinaryOperator,
+    lhs: &Expression,
+    rhs: &Expression,
     state: &mut LocalFnCompState,
 ) {
     use Instruction::*;
@@ -54,15 +53,15 @@ fn compile_binary_op(
     state.push_instr(StrLD(reg));
     compile_expr(rhs, state);
 
-    if let syn::BinaryOperator::Equals = op {
+    if let BinaryOperator::Equals = op {
         compile_eq_op(state, reg);
     } else {
         let instr = match op {
-            syn::BinaryOperator::Plus => DAddL,
-            syn::BinaryOperator::Minus => DSubL,
-            syn::BinaryOperator::Mul => DMulL,
-            syn::BinaryOperator::Div => DDivL,
-            syn::BinaryOperator::Equals => unreachable!(),
+            BinaryOperator::Plus => DAddL,
+            BinaryOperator::Minus => DSubL,
+            BinaryOperator::Mul => DMulL,
+            BinaryOperator::Div => DDivL,
+            BinaryOperator::Equals => unreachable!(),
             _ => todo!(),
         };
 

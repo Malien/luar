@@ -1,9 +1,6 @@
+use crate::lang::{FunctionContext, GlobalContext, LocalScope, LuaFunction, LuaValue, ScopeHolder};
 use luar_lex::Ident;
-
-use crate::{
-    lang::{FunctionContext, GlobalContext, LocalScope, LuaFunction, LuaValue, ScopeHolder},
-    syn::{FunctionDeclaration, FunctionName},
-};
+use luar_syn::{FunctionDeclaration, FunctionName};
 
 use super::{assign_to_var, eval_block, ControlFlow};
 
@@ -43,19 +40,18 @@ fn declare_arguments(scope: &mut LocalScope<impl ScopeHolder>, names: &[Ident], 
 
 #[cfg(test)]
 mod test {
-    use itertools::Itertools;
-    use luar_lex::Ident;
-    use non_empty::{ne_vec, NonEmptyVec};
-
     use crate::{
         ast_vm,
         error::LuaError,
         lang::{GlobalContext, LuaValue, ReturnValue},
-        syn::{
-            lua_parser, Block, Chunk, Expression, FunctionCall, FunctionCallArgs,
-            FunctionDeclaration, FunctionName, Module, Return, Var,
-        },
     };
+    use itertools::Itertools;
+    use luar_lex::Ident;
+    use luar_syn::{
+        lua_parser, Block, Chunk, Expression, FunctionCall, FunctionCallArgs, FunctionDeclaration,
+        FunctionName, Module, Return, Var,
+    };
+    use non_empty::{ne_vec, NonEmptyVec};
 
     #[quickcheck]
     fn fn_declaration_puts_function_in_scope(ident: Ident) -> Result<(), LuaError> {

@@ -40,73 +40,78 @@ impl ToTokenStream for Module {
 
 fmt_tokens!(Module);
 
+#[cfg(feature = "quickcheck")]
+use quickcheck::{Arbitrary, Gen};
+
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for Module {
+    fn arbitrary(g: &mut Gen) -> Self {
+        Self {
+            chunks: Arbitrary::arbitrary(g),
+            ret: Arbitrary::arbitrary(g),
+        }
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        Box::new(
+            self.chunks
+                .shrink()
+                .map({
+                    let ret = self.ret.clone();
+                    move |chunks| Self {
+                        chunks,
+                        ret: ret.clone(),
+                    }
+                })
+                .chain(self.ret.shrink().map({
+                    let chunks = self.chunks.clone();
+                    move |ret| Self {
+                        chunks: chunks.clone(),
+                        ret,
+                    }
+                })),
+        )
+    }
+}
+
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for Chunk {
+    fn arbitrary(g: &mut Gen) -> Self {
+        if bool::arbitrary(g) {
+            Chunk::Statement(Statement::arbitrary(g))
+        } else {
+            Chunk::FnDecl(FunctionDeclaration::arbitrary(g))
+        }
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        match self {
+            Chunk::Statement(stmnt) => Box::new(stmnt.shrink().map(Chunk::Statement)),
+            Chunk::FnDecl(decl) => Box::new(decl.shrink().map(Chunk::FnDecl)),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use quickcheck::Arbitrary;
+    use crate::lua_parser;
 
-    use crate::{
-        assert_parses,
-        syn::{lua_parser, FunctionDeclaration, Return, Statement},
-    };
+    use super::Module;
 
-    use super::{Chunk, Module};
-
-    impl Arbitrary for Module {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            Self {
-                chunks: Arbitrary::arbitrary(g),
-                ret: Arbitrary::arbitrary(g),
-            }
-        }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            Box::new(
-                self.chunks
-                    .shrink()
-                    .map({
-                        let ret = self.ret.clone();
-                        move |chunks| Self {
-                            chunks,
-                            ret: ret.clone(),
-                        }
-                    })
-                    .chain(self.ret.shrink().map({
-                        let chunks = self.chunks.clone();
-                        move |ret| Self {
-                            chunks: chunks.clone(),
-                            ret,
-                        }
-                    })),
-            )
-        }
-    }
-
-    impl Arbitrary for Chunk {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            if bool::arbitrary(g) {
-                Chunk::Statement(Statement::arbitrary(g))
-            } else {
-                Chunk::FnDecl(FunctionDeclaration::arbitrary(g))
-            }
-        }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            match self {
-                Chunk::Statement(stmnt) => Box::new(stmnt.shrink().map(Chunk::Statement)),
-                Chunk::FnDecl(decl) => Box::new(decl.shrink().map(Chunk::FnDecl)),
-            }
-        }
-    }
-
+    #[cfg(feature = "quickcheck")]
     fn parses(expected: Module) {
         assert_parses!(module, expected)
     }
+
+    #[cfg(feature = "quickcheck")]
+    use crate::{Chunk, FunctionDeclaration, Return, Statement, assert_parses};
 
     #[test]
     fn parses_empty_module() {
         assert_eq!(lua_parser::module("").unwrap(), Module::default());
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_statement_sequence(statements: Vec<Statement>) {
         parses(Module {
@@ -115,6 +120,7 @@ mod test {
         });
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_function_declaration_sequence(decls: Vec<FunctionDeclaration>) {
         parses(Module {
@@ -123,11 +129,13 @@ mod test {
         })
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_chunk_sequence(chunks: Vec<Chunk>) {
         parses(Module { chunks, ret: None })
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_just_arbitrary_return(ret: Return) {
         parses(Module {
@@ -136,6 +144,7 @@ mod test {
         })
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_module(module: Module) {
         parses(module);

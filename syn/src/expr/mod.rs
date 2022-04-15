@@ -58,71 +58,77 @@ impl ToTokenStream for Expression {
 
 fmt_tokens!(Expression);
 
+#[cfg(feature = "quickcheck")]
+use quickcheck::{empty_shrinker, Arbitrary, Gen};
+#[cfg(feature = "quickcheck")]
+use test_util::{with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH};
+
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for Expression {
+    fn arbitrary(g: &mut Gen) -> Self {
+        if g.size() == 0 {
+            with_thread_gen(|gen| match u8::arbitrary(gen) % 3 {
+                0 => Expression::Nil,
+                1 => Expression::Number(NumberLiteral::arbitrary(gen)),
+                2 => Expression::String(StringLiteral::arbitrary(gen)),
+                _ => unreachable!(),
+            })
+        } else {
+            let mut gen = Gen::new(QUICKCHECK_RECURSIVE_DEPTH.min(g.size() - 1));
+            let g = &mut gen;
+            match u8::arbitrary(g) % 5 {
+                0 => Expression::Variable(Var::arbitrary(g)),
+                1 => Expression::UnaryOperator {
+                    op: UnaryOperator::arbitrary(g),
+                    exp: Box::new(Expression::arbitrary(g)),
+                },
+                2 => Expression::BinaryOperator {
+                    op: BinaryOperator::arbitrary(g),
+                    lhs: Box::new(Expression::arbitrary(g)),
+                    rhs: Box::new(Expression::arbitrary(g)),
+                },
+                3 => Expression::TableConstructor(TableConstructor::arbitrary(g)),
+                4 => Expression::FunctionCall(FunctionCall::arbitrary(g)),
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        use Expression::*;
+        match self {
+            // Expression::Nil => empty_shrinker(),
+            // Expression::Number(_) => Box::new(iter::once(Expression::Number(NumberLiteral(42.0)))),
+            // Expression::String(_) => Box::new(iter::once(Expression::String(StringLiteral("str".to_string())))),
+            // Expression::Number(_) | Expression::String(_) => Box::new(iter::once(Expression::Nil)),
+            Variable(var) => Box::new(var.shrink().map(Variable)),
+            UnaryOperator { exp, .. } => Box::new(iter::once(exp.as_ref().clone())),
+            BinaryOperator { lhs, rhs, .. } => {
+                Box::new(iter::once(lhs.as_ref().clone()).chain(iter::once(rhs.as_ref().clone())))
+            }
+            TableConstructor(tbl) => Box::new(tbl.shrink().map(TableConstructor)),
+            FunctionCall(func) => Box::new(func.shrink().map(Expression::FunctionCall)),
+            // Expression::FunctionCall { .. } => empty_shrinker(),
+            // Expression::FunctionCall { args } => Box::new(args.map(Expression::shrink).chain(iter::once(Expression::FunctionCall)))
+            Nil | Number(_) | String(_) => empty_shrinker(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use logos::Logos;
-    use luar_lex::{NumberLiteral, StringLiteral, ToTokenStream, Token};
-    use quickcheck::{empty_shrinker, Arbitrary, Gen};
-    use std::iter;
-    use test_util::{with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH};
+    use luar_lex::Token;
 
-    use crate::syn::{
-        expr::{FunctionCall, TableConstructor, Var},
-        unspanned_lua_token_parser, BinaryOperator, UnaryOperator,
+    use crate::{
+        expr::{TableConstructor, Var},
+        unspanned_lua_token_parser,
     };
 
     use super::Expression;
 
-    impl Arbitrary for Expression {
-        fn arbitrary(g: &mut Gen) -> Self {
-            if g.size() == 0 {
-                with_thread_gen(|gen| match u8::arbitrary(gen) % 3 {
-                    0 => Expression::Nil,
-                    1 => Expression::Number(NumberLiteral::arbitrary(gen)),
-                    2 => Expression::String(StringLiteral::arbitrary(gen)),
-                    _ => unreachable!(),
-                })
-            } else {
-                let mut gen = Gen::new(QUICKCHECK_RECURSIVE_DEPTH.min(g.size() - 1));
-                let g = &mut gen;
-                match u8::arbitrary(g) % 5 {
-                    0 => Expression::Variable(Var::arbitrary(g)),
-                    1 => Expression::UnaryOperator {
-                        op: UnaryOperator::arbitrary(g),
-                        exp: Box::new(Expression::arbitrary(g)),
-                    },
-                    2 => Expression::BinaryOperator {
-                        op: BinaryOperator::arbitrary(g),
-                        lhs: Box::new(Expression::arbitrary(g)),
-                        rhs: Box::new(Expression::arbitrary(g)),
-                    },
-                    3 => Expression::TableConstructor(TableConstructor::arbitrary(g)),
-                    4 => Expression::FunctionCall(FunctionCall::arbitrary(g)),
-                    _ => unreachable!(),
-                }
-            }
-        }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            use Expression::*;
-            match self {
-                // Expression::Nil => empty_shrinker(),
-                // Expression::Number(_) => Box::new(iter::once(Expression::Number(NumberLiteral(42.0)))),
-                // Expression::String(_) => Box::new(iter::once(Expression::String(StringLiteral("str".to_string())))),
-                // Expression::Number(_) | Expression::String(_) => Box::new(iter::once(Expression::Nil)),
-                Variable(var) => Box::new(var.shrink().map(Variable)),
-                UnaryOperator { exp, .. } => Box::new(iter::once(exp.as_ref().clone())),
-                BinaryOperator { lhs, rhs, .. } => Box::new(
-                    iter::once(lhs.as_ref().clone()).chain(iter::once(rhs.as_ref().clone())),
-                ),
-                TableConstructor(tbl) => Box::new(tbl.shrink().map(TableConstructor)),
-                FunctionCall(func) => Box::new(func.shrink().map(Expression::FunctionCall)),
-                // Expression::FunctionCall { .. } => empty_shrinker(),
-                // Expression::FunctionCall { args } => Box::new(args.map(Expression::shrink).chain(iter::once(Expression::FunctionCall)))
-                Nil | Number(_) | String(_) => empty_shrinker(),
-            }
-        }
-    }
+    #[cfg(feature = "quickcheck")]
+    use luar_lex::{NumberLiteral, StringLiteral, ToTokenStream};
 
     #[test]
     fn nill_expr() {
@@ -130,6 +136,7 @@ mod test {
         assert_eq!(Expression::Nil, parsed);
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn number_expr(literal: NumberLiteral) {
         let expression = unspanned_lua_token_parser::expression([Token::Number(literal)]).unwrap();
@@ -141,6 +148,7 @@ mod test {
         };
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn string_expr(literal: StringLiteral) {
         assert_eq!(
@@ -149,6 +157,7 @@ mod test {
         );
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn var_expr(expected: Var) {
         let tokens = expected.clone().to_tokens().collect::<Vec<_>>();
@@ -156,6 +165,7 @@ mod test {
         assert_eq!(parsed, Expression::Variable(expected));
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_expression(expected: Expression) {
         let tokens = expected.clone().to_tokens().collect::<Vec<_>>();

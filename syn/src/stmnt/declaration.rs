@@ -1,7 +1,7 @@
 use luar_lex::{fmt_tokens, DynTokens, Ident, ToTokenStream, Token};
 use non_empty::NonEmptyVec;
 
-use crate::{syn::expr::Expression, util::FlatIntersperseExt};
+use crate::{expr::Expression, flat_intersperse::FlatIntersperseExt};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Declaration {
@@ -35,50 +35,54 @@ impl ToTokenStream for Declaration {
 
 fmt_tokens!(Declaration);
 
-#[cfg(test)]
-mod test {
-    use logos::Logos;
-    use luar_lex::{Ident, NumberLiteral, ToTokenStream, Token};
-    use non_empty::NonEmptyVec;
-    use quickcheck::Arbitrary;
+#[cfg(feature = "quickcheck")]
+use quickcheck::{Arbitrary, Gen};
 
-    use crate::{
-        input_parsing_expectation,
-        syn::{expr::Expression, unspanned_lua_token_parser},
-    };
-
-    use super::Declaration;
-
-    impl Arbitrary for Declaration {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            Self {
-                names: Arbitrary::arbitrary(g),
-                initial_values: Arbitrary::arbitrary(g),
-            }
-        }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            let names = self.names.clone();
-            let initial_values = self.initial_values.clone();
-            Box::new(
-                self.names
-                    .shrink()
-                    .map(move |names| Self {
-                        names,
-                        initial_values: initial_values.clone(),
-                    })
-                    .chain(
-                        self.initial_values
-                            .shrink()
-                            .map(move |initial_values| Self {
-                                names: names.clone(),
-                                initial_values,
-                            }),
-                    ),
-            )
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for Declaration {
+    fn arbitrary(g: &mut Gen) -> Self {
+        Self {
+            names: Arbitrary::arbitrary(g),
+            initial_values: Arbitrary::arbitrary(g),
         }
     }
 
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        let names = self.names.clone();
+        let initial_values = self.initial_values.clone();
+        Box::new(
+            self.names
+                .shrink()
+                .map(move |names| Self {
+                    names,
+                    initial_values: initial_values.clone(),
+                })
+                .chain(
+                    self.initial_values
+                        .shrink()
+                        .map(move |initial_values| Self {
+                            names: names.clone(),
+                            initial_values,
+                        }),
+                ),
+        )
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use logos::Logos;
+    use luar_lex::{Ident, NumberLiteral, Token};
+    use non_empty::NonEmptyVec;
+
+    use crate::{expr::Expression, input_parsing_expectation, unspanned_lua_token_parser};
+
+    use super::Declaration;
+
+    #[cfg(feature = "quickcheck")]
+    use luar_lex::ToTokenStream;
+
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_declaration(decl: Declaration) {
         let tokens: Vec<_> = decl.clone().to_tokens().collect();

@@ -1,6 +1,6 @@
 use luar_lex::{fmt_tokens, DynTokens, ToTokenStream, Token};
 
-use crate::syn::{expr::Expression, Block};
+use crate::{expr::Expression, Block};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct RepeatLoop {
@@ -22,45 +22,49 @@ impl ToTokenStream for RepeatLoop {
 }
 
 fmt_tokens!(RepeatLoop);
+#[cfg(feature = "quickcheck")]
+use quickcheck::{Arbitrary, Gen};
+
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for RepeatLoop {
+    fn arbitrary(g: &mut Gen) -> Self {
+        Self {
+            condition: Arbitrary::arbitrary(g),
+            body: Arbitrary::arbitrary(g),
+        }
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        let condition = self.condition.clone();
+        let body = self.body.clone();
+        Box::new(
+            self.condition
+                .shrink()
+                .map(move |condition| Self {
+                    condition,
+                    body: body.clone(),
+                })
+                .chain(self.body.shrink().map(move |body| Self {
+                    condition: condition.clone(),
+                    body,
+                })),
+        )
+    }
+}
 
 #[cfg(test)]
 mod test {
-    use luar_lex::{Ident, NumberLiteral, ToTokenStream};
+    use luar_lex::{Ident, NumberLiteral};
     use non_empty::NonEmptyVec;
-    use quickcheck::Arbitrary;
 
-    use crate::{
-        input_parsing_expectation,
-        syn::{expr::Expression, unspanned_lua_token_parser, Block, Declaration, Statement},
-    };
+    use crate::{expr::Expression, input_parsing_expectation, Block, Declaration, Statement};
+
+    #[cfg(feature = "quickcheck")]
+    use crate::unspanned_lua_token_parser;
+    #[cfg(feature = "quickcheck")]
+    use luar_lex::ToTokenStream;
 
     use super::RepeatLoop;
-
-    impl Arbitrary for RepeatLoop {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            Self {
-                condition: Arbitrary::arbitrary(g),
-                body: Arbitrary::arbitrary(g),
-            }
-        }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            let condition = self.condition.clone();
-            let body = self.body.clone();
-            Box::new(
-                self.condition
-                    .shrink()
-                    .map(move |condition| Self {
-                        condition,
-                        body: body.clone(),
-                    })
-                    .chain(self.body.shrink().map(move |body| Self {
-                        condition: condition.clone(),
-                        body,
-                    })),
-            )
-        }
-    }
 
     #[test]
     fn correctly_displays() {
@@ -142,6 +146,7 @@ mod test {
         }
     );
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_empty_loop_with_arbitrary_condition(condition: Expression) {
         let repeat_loop = RepeatLoop {
@@ -156,6 +161,7 @@ mod test {
         assert_eq!(repeat_loop, parsed)
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_loop_with_arbitrary_body(body: Block) {
         let repeat_loop = RepeatLoop {
@@ -167,6 +173,7 @@ mod test {
         assert_eq!(repeat_loop, parsed);
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_repeat_loop(repeat_loop: RepeatLoop) {
         let tokens: Vec<_> = repeat_loop.clone().to_tokens().collect();

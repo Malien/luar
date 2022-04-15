@@ -1,9 +1,6 @@
+use crate::lang::{EvalError, LocalScope, ReturnValue, ScopeHolder};
+use luar_syn::Return;
 use non_empty::NonEmptyVec;
-
-use crate::{
-    lang::{EvalError, LocalScope, ReturnValue, ScopeHolder},
-    syn::Return,
-};
 
 use super::{eval_expr, tail_values};
 
@@ -31,15 +28,14 @@ pub(crate) fn eval_ret(
 
 #[cfg(test)]
 mod test {
-    use luar_lex::Ident;
-    use non_empty::NonEmptyVec;
-
     use crate::{
         ast_vm,
         error::LuaError,
         lang::{GlobalContext, LuaFunction, LuaValue, ReturnValue},
-        syn::{Expression, FunctionCall, FunctionCallArgs, Module, Return, Var},
     };
+    use luar_lex::Ident;
+    use luar_syn::{Expression, FunctionCall, FunctionCallArgs, Module, Return, Var};
+    use non_empty::NonEmptyVec;
 
     #[quickcheck]
     fn eval_multiple_return(values: NonEmptyVec<LuaValue>) -> Result<(), LuaError> {

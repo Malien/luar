@@ -1,8 +1,8 @@
 use crate::{
     ast_vm::{eval_block, eval_expr, ControlFlow},
     lang::{LocalScope, ScopeHolder},
-    syn::WhileLoop,
 };
+use luar_syn::WhileLoop;
 
 pub(crate) fn eval_while_loop(
     while_loop: &WhileLoop,
@@ -19,14 +19,13 @@ pub(crate) fn eval_while_loop(
 
 #[cfg(test)]
 mod test {
-    use non_empty::ne_vec;
-
     use crate::{
         ast_vm,
         error::LuaError,
         lang::{GlobalContext, LuaValue, ReturnValue},
-        syn::lua_parser,
     };
+    use luar_syn::lua_parser;
+    use non_empty::ne_vec;
 
     #[test]
     fn while_loop_with_falsy_condition_does_not_execute_body() -> Result<(), LuaError> {

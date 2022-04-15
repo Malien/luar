@@ -1,11 +1,10 @@
-use crate::{
-    reggie::{
-        ids::{ArgumentRegisterID, LocalBlockID},
-        machine::{CodeBlock, GlobalValues},
-        meta::{CodeMeta, MetaCount},
-        ops::Instruction,
-    },
-    syn,
+use luar_syn::{Chunk, FunctionName, Return, Var};
+
+use crate::reggie::{
+    ids::{ArgumentRegisterID, LocalBlockID},
+    machine::{CodeBlock, GlobalValues},
+    meta::{CodeMeta, MetaCount},
+    ops::Instruction,
 };
 
 use super::{compile_function, expr::compile_expr, FunctionCompilationState, LocalFnCompState};
@@ -16,7 +15,10 @@ pub struct CompiledModule {
     pub top_level: CodeBlock,
 }
 
-pub fn compile_module(module: &syn::Module, global_values: &mut GlobalValues) -> CompiledModule {
+pub fn compile_module(
+    module: &luar_syn::Module,
+    global_values: &mut GlobalValues,
+) -> CompiledModule {
     let mut blocks = Vec::new();
 
     let return_count = module.ret.as_ref().map(|ret| ret.0.len()).unwrap_or(0);
@@ -25,13 +27,13 @@ pub fn compile_module(module: &syn::Module, global_values: &mut GlobalValues) ->
 
     for chunk in &module.chunks {
         match chunk {
-            syn::Chunk::FnDecl(decl) => {
+            Chunk::FnDecl(decl) => {
                 let global_values = root_scope.global_values();
                 let func = compile_function(decl, global_values);
                 let local_block_id = LocalBlockID(blocks.len().try_into().unwrap());
                 blocks.push(func);
                 match &decl.name {
-                    syn::FunctionName::Plain(syn::Var::Named(name)) => {
+                    FunctionName::Plain(Var::Named(name)) => {
                         let cell = global_values.cell_for_name(name.as_ref());
                         root_scope.push_instr(Instruction::ConstC(local_block_id));
                         root_scope.push_instr(Instruction::WrapC);
@@ -40,11 +42,13 @@ pub fn compile_module(module: &syn::Module, global_values: &mut GlobalValues) ->
                     _ => todo!(),
                 }
             }
-            syn::Chunk::Statement(statement) => todo!("Compiling statement \"{}\" is not implemented", statement),
+            Chunk::Statement(statement) => {
+                todo!("Compiling statement \"{}\" is not implemented", statement)
+            }
         };
     }
 
-    if let Some(syn::Return(expressions)) = &module.ret {
+    if let Some(Return(expressions)) = &module.ret {
         if expressions.len() > 1 {
             todo!();
         }
@@ -78,12 +82,11 @@ mod test {
         error::LuaError,
         reggie::{
             compiler::compile_function,
-            ids::{ArgumentRegisterID, LocalRegisterID, StringID, LocalBlockID},
+            ids::{ArgumentRegisterID, LocalBlockID, LocalRegisterID, StringID},
             machine::{CodeBlock, GlobalValues},
             meta::{CodeMeta, LocalRegCount, MetaCount},
             ops::Instruction,
         },
-        syn,
     };
 
     use Instruction::*;
@@ -92,7 +95,7 @@ mod test {
         ($name: ident, $code: expr, $instr: expr) => {
             #[test]
             fn $name() -> Result<(), LuaError> {
-                let module = syn::lua_parser::module($code)?;
+                let module = luar_syn::lua_parser::module($code)?;
                 let compiled_module = compile_module(&module, &mut GlobalValues::default());
 
                 assert_eq!(compiled_module.top_level.meta.return_count, 1.into());
@@ -123,7 +126,7 @@ mod test {
 
     #[test]
     fn compile_return_str() -> Result<(), LuaError> {
-        let module = syn::lua_parser::module("return 'hello'")?;
+        let module = luar_syn::lua_parser::module("return 'hello'")?;
         let compiled_module = compile_module(&module, &mut GlobalValues::default());
 
         assert_eq!(
@@ -151,7 +154,7 @@ mod test {
 
     #[test]
     fn compile_empty() -> Result<(), LuaError> {
-        let module = syn::lua_parser::module("")?;
+        let module = luar_syn::lua_parser::module("")?;
         let compiled_module = compile_module(&module, &mut GlobalValues::default());
 
         assert_eq!(
@@ -170,8 +173,8 @@ mod test {
 
     #[test]
     fn empty_module_and_module_with_empty_return_compiles_identically() -> Result<(), LuaError> {
-        let ret_module = syn::lua_parser::module("return")?;
-        let empty_module = syn::lua_parser::module("")?;
+        let ret_module = luar_syn::lua_parser::module("return")?;
+        let empty_module = luar_syn::lua_parser::module("")?;
         assert_eq!(
             compile_module(&ret_module, &mut GlobalValues::default()),
             compile_module(&empty_module, &mut GlobalValues::default())
@@ -184,7 +187,7 @@ mod test {
         ($name: ident, $fn:expr, $meta:expr) => {
             #[test]
             fn $name() -> Result<(), LuaError> {
-                let module = syn::lua_parser::module($fn)?;
+                let module = luar_syn::lua_parser::module($fn)?;
                 let compiled_module = compile_module(&module, &mut GlobalValues::default());
                 assert_eq!(compiled_module.top_level, $meta);
                 Ok(())
@@ -194,7 +197,7 @@ mod test {
 
     #[test]
     fn compile_add_two_constants() -> Result<(), LuaError> {
-        let module = syn::lua_parser::module("return 1 + 2")?;
+        let module = luar_syn::lua_parser::module("return 1 + 2")?;
         let module = compile_module(&module, &mut GlobalValues::default());
 
         assert_eq!(module.top_level.meta.return_count, MetaCount::Known(1));
@@ -307,8 +310,9 @@ mod test {
 
     #[test]
     fn compile_function_declaration() -> Result<(), LuaError> {
-        let module = syn::lua_parser::module("function foo() return 42 end")?;
-        let function_decl = syn::lua_parser::function_declaration("function foo() return 42 end")?;
+        let module = luar_syn::lua_parser::module("function foo() return 42 end")?;
+        let function_decl =
+            luar_syn::lua_parser::function_declaration("function foo() return 42 end")?;
         let mut global_values = GlobalValues::default();
         let module = compile_module(&module, &mut global_values);
         let func = compile_function(&function_decl, &mut GlobalValues::default());

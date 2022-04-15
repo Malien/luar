@@ -1,0 +1,25 @@
+[package]
+name = "luar_syn"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+quickcheck = ["dep:quickcheck", "luar_lex/quickcheck", "non_empty/quickcheck", "dep:test_util"]
+
+[dependencies]
+non_empty = { path = "../non_empty" }
+luar_lex = { path = "../lex" }
+logos = "0.12"
+peg = "0.7.0"
+quickcheck = { version = "1.0", optional = true }
+test_util = { path = "../test_util", optional = true }
+thiserror = "1.0"
+
+[dev-dependencies]
+test_util = { path = "../test_util" }
+quickcheck = "1.0"
+quickcheck_macros = "1.0"
+indoc = "1.0"
+insta = "1.3"

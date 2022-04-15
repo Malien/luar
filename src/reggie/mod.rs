@@ -5,23 +5,24 @@ pub(crate) mod meta;
 pub(crate) mod ops;
 pub(crate) mod runtime;
 
-pub use machine::Machine;
-use non_empty::NonEmptyVec;
-
 use crate::{
     ast_vm::Engine,
     error::LuaError,
     lang::{EvalError, LuaValue, ReturnValue},
-    syn,
 };
+pub use machine::Machine;
+use non_empty::NonEmptyVec;
 
 pub fn eval_str(module_str: &str, machine: &mut Machine) -> Result<ReturnValue, LuaError> {
-    let module = syn::lua_parser::module(module_str)?;
+    let module = luar_syn::lua_parser::module(module_str)?;
     let res = eval_module(&module, machine)?;
     Ok(res)
 }
 
-pub fn eval_module(module: &syn::Module, machine: &mut Machine) -> Result<ReturnValue, EvalError> {
+pub fn eval_module(
+    module: &luar_syn::Module,
+    machine: &mut Machine,
+) -> Result<ReturnValue, EvalError> {
     let compiled_module = compiler::compile_module(&module, &mut machine.global_values);
     let returns = runtime::call_module(compiled_module, machine)?;
     Ok(to_ffi_return_value(returns))
@@ -46,7 +47,7 @@ impl Engine for ReggieVM {
     type ExecutionContext = Machine;
 
     fn eval_module(
-        module: &syn::Module,
+        module: &luar_syn::Module,
         context: &mut Self::ExecutionContext,
     ) -> Result<ReturnValue, EvalError> {
         eval_module(module, context)
@@ -55,16 +56,15 @@ impl Engine for ReggieVM {
 
 #[cfg(test)]
 mod test {
-    use quickcheck::TestResult;
-
     use crate::{
         error::LuaError,
         lang::LuaValue,
         reggie::{
             compiler::compile_module, eval_module, eval_str, machine::Machine, runtime::call_module,
         },
-        syn::lua_parser,
     };
+    use luar_syn::lua_parser;
+    use quickcheck::TestResult;
 
     #[test]
     fn eval_empty() -> Result<(), LuaError> {

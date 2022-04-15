@@ -1,7 +1,5 @@
-use crate::{
-    lang::{LocalScope, LuaKey, ScopeHolder, TableValue},
-    syn::TableConstructor,
-};
+use crate::lang::{LocalScope, LuaKey, ScopeHolder, TableValue};
+use luar_syn::TableConstructor;
 
 use super::eval_expr;
 
@@ -27,16 +25,15 @@ pub(crate) fn eval_tbl_constructor(
 
 #[cfg(test)]
 mod test {
-    use luar_lex::Ident;
-    use non_empty::NonEmptyVec;
-    use test_util::vec_of_idents;
-
     use crate::{
         ast_vm::{self, expr::table_constructor::eval_tbl_constructor},
         error::LuaError,
         lang::{GlobalContext, LuaKey, LuaValue, ScopeHolder, TableValue},
-        syn::{lua_parser, Expression, TableConstructor, Var},
     };
+    use luar_lex::Ident;
+    use luar_syn::{lua_parser, Expression, TableConstructor, Var};
+    use non_empty::NonEmptyVec;
+    use test_util::vec_of_idents;
 
     #[test]
     fn empty_table_constructor_creates_empty_table() -> Result<(), LuaError> {

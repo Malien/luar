@@ -8,7 +8,7 @@ use luar_lex::{
     DynTokens, Ident, ToTokenStream, Token,
 };
 
-use crate::util::FlatIntersperseExt;
+use crate::flat_intersperse::FlatIntersperseExt;
 
 use super::{expr::Var, Block};
 
@@ -88,93 +88,96 @@ impl Display for FunctionDeclaration {
     }
 }
 
+#[cfg(feature = "quickcheck")]
+use quickcheck::{Arbitrary, Gen};
+
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for FunctionDeclaration {
+    fn arbitrary(g: &mut Gen) -> Self {
+        FunctionDeclaration {
+            name: Arbitrary::arbitrary(g),
+            args: Arbitrary::arbitrary(g),
+            body: Arbitrary::arbitrary(g),
+        }
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        Box::new(
+            self.name
+                .shrink()
+                .map({
+                    let args = self.args.clone();
+                    let body = self.body.clone();
+                    move |name| Self {
+                        name,
+                        args: args.clone(),
+                        body: body.clone(),
+                    }
+                })
+                .chain(self.args.shrink().map({
+                    let name = self.name.clone();
+                    let body = self.body.clone();
+                    move |args| Self {
+                        name: name.clone(),
+                        args,
+                        body: body.clone(),
+                    }
+                }))
+                .chain(self.body.shrink().map({
+                    let name = self.name.clone();
+                    let args = self.args.clone();
+                    move |body| Self {
+                        name: name.clone(),
+                        args: args.clone(),
+                        body,
+                    }
+                })),
+        )
+    }
+}
+
+#[cfg(feature = "quickcheck")]
+impl quickcheck::Arbitrary for FunctionName {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        if bool::arbitrary(g) {
+            FunctionName::Plain(Var::arbitrary(g))
+        } else {
+            FunctionName::Method(Var::arbitrary(g), Ident::arbitrary(g))
+        }
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        match self {
+            FunctionName::Plain(var) => Box::new(var.shrink().map(FunctionName::Plain)),
+            FunctionName::Method(var, name) => Box::new(
+                std::iter::once(FunctionName::Plain(var.clone()))
+                    .chain(var.shrink().map({
+                        let name = name.clone();
+                        move |var| FunctionName::Method(var, name.clone())
+                    }))
+                    .chain(name.shrink().map({
+                        let var = var.clone();
+                        move |name| FunctionName::Method(var.clone(), name)
+                    })),
+            ),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use indoc::indoc;
-    use non_empty::NonEmptyVec;
-    use quickcheck::{Arbitrary, Gen};
     use luar_lex::Ident;
+    use non_empty::NonEmptyVec;
 
     use crate::{
-        assert_parses, input_parsing_expectation,
-        syn::{
-            expr::{op::BinaryOperator, Expression, Var},
-            Block, Conditional, ConditionalTail, Declaration, FunctionName, Return, Statement,
-        },
+        assert_parses,
+        expr::{op::BinaryOperator, Expression, Var},
+        input_parsing_expectation, Block, Conditional, ConditionalTail, Declaration, FunctionName,
+        Return, Statement,
     };
 
     use super::FunctionDeclaration;
-
-    impl Arbitrary for FunctionDeclaration {
-        fn arbitrary(g: &mut Gen) -> Self {
-            FunctionDeclaration {
-                name: Arbitrary::arbitrary(g),
-                args: Arbitrary::arbitrary(g),
-                body: Arbitrary::arbitrary(g),
-            }
-        }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            Box::new(
-                self.name
-                    .shrink()
-                    .map({
-                        let args = self.args.clone();
-                        let body = self.body.clone();
-                        move |name| Self {
-                            name,
-                            args: args.clone(),
-                            body: body.clone(),
-                        }
-                    })
-                    .chain(self.args.shrink().map({
-                        let name = self.name.clone();
-                        let body = self.body.clone();
-                        move |args| Self {
-                            name: name.clone(),
-                            args,
-                            body: body.clone(),
-                        }
-                    }))
-                    .chain(self.body.shrink().map({
-                        let name = self.name.clone();
-                        let args = self.args.clone();
-                        move |body| Self {
-                            name: name.clone(),
-                            args: args.clone(),
-                            body,
-                        }
-                    })),
-            )
-        }
-    }
-
-    impl Arbitrary for FunctionName {
-        fn arbitrary(g: &mut Gen) -> Self {
-            if bool::arbitrary(g) {
-                FunctionName::Plain(Var::arbitrary(g))
-            } else {
-                FunctionName::Method(Var::arbitrary(g), Ident::arbitrary(g))
-            }
-        }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            match self {
-                FunctionName::Plain(var) => Box::new(var.shrink().map(FunctionName::Plain)),
-                FunctionName::Method(var, name) => Box::new(
-                    std::iter::once(FunctionName::Plain(var.clone()))
-                        .chain(var.shrink().map({
-                            let name = name.clone();
-                            move |var| FunctionName::Method(var, name.clone())
-                        }))
-                        .chain(name.shrink().map({
-                            let var = var.clone();
-                            move |name| FunctionName::Method(var.clone(), name)
-                        })),
-                ),
-            }
-        }
-    }
 
     macro_rules! empty_decl {
         () => {
@@ -251,6 +254,7 @@ mod test {
         parses(empty_decl!());
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_plain_name(name: Var) {
         parses(FunctionDeclaration {
@@ -260,6 +264,7 @@ mod test {
         });
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_arglist(args: Vec<Ident>) {
         parses(FunctionDeclaration {
@@ -269,6 +274,7 @@ mod test {
         });
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_method_name(name: Var, method: Ident) {
         parses(FunctionDeclaration {
@@ -283,6 +289,7 @@ mod test {
         parses(complex_decl!());
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_body(body: Block) {
         parses(FunctionDeclaration {
@@ -313,6 +320,7 @@ mod test {
         }
     );
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_func_decl(expected: FunctionDeclaration) {
         parses(expected);

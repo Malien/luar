@@ -3,7 +3,7 @@ use std::iter;
 use luar_lex::{fmt_tokens, DynTokens, Ident, ToTokenStream, Token};
 
 use super::Expression;
-use crate::util::FlatIntersperseExt;
+use crate::flat_intersperse::FlatIntersperseExt;
 
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct TableConstructor {
@@ -85,60 +85,67 @@ impl ToTokenStream for TableConstructor {
 
 fmt_tokens!(TableConstructor);
 
-#[cfg(test)]
-mod test {
-    use super::lfieldlist_tokens;
-    use super::TableConstructor;
-    use crate::syn::unspanned_lua_token_parser;
-    use crate::syn::Expression;
-    use test_util::arbitrary_recursive_vec;
-    use test_util::with_thread_gen;
-    use test_util::QUICKCHECK_RECURSIVE_DEPTH;
-    use luar_lex::Ident;
-    use luar_lex::ToTokenStream;
-    use luar_lex::Token;
-    use quickcheck::empty_shrinker;
-    use quickcheck::{Arbitrary, Gen, TestResult};
-    use std::iter;
+#[cfg(feature = "quickcheck")]
+use quickcheck::{empty_shrinker, Arbitrary, Gen};
+#[cfg(feature = "quickcheck")]
+use test_util::{arbitrary_recursive_vec, with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH};
 
-    impl Arbitrary for TableConstructor {
-        fn arbitrary(g: &mut Gen) -> Self {
-            if g.size() == 0 {
-                TableConstructor::empty()
-            } else {
-                let gen = &mut Gen::new(QUICKCHECK_RECURSIVE_DEPTH.min(g.size() - 1));
-                let exprs = arbitrary_recursive_vec(gen);
-                match u8::arbitrary(gen) % 3 {
-                    0 => TableConstructor::lfieldlist(exprs),
-                    1 => TableConstructor::ffieldlist(
-                        exprs
-                            .into_iter()
-                            .map(|expr| (with_thread_gen(Ident::arbitrary), expr))
-                            .collect(),
-                    ),
-                    2 => TableConstructor {
-                        lfield: exprs,
-                        ffield: arbitrary_recursive_vec(gen)
-                            .into_iter()
-                            .map(|expr| (with_thread_gen(Ident::arbitrary), expr))
-                            .collect(),
-                    },
-                    _ => unreachable!(),
-                }
-            }
-        }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            match (self.lfield.is_empty(), self.ffield.is_empty()) {
-                (true, true) => empty_shrinker(),
-                (true, false) | (false, true) => Box::new(iter::once(TableConstructor::empty())),
-                (false, false) => Box::new(IntoIterator::into_iter([
-                    TableConstructor::lfieldlist(self.lfield.clone()),
-                    TableConstructor::ffieldlist(self.ffield.clone()),
-                ])),
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for TableConstructor {
+    fn arbitrary(g: &mut Gen) -> Self {
+        if g.size() == 0 {
+            TableConstructor::empty()
+        } else {
+            let gen = &mut Gen::new(QUICKCHECK_RECURSIVE_DEPTH.min(g.size() - 1));
+            let exprs = arbitrary_recursive_vec(gen);
+            match u8::arbitrary(gen) % 3 {
+                0 => TableConstructor::lfieldlist(exprs),
+                1 => TableConstructor::ffieldlist(
+                    exprs
+                        .into_iter()
+                        .map(|expr| (with_thread_gen(Ident::arbitrary), expr))
+                        .collect(),
+                ),
+                2 => TableConstructor {
+                    lfield: exprs,
+                    ffield: arbitrary_recursive_vec(gen)
+                        .into_iter()
+                        .map(|expr| (with_thread_gen(Ident::arbitrary), expr))
+                        .collect(),
+                },
+                _ => unreachable!(),
             }
         }
     }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        match (self.lfield.is_empty(), self.ffield.is_empty()) {
+            (true, true) => empty_shrinker(),
+            (true, false) | (false, true) => Box::new(iter::once(TableConstructor::empty())),
+            (false, false) => Box::new(IntoIterator::into_iter([
+                TableConstructor::lfieldlist(self.lfield.clone()),
+                TableConstructor::ffieldlist(self.ffield.clone()),
+            ])),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::TableConstructor;
+    use crate::unspanned_lua_token_parser;
+    use luar_lex::Token;
+
+    #[cfg(feature = "quickcheck")]
+    use super::lfieldlist_tokens;
+    #[cfg(feature = "quickcheck")]
+    use crate::Expression;
+    #[cfg(feature = "quickcheck")]
+    use luar_lex::Ident;
+    #[cfg(feature = "quickcheck")]
+    use luar_lex::ToTokenStream;
+    #[cfg(feature = "quickcheck")]
+    use quickcheck::TestResult;
 
     #[test]
     fn parses_empty_table_constructor() {
@@ -147,6 +154,7 @@ mod test {
         assert_eq!(parsed, TableConstructor::empty());
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_table_constructor(expected: TableConstructor) {
         let tokens = expected.clone().to_tokens().collect::<Vec<_>>();
@@ -154,6 +162,7 @@ mod test {
         assert_eq!(parsed, expected);
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_list_table_constructor_with_trailing_comma(
         exprs: Vec<Expression>,
@@ -172,6 +181,7 @@ mod test {
         TestResult::passed()
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_list_table_constructor(exprs: Vec<Expression>) -> TestResult {
         if exprs.len() == 0 {
@@ -187,6 +197,7 @@ mod test {
         TestResult::passed()
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_associative_table_constructor(
         exprs: Vec<(Ident, Expression)>,

@@ -11,22 +11,21 @@ name = "bench_main"
 harness = false
 
 [workspace]
-members = ["non_empty", "luar_lex"]
+members = ["non_empty", "lex", "test_util", "syn"]
 
 [dependencies]
 non_empty = { path = "./non_empty" }
-luar_lex = { path = "./luar_lex" }
-logos = "0.12"
+luar_lex = { path = "./lex" }
+luar_syn = { path = "./syn" }
 thiserror = "1.0"
 num = "0.4"
-# nom = "6.0"
-peg = "0.7.0"
 itertools = "0.10.1"
 libc = "0.2"
 
 [dev-dependencies]
 non_empty = { path = "./non_empty", features = ["quickcheck"] }
-luar_lex = { path = "./luar_lex", features = ["quickcheck"] }
+luar_lex = { path = "./lex", features = ["quickcheck"] }
+luar_syn = { path = "./syn", features = ["quickcheck"] }
 test_util = { path = "./test_util" }
 function_name = "0.2"
 quickcheck = "1.0"
@@ -36,4 +35,3 @@ mlua = { version = "0.7", features = ["lua54", "vendored"] }
 ntest = "0.7.5"
 lazy_static = "1.4.0"
 indoc = "1.0"
-insta = "1.3"

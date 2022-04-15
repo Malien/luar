@@ -421,17 +421,15 @@ dependencies = [
  "criterion",
  "function_name",
  "indoc",
- "insta",
  "itertools",
  "lazy_static",
  "libc",
- "logos",
  "luar_lex",
+ "luar_syn",
  "mlua",
  "non_empty",
  "ntest",
  "num",
- "peg",
  "quickcheck",
  "quickcheck_macros",
  "test_util",
@@ -450,6 +448,22 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "regex",
+ "test_util",
+ "thiserror",
+]
+
+[[package]]
+name = "luar_syn"
+version = "0.1.0"
+dependencies = [
+ "indoc",
+ "insta",
+ "logos",
+ "luar_lex",
+ "non_empty",
+ "peg",
+ "quickcheck",
+ "quickcheck_macros",
  "test_util",
  "thiserror",
 ]

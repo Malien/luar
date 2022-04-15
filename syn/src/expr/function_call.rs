@@ -1,6 +1,6 @@
 use luar_lex::{fmt_tokens, DynTokens, Ident, ToTokenStream, Token};
 
-use crate::util::FlatIntersperseExt;
+use crate::flat_intersperse::FlatIntersperseExt;
 
 use super::{Expression, TableConstructor, Var};
 
@@ -63,126 +63,131 @@ impl ToTokenStream for FunctionCallArgs {
     }
 }
 
+#[cfg(feature = "quickcheck")]
+use quickcheck::{empty_shrinker, Arbitrary, Gen};
+#[cfg(feature = "quickcheck")]
+use test_util::{arbitrary_recursive_vec, with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH};
+
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for FunctionCall {
+    fn arbitrary(g: &mut Gen) -> Self {
+        match u8::arbitrary(g) % 2 {
+            0 => Self::Method {
+                args: FunctionCallArgs::arbitrary(g),
+                func: Var::arbitrary(g),
+                method: with_thread_gen(Ident::arbitrary),
+            },
+            1 => Self::Function {
+                args: FunctionCallArgs::arbitrary(g),
+                func: Var::arbitrary(g),
+            },
+            _ => unreachable!(),
+        }
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        match self {
+            Self::Method { args, func, method } => {
+                let args_shrinked = {
+                    let func = func.clone();
+                    let method = method.clone();
+
+                    args.shrink().map(move |args| Self::Method {
+                        args,
+                        func: func.clone(),
+                        method: method.clone(),
+                    })
+                };
+
+                let func_shrinked = {
+                    let args = args.clone();
+                    let method = method.clone();
+
+                    func.shrink().map(move |func| Self::Method {
+                        args: args.clone(),
+                        func,
+                        method: method.clone(),
+                    })
+                };
+
+                let method_shrinked = {
+                    let args = args.clone();
+                    let func = func.clone();
+
+                    method.shrink().map(move |method| Self::Method {
+                        args: args.clone(),
+                        func: func.clone(),
+                        method,
+                    })
+                };
+
+                Box::new(args_shrinked.chain(func_shrinked).chain(method_shrinked))
+            }
+
+            Self::Function { args, func } => {
+                let args_shrinked = {
+                    let func = func.clone();
+                    args.shrink().map(move |args| Self::Function {
+                        args,
+                        func: func.clone(),
+                    })
+                };
+
+                let func_shrinked = {
+                    let args = args.clone();
+
+                    func.shrink().map(move |func| Self::Function {
+                        args: args.clone(),
+                        func,
+                    })
+                };
+
+                Box::new(args_shrinked.chain(func_shrinked))
+            }
+        }
+    }
+}
+
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for FunctionCallArgs {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        if g.size() == 0 {
+            match u8::arbitrary(g) % 2 {
+                0 => Self::Table(TableConstructor::empty()),
+                1 => Self::Arglist(Vec::new()),
+                _ => unreachable!(),
+            }
+        } else {
+            let gen = &mut Gen::new(QUICKCHECK_RECURSIVE_DEPTH.min(g.size() - 1));
+            match u8::arbitrary(gen) % 2 {
+                0 => Self::Table(TableConstructor::arbitrary(g)),
+                1 => Self::Arglist(arbitrary_recursive_vec(gen)),
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        match self {
+            Self::Table(tbl) if tbl.is_empty() => empty_shrinker(),
+            Self::Arglist(args) if args.is_empty() => empty_shrinker(),
+            Self::Table(tbl) => Box::new(tbl.shrink().map(Self::Table)),
+            Self::Arglist(args) => Box::new(args.shrink().map(Self::Arglist)),
+        }
+    }
+}
+
 #[cfg(test)]
+#[cfg(feature = "quickcheck")]
 mod test {
-    use quickcheck::{empty_shrinker, Arbitrary, Gen};
-
     use luar_lex::{Ident, ToTokenStream};
-    use test_util::{arbitrary_recursive_vec, with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH};
 
-    use crate::syn::{
+    use crate::{
         expr::{Expression, TableConstructor, Var},
         unspanned_lua_token_parser, ParseError,
     };
 
     use super::{FunctionCall, FunctionCallArgs};
-
-    impl Arbitrary for FunctionCall {
-        fn arbitrary(g: &mut Gen) -> Self {
-            match u8::arbitrary(g) % 2 {
-                0 => Self::Method {
-                    args: FunctionCallArgs::arbitrary(g),
-                    func: Var::arbitrary(g),
-                    method: with_thread_gen(Ident::arbitrary),
-                },
-                1 => Self::Function {
-                    args: FunctionCallArgs::arbitrary(g),
-                    func: Var::arbitrary(g),
-                },
-                _ => unreachable!(),
-            }
-        }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            match self {
-                Self::Method { args, func, method } => {
-                    let args_shrinked = {
-                        let func = func.clone();
-                        let method = method.clone();
-
-                        args.shrink().map(move |args| Self::Method {
-                            args,
-                            func: func.clone(),
-                            method: method.clone(),
-                        })
-                    };
-
-                    let func_shrinked = {
-                        let args = args.clone();
-                        let method = method.clone();
-
-                        func.shrink().map(move |func| Self::Method {
-                            args: args.clone(),
-                            func,
-                            method: method.clone(),
-                        })
-                    };
-
-                    let method_shrinked = {
-                        let args = args.clone();
-                        let func = func.clone();
-
-                        method.shrink().map(move |method| Self::Method {
-                            args: args.clone(),
-                            func: func.clone(),
-                            method,
-                        })
-                    };
-
-                    Box::new(args_shrinked.chain(func_shrinked).chain(method_shrinked))
-                }
-
-                Self::Function { args, func } => {
-                    let args_shrinked = {
-                        let func = func.clone();
-                        args.shrink().map(move |args| Self::Function {
-                            args,
-                            func: func.clone(),
-                        })
-                    };
-
-                    let func_shrinked = {
-                        let args = args.clone();
-
-                        func.shrink().map(move |func| Self::Function {
-                            args: args.clone(),
-                            func,
-                        })
-                    };
-
-                    Box::new(args_shrinked.chain(func_shrinked))
-                }
-            }
-        }
-    }
-
-    impl Arbitrary for FunctionCallArgs {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            if g.size() == 0 {
-                match u8::arbitrary(g) % 2 {
-                    0 => Self::Table(TableConstructor::empty()),
-                    1 => Self::Arglist(Vec::new()),
-                    _ => unreachable!(),
-                }
-            } else {
-                let gen = &mut Gen::new(QUICKCHECK_RECURSIVE_DEPTH.min(g.size() - 1));
-                match u8::arbitrary(gen) % 2 {
-                    0 => Self::Table(TableConstructor::arbitrary(g)),
-                    1 => Self::Arglist(arbitrary_recursive_vec(gen)),
-                    _ => unreachable!(),
-                }
-            }
-        }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            match self {
-                Self::Table(tbl) if tbl.is_empty() => empty_shrinker(),
-                Self::Arglist(args) if args.is_empty() => empty_shrinker(),
-                Self::Table(tbl) => Box::new(tbl.shrink().map(Self::Table)),
-                Self::Arglist(args) => Box::new(args.shrink().map(Self::Arglist)),
-            }
-        }
-    }
 
     #[quickcheck]
     fn parses_empty_function_call(func: Var) {

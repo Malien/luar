@@ -1,12 +1,11 @@
-use std::{collections::HashSet, error::Error, mem::size_of};
-
 use luar::{
     ast_vm,
     error::LuaError,
     lang::{EvalError, LuaValue, TypeError},
     stdlib,
-    syn::{self, ParseError, ParseErrorWithSourcePosition, RawParseError},
 };
+use luar_syn::{lua_parser, ParseError, ParseErrorWithSourcePosition, RawParseError};
+use std::{collections::HashSet, error::Error, mem::size_of};
 
 fn repl() -> Result<(), Box<dyn Error>> {
     use std::io::{BufRead, Write};
@@ -15,7 +14,7 @@ fn repl() -> Result<(), Box<dyn Error>> {
     print!(">>> ");
     std::io::stdout().flush()?;
     for line in std::io::stdin().lock().lines() {
-        let module = syn::lua_parser::module(&line?)?;
+        let module = lua_parser::module(&line?)?;
         let res = ast_vm::eval_module(&module, &mut context);
         match res {
             Ok(value) => println!("{}", value),
@@ -33,7 +32,7 @@ fn eval_file(filename: &str) -> Result<(), Box<dyn Error>> {
     let mut file = std::fs::File::open(filename)?;
     let mut buffer = String::new();
     file.read_to_string(&mut buffer)?;
-    let module = syn::lua_parser::module(&buffer)?;
+    let module = lua_parser::module(&buffer)?;
     ast_vm::eval_module(&module, &mut stdlib::std_context())?;
     Ok(())
 }

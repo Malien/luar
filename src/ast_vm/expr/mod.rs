@@ -1,9 +1,6 @@
+use crate::lang::{EvalError, LocalScope, ReturnValue, ScopeHolder, TableRef};
 use luar_lex::{NumberLiteral, StringLiteral};
-
-use crate::{
-    lang::{EvalError, LocalScope, ReturnValue, ScopeHolder, TableRef},
-    syn::Expression,
-};
+use luar_syn::Expression;
 
 mod table_constructor;
 pub(crate) use table_constructor::eval_tbl_constructor;
@@ -43,15 +40,14 @@ pub(crate) fn eval_expr(
 
 #[cfg(test)]
 mod test {
-    use luar_lex::{NumberLiteral, StringLiteral, Token};
-    use test_util::Finite;
-
     use crate::{
         ast_vm,
         error::LuaError,
         lang::{GlobalContext, ReturnValue},
-        syn::{lua_parser, unspanned_lua_token_parser},
     };
+    use luar_lex::{NumberLiteral, StringLiteral, Token};
+    use luar_syn::{lua_parser, unspanned_lua_token_parser};
+    use test_util::Finite;
 
     #[test]
     fn eval_nil() -> Result<(), LuaError> {

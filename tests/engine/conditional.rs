@@ -4,7 +4,7 @@ macro_rules! conditional_tests {
         mod conditional {
             use ::luar::error::LuaError;
             use ::luar::lang::{Engine, ReturnValue, LuaValue};
-            use ::luar::syn::lua_parser;
+            use ::luar_syn::lua_parser;
             use ::non_empty::ne_vec;
 
             #[test]

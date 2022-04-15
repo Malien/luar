@@ -1,6 +1,6 @@
 use luar_lex::{fmt_tokens, DynTokens, ToTokenStream, Token};
 
-use crate::syn::{expr::Expression, Block};
+use crate::{expr::Expression, Block};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WhileLoop {
@@ -24,43 +24,49 @@ impl ToTokenStream for WhileLoop {
 
 fmt_tokens!(WhileLoop);
 
+#[cfg(feature = "quickcheck")]
+use quickcheck::{Arbitrary, Gen};
+
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for WhileLoop {
+    fn arbitrary(g: &mut Gen) -> Self {
+        Self {
+            condition: Arbitrary::arbitrary(g),
+            body: Arbitrary::arbitrary(g),
+        }
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        let condition = self.condition.clone();
+        let body = self.body.clone();
+        Box::new(
+            self.condition
+                .shrink()
+                .map(move |condition| Self {
+                    condition,
+                    body: body.clone(),
+                })
+                .chain(self.body.shrink().map(move |body| Self {
+                    condition: condition.clone(),
+                    body,
+                })),
+        )
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use luar_lex::{Ident, NumberLiteral, ToTokenStream, Token};
+    use luar_lex::{Ident, NumberLiteral, Token};
     use non_empty::NonEmptyVec;
-    use quickcheck::Arbitrary;
 
     use super::WhileLoop;
     use crate::{
-        input_parsing_expectation,
-        syn::{expr::Expression, unspanned_lua_token_parser, Block, Declaration, Statement},
+        expr::Expression, input_parsing_expectation, unspanned_lua_token_parser, Block,
+        Declaration, Statement,
     };
 
-    impl Arbitrary for WhileLoop {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            Self {
-                condition: Arbitrary::arbitrary(g),
-                body: Arbitrary::arbitrary(g),
-            }
-        }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            let condition = self.condition.clone();
-            let body = self.body.clone();
-            Box::new(
-                self.condition
-                    .shrink()
-                    .map(move |condition| Self {
-                        condition,
-                        body: body.clone(),
-                    })
-                    .chain(self.body.shrink().map(move |body| Self {
-                        condition: condition.clone(),
-                        body,
-                    })),
-            )
-        }
-    }
+    #[cfg(feature = "quickcheck")]
+    use luar_lex::ToTokenStream;
 
     input_parsing_expectation!(
         while_loop,
@@ -122,6 +128,7 @@ mod test {
         assert!(res.is_err());
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_empty_statement_body_with_arbitrary_condition(condition: Expression) {
         let while_loop = WhileLoop {
@@ -133,6 +140,7 @@ mod test {
         assert_eq!(while_loop, parsed);
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_simple_loop_with_arbitrary_body(body: Block) {
         let while_loop = WhileLoop {
@@ -144,6 +152,7 @@ mod test {
         assert_eq!(while_loop, parsed);
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_while_loop(while_loop: WhileLoop) {
         let tokens: Vec<_> = while_loop.clone().to_tokens().collect();

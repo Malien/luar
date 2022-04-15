@@ -4,8 +4,8 @@ use crate::{
         ArithmeticError, ArithmeticOperator, EvalError, LocalScope, LuaValue, OrderingOperator,
         ScopeHolder, TypeError,
     },
-    syn::{BinaryOperator, Expression},
 };
+use luar_syn::{BinaryOperator, Expression};
 
 pub(crate) fn binary_op_eval(
     op: BinaryOperator,
@@ -92,15 +92,14 @@ ord_op!(greater_or_equals, >=, OrderingOperator::GreaterOrEquals);
 
 #[cfg(test)]
 mod test {
-    use non_empty::{NonEmptyVec, ne_vec};
-    use quickcheck::TestResult;
-
     use crate::{
         ast_vm,
         error::LuaError,
         lang::{GlobalContext, LuaFunction, LuaNumber, LuaValue, ReturnValue},
-        syn::lua_parser,
     };
+    use luar_syn::lua_parser;
+    use non_empty::{ne_vec, NonEmptyVec};
+    use quickcheck::TestResult;
 
     #[quickcheck]
     fn eval_and_truthy(lhs: LuaValue, rhs: LuaValue) -> Result<TestResult, LuaError> {
@@ -154,7 +153,10 @@ mod test {
             return side_effect_committed",
         )?;
         let mut context = GlobalContext::new();
-        assert_eq!(ast_vm::eval_module(&module, &mut context)?, ReturnValue::Nil);
+        assert_eq!(
+            ast_vm::eval_module(&module, &mut context)?,
+            ReturnValue::Nil
+        );
         Ok(())
     }
 
@@ -212,7 +214,10 @@ mod test {
         ",
         )?;
         let mut context = GlobalContext::new();
-        assert_eq!(ast_vm::eval_module(&module, &mut context)?, ReturnValue::Nil);
+        assert_eq!(
+            ast_vm::eval_module(&module, &mut context)?,
+            ReturnValue::Nil
+        );
         Ok(())
     }
 

@@ -127,7 +127,7 @@ macro_rules! run_lua_test {
                 }),
             );
         }
-        let test_module = crate::syn::lua_parser::module(include_str!($file))?;
+        let test_module = ::luar_syn::lua_parser::module(include_str!($file))?;
         crate::ast_vm::eval_module(&test_module, &mut context)?;
         Ok(())
     }};

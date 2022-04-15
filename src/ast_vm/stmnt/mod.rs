@@ -1,8 +1,6 @@
 use super::{eval_fn_call, ControlFlow};
-use crate::{
-    lang::{EvalError, LocalScope, ScopeHolder},
-    syn::Statement,
-};
+use crate::lang::{EvalError, LocalScope, ScopeHolder};
+use luar_syn::Statement;
 
 mod assignment;
 pub(crate) use assignment::*;

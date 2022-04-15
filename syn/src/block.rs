@@ -25,52 +25,54 @@ impl ToTokenStream for Block {
 
 fmt_tokens!(Block);
 
-#[cfg(test)]
-mod test {
-    use luar_lex::{format::format_tokens, ToTokenStream};
-    use quickcheck::{Arbitrary, Gen};
-    use test_util::GenExt;
+#[cfg(feature = "quickcheck")]
+use quickcheck::{Arbitrary, Gen};
+#[cfg(feature = "quickcheck")]
+use test_util::GenExt;
 
-    use crate::{
-        assert_parses,
-        syn::{Return, Statement},
-    };
-
-    use super::Block;
-
-    impl Arbitrary for Block {
-        fn arbitrary(g: &mut Gen) -> Self {
-            if g.size() <= 1 {
-                return Block::default();
-            }
-            let g = &mut g.next_iter();
-            Self {
-                statements: Arbitrary::arbitrary(g),
-                ret: Arbitrary::arbitrary(g),
-            }
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for Block {
+    fn arbitrary(g: &mut Gen) -> Self {
+        if g.size() <= 1 {
+            return Block::default();
         }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            Box::new(
-                self.statements
-                    .shrink()
-                    .map({
-                        let ret = self.ret.clone();
-                        move |statements| Block {
-                            statements,
-                            ret: ret.clone(),
-                        }
-                    })
-                    .chain(self.ret.shrink().map({
-                        let statements = self.statements.clone();
-                        move |ret| Block {
-                            statements: statements.clone(),
-                            ret,
-                        }
-                    })),
-            )
+        let g = &mut g.next_iter();
+        Self {
+            statements: Arbitrary::arbitrary(g),
+            ret: Arbitrary::arbitrary(g),
         }
     }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        Box::new(
+            self.statements
+                .shrink()
+                .map({
+                    let ret = self.ret.clone();
+                    move |statements| Block {
+                        statements,
+                        ret: ret.clone(),
+                    }
+                })
+                .chain(self.ret.shrink().map({
+                    let statements = self.statements.clone();
+                    move |ret| Block {
+                        statements: statements.clone(),
+                        ret,
+                    }
+                })),
+        )
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "quickcheck")]
+mod test {
+    use luar_lex::{format::format_tokens, ToTokenStream};
+
+    use crate::{assert_parses, Return, Statement};
+
+    use super::Block;
 
     #[quickcheck]
     fn displays_correctly_statements(statements: Vec<Statement>) {

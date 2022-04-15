@@ -1,3 +1,8 @@
+#[cfg(test)]
+#[cfg(feature = "quickcheck")]
+#[macro_use(quickcheck)]
+extern crate quickcheck_macros;
+
 use luar_lex::{Ident, Token};
 
 mod token_stream;
@@ -8,6 +13,8 @@ mod token_span;
 pub use token_span::*;
 
 use non_empty::NonEmptyVec;
+
+pub(crate) mod flat_intersperse;
 
 pub mod expr;
 pub use expr::op::*;
@@ -115,11 +122,10 @@ pub(crate) fn enrich_error(source: &str, raw_error: RawParseError) -> ParseError
 pub mod lua_parser {
     macro_rules! forward {
         ($rule: ident, $ret: ty) => {
-            pub fn $rule(input: &str) -> Result<$ret, crate::syn::ParseErrorWithSourcePosition> {
+            pub fn $rule(input: &str) -> Result<$ret, crate::ParseErrorWithSourcePosition> {
                 use logos::Logos;
-                let tokens: crate::syn::TokenStream =
-                    luar_lex::Token::lexer(input).spanned().collect();
-                crate::syn::lua_token_parser::$rule(&tokens)
+                let tokens: crate::TokenStream = luar_lex::Token::lexer(input).spanned().collect();
+                crate::lua_token_parser::$rule(&tokens)
                     .map_err(|error| super::enrich_error(input, error))
             }
         };
@@ -151,10 +157,10 @@ pub mod unspanned_lua_token_parser {
         ($rule: ident, $ret: ty) => {
             pub fn $rule(
                 input: impl ::std::iter::IntoIterator<Item = luar_lex::Token>,
-            ) -> Result<$ret, crate::syn::RawParseError> {
-                crate::syn::lua_token_parser::$rule(
-                    &crate::syn::ToTokenStreamExt::to_spanned_token_stream(input.into_iter()),
-                )
+            ) -> Result<$ret, $crate::RawParseError> {
+                $crate::lua_token_parser::$rule(&$crate::ToTokenStreamExt::to_spanned_token_stream(
+                    input.into_iter(),
+                ))
             }
         };
     }
@@ -574,9 +580,8 @@ mod tests {
             #[test]
             fn $name() {
                 use logos::Logos;
-                let tokens: crate::syn::TokenStream =
-                    luar_lex::Token::lexer($input).spanned().collect();
-                let parsed = crate::syn::lua_token_parser::$type(&tokens).unwrap();
+                let tokens: crate::TokenStream = luar_lex::Token::lexer($input).spanned().collect();
+                let parsed = crate::lua_token_parser::$type(&tokens).unwrap();
                 assert_eq!(parsed, $expected)
             }
         };
@@ -586,7 +591,7 @@ mod tests {
     macro_rules! assert_parses {
         ($type: ident, $expected: expr) => {{
             let expected = $expected;
-            let parsed = crate::syn::unspanned_lua_token_parser::$type(
+            let parsed = crate::unspanned_lua_token_parser::$type(
                 luar_lex::ToTokenStream::to_tokens(expected.clone()),
             )
             .unwrap();

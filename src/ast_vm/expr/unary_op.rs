@@ -1,9 +1,6 @@
-use crate::{
-    lang::{ArithmeticError, EvalError, LocalScope, LuaValue, ScopeHolder, TypeError},
-    syn::{Expression, UnaryOperator},
-};
-
 use super::eval_expr;
+use crate::lang::{ArithmeticError, EvalError, LocalScope, LuaValue, ScopeHolder, TypeError};
+use luar_syn::{Expression, UnaryOperator};
 
 pub(crate) fn eval_unary_op_expr(
     expr: &Expression,
@@ -20,7 +17,7 @@ pub(crate) fn eval_unary_op_expr(
 fn unary_op_eval(op: UnaryOperator, value: LuaValue) -> Result<LuaValue, ArithmeticError> {
     match op {
         UnaryOperator::Minus => unary_minus_eval(value),
-        UnaryOperator::Not if value.is_falsy() => Ok(LuaValue::number(1)),
+        UnaryOperator::Not if value.is_falsy() => Ok(LuaValue::true_value()),
         UnaryOperator::Not => Ok(LuaValue::Nil),
     }
 }
@@ -36,6 +33,7 @@ fn unary_minus_eval(value: LuaValue) -> Result<LuaValue, ArithmeticError> {
 mod test {
     mod expressions {
         use luar_lex::{NumberLiteral, StringLiteral};
+        use luar_syn::{lua_parser, Expression, UnaryOperator};
         use quickcheck::Arbitrary;
         use test_util::Finite;
 
@@ -45,14 +43,13 @@ mod test {
             lang::{
                 ArithmeticError, EvalError, GlobalContext, ReturnValue, ScopeHolder, TypeError,
             },
-            syn,
             util::eq_with_nan,
         };
 
-        fn negation_expr(num: f64) -> syn::Expression {
-            syn::Expression::UnaryOperator {
-                op: syn::UnaryOperator::Minus,
-                exp: Box::new(syn::Expression::Number(NumberLiteral(num))),
+        fn negation_expr(num: f64) -> Expression {
+            Expression::UnaryOperator {
+                op: UnaryOperator::Minus,
+                exp: Box::new(Expression::Number(NumberLiteral(num))),
             }
         }
 
@@ -107,9 +104,9 @@ mod test {
         #[quickcheck]
         fn eval_negation_on_convertible_str(num: f64) -> Result<(), EvalError> {
             let mut context = GlobalContext::new();
-            let expr = syn::Expression::UnaryOperator {
-                op: syn::UnaryOperator::Minus,
-                exp: Box::new(syn::Expression::String(StringLiteral(format!("{}", num)))),
+            let expr = Expression::UnaryOperator {
+                op: UnaryOperator::Minus,
+                exp: Box::new(Expression::String(StringLiteral(format!("{}", num)))),
             };
             let res = ast_vm::eval_expr(&expr, &mut context.top_level_scope())?
                 .assert_single()
@@ -123,14 +120,14 @@ mod test {
         fn eval_unary_minus_on_unsupported_type_errors() {
             let mut context = GlobalContext::new();
             let unsupported = [
-                syn::Expression::Nil,
-                syn::Expression::String(StringLiteral("Definitely not a number".to_string())),
+                Expression::Nil,
+                Expression::String(StringLiteral("Definitely not a number".to_string())),
                 // syn::Expression::TableConstructor(TableConstructor::empty()),
             ];
 
             for exp in unsupported {
-                let expr = syn::Expression::UnaryOperator {
-                    op: syn::UnaryOperator::Minus,
+                let expr = Expression::UnaryOperator {
+                    op: UnaryOperator::Minus,
                     exp: Box::new(exp),
                 };
                 let res = ast_vm::eval_expr(&expr, &mut context.top_level_scope());
@@ -141,7 +138,7 @@ mod test {
         #[test]
         fn eval_not_on_nil() -> Result<(), LuaError> {
             let mut context = GlobalContext::new();
-            let expr = syn::lua_parser::expression("not nil")?;
+            let expr = lua_parser::expression("not nil")?;
             assert_eq!(
                 ast_vm::eval_expr(&expr, &mut context.top_level_scope())?,
                 ReturnValue::true_value()
@@ -150,13 +147,13 @@ mod test {
         }
 
         #[derive(Debug, Clone)]
-        pub struct TruthyExpression(syn::Expression);
+        pub struct TruthyExpression(Expression);
 
         impl Arbitrary for TruthyExpression {
             fn arbitrary(g: &mut quickcheck::Gen) -> Self {
                 Self(match u8::arbitrary(g) % 2 {
-                    0 => syn::Expression::Number(Arbitrary::arbitrary(g)),
-                    1 => syn::Expression::String(Arbitrary::arbitrary(g)),
+                    0 => Expression::Number(Arbitrary::arbitrary(g)),
+                    1 => Expression::String(Arbitrary::arbitrary(g)),
                     _ => unreachable!(),
                 })
             }
@@ -171,8 +168,8 @@ mod test {
             TruthyExpression(expr): TruthyExpression,
         ) -> Result<(), LuaError> {
             let mut context = GlobalContext::new();
-            let expr = syn::Expression::UnaryOperator {
-                op: syn::UnaryOperator::Not,
+            let expr = Expression::UnaryOperator {
+                op: UnaryOperator::Not,
                 exp: Box::new(expr),
             };
             assert_eq!(

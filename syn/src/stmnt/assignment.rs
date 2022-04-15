@@ -2,8 +2,8 @@ use luar_lex::{fmt_tokens, DynTokens, ToTokenStream, Token};
 use non_empty::NonEmptyVec;
 
 use crate::{
-    syn::expr::{Expression, Var},
-    util::FlatIntersperseExt,
+    expr::{Expression, Var},
+    flat_intersperse::FlatIntersperseExt,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -34,41 +34,44 @@ impl ToTokenStream for Assignment {
 
 fmt_tokens!(Assignment);
 
-#[cfg(test)]
-mod test {
-    use luar_lex::ToTokenStream;
-    use quickcheck::Arbitrary;
+#[cfg(feature = "quickcheck")]
+use quickcheck::{Arbitrary, Gen};
 
-    use crate::syn::unspanned_lua_token_parser;
-
-    use super::Assignment;
-
-    impl Arbitrary for Assignment {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            Self {
-                names: Arbitrary::arbitrary(g),
-                values: Arbitrary::arbitrary(g),
-            }
-        }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            let values = self.values.clone();
-            let names = self.names.clone();
-            Box::new(
-                self.names
-                    .shrink()
-                    .map(move |names| Self {
-                        names,
-                        values: values.clone(),
-                    })
-                    .chain(self.values.shrink().map(move |values| Self {
-                        values,
-                        names: names.clone(),
-                    })),
-            )
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for Assignment {
+    fn arbitrary(g: &mut Gen) -> Self {
+        Self {
+            names: Arbitrary::arbitrary(g),
+            values: Arbitrary::arbitrary(g),
         }
     }
 
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        let values = self.values.clone();
+        let names = self.names.clone();
+        Box::new(
+            self.names
+                .shrink()
+                .map(move |names| Self {
+                    names,
+                    values: values.clone(),
+                })
+                .chain(self.values.shrink().map(move |values| Self {
+                    values,
+                    names: names.clone(),
+                })),
+        )
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "quickcheck")]
+mod test {
+    use super::Assignment;
+    use crate::unspanned_lua_token_parser;
+    use luar_lex::ToTokenStream;
+
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn parses_arbitrary_assignment(expected: Assignment) {
         let tokens = expected.clone().to_tokens().collect::<Vec<_>>();
