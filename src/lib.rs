@@ -5,7 +5,7 @@ extern crate quickcheck_macros;
 #[cfg(test)]
 mod test_util;
 
-mod util;
+pub mod util;
 
 pub mod error;
 pub mod lang;

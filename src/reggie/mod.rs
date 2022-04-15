@@ -8,6 +8,7 @@ pub(crate) mod runtime;
 pub use machine::Machine;
 
 use crate::{
+    ast_vm::Engine,
     error::LuaError,
     lang::{EvalError, LuaValue, ReturnValue},
     syn,
@@ -39,17 +40,30 @@ fn to_ffi_return_value(values: &[LuaValue]) -> ReturnValue {
     return ReturnValue::MultiValue(return_values);
 }
 
+pub struct ReggieVM;
+
+impl Engine for ReggieVM {
+    type ExecutionContext = Machine;
+
+    fn eval_module(
+        module: &syn::Module,
+        context: &mut Self::ExecutionContext,
+    ) -> Result<ReturnValue, EvalError> {
+        eval_module(module, context)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use quickcheck::TestResult;
 
     use crate::{
         error::LuaError,
-        lang::{LuaValue, ReturnValue},
-        lex::{NumberLiteral, StringLiteral, Token},
-        reggie::{compiler::compile_module, eval_module, eval_str, machine::Machine, runtime::call_module},
-        syn::{lua_parser, unspanned_lua_token_parser},
-        test_util::Finite,
+        lang::LuaValue,
+        reggie::{
+            compiler::compile_module, eval_module, eval_str, machine::Machine, runtime::call_module,
+        },
+        syn::lua_parser,
     };
 
     #[test]
@@ -59,39 +73,6 @@ mod test {
         let compiled_module = compile_module(&module, &mut machine.global_values);
         let res = call_module(compiled_module, &mut machine)?;
         assert_eq!(res, []);
-        Ok(())
-    }
-
-    #[test]
-    fn eval_nil() -> Result<(), LuaError> {
-        let module = lua_parser::module("return nil")?;
-        let mut machine = Machine::new();
-        let compiled_module = compile_module(&module, &mut machine.global_values);
-        let res = call_module(compiled_module, &mut machine)?;
-        assert_eq!(res, [LuaValue::Nil]);
-        Ok(())
-    }
-
-    #[quickcheck]
-    fn eval_number_literal(Finite(num): Finite<f64>) -> Result<(), LuaError> {
-        let module =
-            unspanned_lua_token_parser::module([Token::Return, Token::Number(NumberLiteral(num))])?;
-        let mut machine = Machine::new();
-        assert!(eval_module(&module, &mut machine)?.total_eq(&ReturnValue::number(num)));
-        Ok(())
-    }
-
-    #[quickcheck]
-    fn eval_string_literal(str: String) -> Result<(), LuaError> {
-        let module = unspanned_lua_token_parser::module([
-            Token::Return,
-            Token::String(StringLiteral(str.clone())),
-        ])?;
-        let mut machine = Machine::new();
-        assert_eq!(
-            eval_module(&module, &mut machine)?,
-            ReturnValue::String(str)
-        );
         Ok(())
     }
 
@@ -139,5 +120,4 @@ mod test {
         assert_eq!(LuaValue::true_value(), res.assert_single());
         Ok(())
     }
-
 }

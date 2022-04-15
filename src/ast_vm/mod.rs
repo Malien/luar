@@ -26,3 +26,19 @@ pub mod scope;
 
 mod ctrl_flow;
 pub use ctrl_flow::*;
+
+pub use crate::lang::Engine;
+use crate::lang::GlobalContext;
+
+pub struct AstVM;
+
+impl Engine for AstVM {
+    type ExecutionContext = GlobalContext;
+
+    fn eval_module(
+        module: &crate::syn::Module,
+        context: &mut Self::ExecutionContext,
+    ) -> Result<crate::lang::ReturnValue, crate::lang::EvalError> {
+        eval_module(module, context)
+    }
+}

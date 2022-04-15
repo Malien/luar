@@ -153,7 +153,7 @@ impl<T> From<NonEmptyVec<T>> for Vec<T> {
 #[macro_export]
 macro_rules! ne_vec {
     ($($x:expr),+ $(,)?) => (
-        unsafe { crate::util::NonEmptyVec::new_unchecked(vec![$($x),+]) }
+        unsafe { $crate::util::NonEmptyVec::new_unchecked(vec![$($x),+]) }
     );
 }
 
