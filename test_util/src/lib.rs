@@ -6,11 +6,11 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use luar_lex::Ident;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct NonShrinkable<T>(pub T);
+
+use luar_lex::Ident;
 
 impl<T> Arbitrary for NonShrinkable<T>
 where

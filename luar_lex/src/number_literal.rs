@@ -209,7 +209,7 @@ mod tests {
     use num::pow;
     use quickcheck::TestResult;
 
-    use crate::test_util::{Finite, NonShrinkable};
+    use test_util::{Finite, NonShrinkable};
 
     pub fn close_relative_eq(a: f64, b: f64) -> bool {
         let absolute_value = partial_min(a.abs(), b.abs()).unwrap();

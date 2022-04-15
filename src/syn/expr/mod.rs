@@ -64,13 +64,11 @@ mod test {
     use luar_lex::{NumberLiteral, StringLiteral, ToTokenStream, Token};
     use quickcheck::{empty_shrinker, Arbitrary, Gen};
     use std::iter;
+    use test_util::{with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH};
 
-    use crate::{
-        syn::{
-            expr::{FunctionCall, TableConstructor, Var},
-            unspanned_lua_token_parser, BinaryOperator, UnaryOperator,
-        },
-        test_util::{with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH},
+    use crate::syn::{
+        expr::{FunctionCall, TableConstructor, Var},
+        unspanned_lua_token_parser, BinaryOperator, UnaryOperator,
     };
 
     use super::Expression;

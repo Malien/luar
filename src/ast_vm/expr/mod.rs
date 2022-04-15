@@ -44,13 +44,13 @@ pub(crate) fn eval_expr(
 #[cfg(test)]
 mod test {
     use luar_lex::{NumberLiteral, StringLiteral, Token};
+    use test_util::Finite;
 
     use crate::{
         ast_vm,
         error::LuaError,
         lang::{GlobalContext, ReturnValue},
         syn::{lua_parser, unspanned_lua_token_parser},
-        test_util::Finite,
     };
 
     #[test]

@@ -91,9 +91,9 @@ mod test {
     use super::TableConstructor;
     use crate::syn::unspanned_lua_token_parser;
     use crate::syn::Expression;
-    use crate::test_util::arbitrary_recursive_vec;
-    use crate::test_util::with_thread_gen;
-    use crate::test_util::QUICKCHECK_RECURSIVE_DEPTH;
+    use test_util::arbitrary_recursive_vec;
+    use test_util::with_thread_gen;
+    use test_util::QUICKCHECK_RECURSIVE_DEPTH;
     use luar_lex::Ident;
     use luar_lex::ToTokenStream;
     use luar_lex::Token;

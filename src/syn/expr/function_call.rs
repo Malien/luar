@@ -68,13 +68,11 @@ mod test {
     use quickcheck::{empty_shrinker, Arbitrary, Gen};
 
     use luar_lex::{Ident, ToTokenStream};
+    use test_util::{arbitrary_recursive_vec, with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH};
 
-    use crate::{
-        syn::{
-            expr::{Expression, TableConstructor, Var},
-            unspanned_lua_token_parser, ParseError,
-        },
-        test_util::{arbitrary_recursive_vec, with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH},
+    use crate::syn::{
+        expr::{Expression, TableConstructor, Var},
+        unspanned_lua_token_parser, ParseError,
     };
 
     use super::{FunctionCall, FunctionCallArgs};

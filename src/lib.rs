@@ -2,9 +2,6 @@
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
 
-#[cfg(test)]
-mod test_util;
-
 pub mod util;
 
 pub mod error;

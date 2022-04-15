@@ -37,6 +37,7 @@ mod test {
     mod expressions {
         use luar_lex::{NumberLiteral, StringLiteral};
         use quickcheck::Arbitrary;
+        use test_util::Finite;
 
         use crate::{
             assert_type_error, ast_vm,
@@ -45,7 +46,6 @@ mod test {
                 ArithmeticError, EvalError, GlobalContext, ReturnValue, ScopeHolder, TypeError,
             },
             syn,
-            test_util::Finite,
             util::eq_with_nan,
         };
 

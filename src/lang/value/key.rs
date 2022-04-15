@@ -45,7 +45,7 @@ impl From<LuaKey> for LuaValue {
 #[cfg(test)]
 impl quickcheck::Arbitrary for LuaKey {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        use crate::test_util::with_thread_gen;
+        use test_util::with_thread_gen;
         match u8::arbitrary(g) % 2 {
             0 => LuaKey::Number(with_thread_gen(LuaNumber::arbitrary)),
             1 => LuaKey::String(with_thread_gen(String::arbitrary)),

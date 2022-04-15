@@ -1,0 +1,33 @@
+---
+source: luar_lex/src/token.rs
+expression: tokens
+---
+[
+    Number(
+        NumberLiteral(
+            4.0,
+        ),
+    ),
+    Number(
+        NumberLiteral(
+            1000.0,
+        ),
+    ),
+    Number(
+        NumberLiteral(
+            1e16,
+        ),
+    ),
+    Minus,
+    Number(
+        NumberLiteral(
+            60.0,
+        ),
+    ),
+    Plus,
+    Number(
+        NumberLiteral(
+            728.0,
+        ),
+    ),
+]

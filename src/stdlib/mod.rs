@@ -42,8 +42,9 @@ fn define_total_fn(
 
 #[cfg(test)]
 mod test {
+    use test_util::run_lua_test;
+
     use crate::error::LuaError;
-    use crate::run_lua_test;
 
     use super::std_context;
 

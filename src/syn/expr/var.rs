@@ -42,13 +42,11 @@ mod test {
     use luar_lex::{Ident, ToTokenStream, Token};
     use quickcheck::{empty_shrinker, Arbitrary, Gen};
     use std::iter;
+    use test_util::{with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH};
 
-    use crate::{
-        syn::{
-            expr::{Expression, Var},
-            unspanned_lua_token_parser, RawParseError,
-        },
-        test_util::{with_thread_gen, QUICKCHECK_RECURSIVE_DEPTH},
+    use crate::syn::{
+        expr::{Expression, Var},
+        unspanned_lua_token_parser, RawParseError,
     };
 
     impl Arbitrary for Var {

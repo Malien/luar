@@ -179,10 +179,9 @@ impl std::fmt::Display for Token {
 }
 
 #[cfg(test)]
+#[cfg(feature = "quickcheck")]
 mod tests {
     use std::unreachable;
-
-    use crate::{Ident, NumberLiteral, StringLiteral};
 
     use super::Token;
     use logos::Logos;
@@ -232,9 +231,9 @@ mod tests {
                 38 => Token::Dot,
                 39 => Token::Comma,
                 40 => Token::Semicolon,
-                41 => Token::Ident(Ident::arbitrary(g)),
-                42 => Token::String(StringLiteral::arbitrary(g)),
-                43 => Token::Number(NumberLiteral::arbitrary(g)),
+                41 => Token::Ident(Arbitrary::arbitrary(g)),
+                42 => Token::String(Arbitrary::arbitrary(g)),
+                43 => Token::Number(Arbitrary::arbitrary(g)),
                 _ => unreachable!(),
             }
         }

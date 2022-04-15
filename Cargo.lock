@@ -434,6 +434,7 @@ dependencies = [
  "peg",
  "quickcheck",
  "quickcheck_macros",
+ "test_util",
  "thiserror",
 ]
 
@@ -449,6 +450,7 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "regex",
+ "test_util",
  "thiserror",
 ]
 
@@ -969,6 +971,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "411c5bf740737c7918b8b1fe232dca4dc9f8e754b8ad5e20966814001ed0ac6b"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "test_util"
+version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "luar_lex",
+ "num",
+ "quickcheck",
 ]
 
 [[package]]

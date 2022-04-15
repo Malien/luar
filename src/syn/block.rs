@@ -29,11 +29,11 @@ fmt_tokens!(Block);
 mod test {
     use luar_lex::{format::format_tokens, ToTokenStream};
     use quickcheck::{Arbitrary, Gen};
+    use test_util::GenExt;
 
     use crate::{
         assert_parses,
         syn::{Return, Statement},
-        test_util::GenExt,
     };
 
     use super::Block;

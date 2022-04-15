@@ -71,11 +71,11 @@ mod test {
     use non_empty::NonEmptyVec;
     use quickcheck::{Arbitrary, Gen};
     use luar_lex::{Ident, NumberLiteral, ToTokenStream};
+    use test_util::GenExt;
 
     use crate::{
         input_parsing_expectation,
         syn::{expr::Expression, unspanned_lua_token_parser, Declaration, Statement, Block},
-        test_util::GenExt,
         
     };
 

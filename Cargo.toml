@@ -27,6 +27,7 @@ libc = "0.2"
 [dev-dependencies]
 non_empty = { path = "./non_empty", features = ["quickcheck"] }
 luar_lex = { path = "./luar_lex", features = ["quickcheck"] }
+test_util = { path = "./test_util" }
 function_name = "0.2"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"

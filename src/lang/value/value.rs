@@ -3,7 +3,7 @@ use std::fmt;
 use crate::lang::{EvalError, GlobalContext, LuaFunction, LuaNumber, LuaType};
 
 #[cfg(test)]
-use crate::test_util::{with_thread_gen, GenExt};
+use test_util::{with_thread_gen, GenExt};
 
 use super::{ReturnValue, TableRef, TableValue};
 

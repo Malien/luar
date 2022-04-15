@@ -29,13 +29,13 @@ pub(crate) fn eval_tbl_constructor(
 mod test {
     use luar_lex::Ident;
     use non_empty::NonEmptyVec;
+    use test_util::vec_of_idents;
 
     use crate::{
         ast_vm::{self, expr::table_constructor::eval_tbl_constructor},
         error::LuaError,
         lang::{GlobalContext, LuaKey, LuaValue, ScopeHolder, TableValue},
         syn::{lua_parser, Expression, TableConstructor, Var},
-        test_util::vec_of_idents,
     };
 
     #[test]
@@ -72,7 +72,7 @@ mod test {
         let res = eval_tbl_constructor(&tbl, &mut context.top_level_scope())?;
 
         let mut expected = TableValue::new();
-        for (value, idx) in values.into_iter().zip(1..) {
+        for (value, idx) in values.into_iter().zip(1usize..) {
             expected.set(LuaKey::number(idx), value)
         }
 
