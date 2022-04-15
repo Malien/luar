@@ -51,10 +51,9 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        lang::{LuaValue, ReturnValue},
-        ne_vec,
-    };
+    use non_empty::ne_vec;
+
+    use crate::lang::{LuaValue, ReturnValue};
 
     use super::tail_values;
 

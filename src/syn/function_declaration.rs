@@ -92,6 +92,7 @@ impl Display for FunctionDeclaration {
 #[cfg(test)]
 mod test {
     use indoc::indoc;
+    use non_empty::NonEmptyVec;
     use quickcheck::{Arbitrary, Gen};
 
     use crate::{
@@ -101,7 +102,7 @@ mod test {
             expr::{op::BinaryOperator, Expression, Var},
             Block, Conditional, ConditionalTail, Declaration, FunctionName, Return, Statement,
         },
-        util::NonEmptyVec,
+        
     };
 
     use super::FunctionDeclaration;

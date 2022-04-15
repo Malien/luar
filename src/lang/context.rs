@@ -1,6 +1,6 @@
 use std::collections::{hash_map::Entry, HashMap};
 
-use crate::util::NonEmptyVec;
+use non_empty::NonEmptyVec;
 
 use super::LuaValue;
 

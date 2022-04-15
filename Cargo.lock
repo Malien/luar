@@ -427,6 +427,7 @@ dependencies = [
  "libc",
  "logos",
  "mlua",
+ "non_empty",
  "ntest",
  "num",
  "peg",
@@ -465,6 +466,14 @@ dependencies = [
  "once_cell",
  "pkg-config",
  "rustc-hash",
+]
+
+[[package]]
+name = "non_empty"
+version = "0.1.0"
+dependencies = [
+ "quickcheck",
+ "thiserror",
 ]
 
 [[package]]

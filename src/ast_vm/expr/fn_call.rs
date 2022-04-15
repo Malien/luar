@@ -55,12 +55,12 @@ mod test {
     use std::cell::RefCell;
     use std::rc::Rc;
 
+    use non_empty::NonEmptyVec;
     use quickcheck::TestResult;
 
     use crate::error::LuaError;
     use crate::lang::{EvalError, GlobalContext, LuaFunction, LuaValue, ReturnValue, TypeError};
     use crate::syn;
-    use crate::util::NonEmptyVec;
     use crate::{assert_type_error, ast_vm};
 
     #[test]

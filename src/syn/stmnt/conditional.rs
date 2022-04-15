@@ -65,6 +65,7 @@ fmt_tokens!(Conditional);
 
 #[cfg(test)]
 mod test {
+    use non_empty::NonEmptyVec;
     use quickcheck::{Arbitrary, Gen};
 
     use crate::{
@@ -72,7 +73,7 @@ mod test {
         lex::{Ident, NumberLiteral, ToTokenStream},
         syn::{expr::Expression, unspanned_lua_token_parser, Declaration, Statement, Block},
         test_util::GenExt,
-        util::NonEmptyVec,
+        
     };
 
     use super::{Conditional, ConditionalTail};

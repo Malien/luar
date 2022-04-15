@@ -1,11 +1,9 @@
 mod flat_intersperse;
-mod non_empty;
 
 use std::cmp::Ordering;
 use num::abs;
 
 pub use flat_intersperse::*;
-pub use non_empty::*;
 
 pub fn eq_with_nan(a: f64, b: f64) -> bool {
     if a.is_nan() && b.is_nan() {

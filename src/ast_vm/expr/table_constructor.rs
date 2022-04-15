@@ -27,6 +27,8 @@ pub(crate) fn eval_tbl_constructor(
 
 #[cfg(test)]
 mod test {
+    use non_empty::NonEmptyVec;
+
     use crate::{
         ast_vm::{self, expr::table_constructor::eval_tbl_constructor},
         error::LuaError,
@@ -34,7 +36,6 @@ mod test {
         lex::Ident,
         syn::{lua_parser, Expression, TableConstructor, Var},
         test_util::vec_of_idents,
-        util::NonEmptyVec,
     };
 
     #[test]

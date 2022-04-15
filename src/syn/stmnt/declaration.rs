@@ -1,8 +1,10 @@
+use non_empty::NonEmptyVec;
+
 use crate::{
     fmt_tokens,
     lex::{DynTokens, Ident, ToTokenStream, Token},
     syn::expr::Expression,
-    util::{FlatIntersperseExt, NonEmptyVec},
+    util::FlatIntersperseExt,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -41,11 +43,12 @@ fmt_tokens!(Declaration);
 mod test {
     use super::Declaration;
     use crate::{
+        input_parsing_expectation,
         lex::{Ident, NumberLiteral, ToTokenStream, Token},
         syn::{expr::Expression, unspanned_lua_token_parser},
-        util::NonEmptyVec, input_parsing_expectation,
     };
     use logos::Logos;
+    use non_empty::NonEmptyVec;
     use quickcheck::Arbitrary;
 
     impl Arbitrary for Declaration {
@@ -100,12 +103,7 @@ mod test {
         multiple_declarations,
         "local a, b",
         Declaration {
-            names: unsafe {
-                NonEmptyVec::new_unchecked(vec![
-                    Ident::new("a"),
-                    Ident::new("b"),
-                ])
-            },
+            names: unsafe { NonEmptyVec::new_unchecked(vec![Ident::new("a"), Ident::new("b"),]) },
             initial_values: vec![]
         }
     );
@@ -132,12 +130,7 @@ mod test {
         multiple_initialization,
         "local a, b = 42, 69",
         Declaration {
-            names: unsafe {
-                NonEmptyVec::new_unchecked(vec![
-                    Ident::new("a"),
-                    Ident::new("b"),
-                ])
-            },
+            names: unsafe { NonEmptyVec::new_unchecked(vec![Ident::new("a"), Ident::new("b"),]) },
             initial_values: vec![
                 Expression::Number(NumberLiteral(42f64)),
                 Expression::Number(NumberLiteral(69f64))

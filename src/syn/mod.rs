@@ -1,5 +1,4 @@
 use crate::lex::{Ident, Token};
-use crate::util::NonEmptyVec;
 
 mod token_stream;
 use peg::error::ExpectedSet;
@@ -7,6 +6,8 @@ pub use token_stream::*;
 
 mod token_span;
 pub use token_span::*;
+
+use non_empty::NonEmptyVec;
 
 pub mod expr;
 pub use expr::op::*;

@@ -5,7 +5,7 @@ macro_rules! conditional_tests {
             use ::luar::error::LuaError;
             use ::luar::lang::{Engine, ReturnValue, LuaValue};
             use ::luar::syn::lua_parser;
-            use ::luar::ne_vec;
+            use ::non_empty::ne_vec;
 
             #[test]
             fn if_with_falsy_condition_does_not_evaluate_body() -> Result<(), LuaError> {

@@ -10,7 +10,11 @@ edition = "2021"
 name = "bench_main"
 harness = false
 
+[workspace]
+members = ["non_empty"]
+
 [dependencies]
+non_empty = { path = "./non_empty" }
 indoc = "1.0"
 logos = "0.12"
 thiserror = "1.0"
@@ -30,3 +34,7 @@ quickcheck_macros = "1.0"
 criterion = "0.3.5"
 mlua = { version = "0.7", features = ["lua54", "vendored"] }
 ntest = "0.7.5"
+
+[dev-dependencies.non_empty]
+path = "./non_empty"
+features = ["quickcheck"]

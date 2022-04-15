@@ -19,11 +19,12 @@ pub(crate) fn eval_while_loop(
 
 #[cfg(test)]
 mod test {
+    use non_empty::ne_vec;
+
     use crate::{
         ast_vm,
         error::LuaError,
         lang::{GlobalContext, LuaValue, ReturnValue},
-        ne_vec,
         syn::lua_parser,
     };
 

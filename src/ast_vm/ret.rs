@@ -1,7 +1,8 @@
+use non_empty::NonEmptyVec;
+
 use crate::{
     lang::{EvalError, LocalScope, ReturnValue, ScopeHolder},
     syn::Return,
-    util::NonEmptyVec,
 };
 
 use super::{eval_expr, tail_values};
@@ -30,13 +31,14 @@ pub(crate) fn eval_ret(
 
 #[cfg(test)]
 mod test {
+    use non_empty::NonEmptyVec;
+
     use crate::{
         ast_vm,
         error::LuaError,
         lang::{GlobalContext, LuaFunction, LuaValue, ReturnValue},
         lex::Ident,
         syn::{Expression, FunctionCall, FunctionCallArgs, Module, Return, Var},
-        util::NonEmptyVec,
     };
 
     #[quickcheck]

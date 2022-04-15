@@ -27,13 +27,14 @@ fmt_tokens!(RepeatLoop);
 
 #[cfg(test)]
 mod test {
+    use non_empty::NonEmptyVec;
     use quickcheck::Arbitrary;
 
     use crate::{
         input_parsing_expectation,
         lex::{Ident, NumberLiteral, ToTokenStream},
         syn::{expr::Expression, unspanned_lua_token_parser, Declaration, Statement, Block},
-        util::NonEmptyVec,
+        
     };
 
     use super::RepeatLoop;

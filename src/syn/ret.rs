@@ -39,12 +39,13 @@ fmt_tokens!(Return);
 
 #[cfg(test)]
 mod test {
+    use non_empty::NonEmptyVec;
     use quickcheck::{Arbitrary, Gen};
 
     use crate::{
         lex::{format::format_tokens, ToTokenStream, Token},
         syn::{expr::Expression, unspanned_lua_token_parser, Return},
-        util::{FlatIntersperseExt, NonEmptyVec},
+        util::FlatIntersperseExt,
     };
 
     impl Arbitrary for Return {

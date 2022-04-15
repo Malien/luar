@@ -6,13 +6,13 @@ pub(crate) mod ops;
 pub(crate) mod runtime;
 
 pub use machine::Machine;
+use non_empty::NonEmptyVec;
 
 use crate::{
     ast_vm::Engine,
     error::LuaError,
     lang::{EvalError, LuaValue, ReturnValue},
     syn,
-    util::NonEmptyVec,
 };
 
 pub fn eval_str(module_str: &str, machine: &mut Machine) -> Result<ReturnValue, LuaError> {

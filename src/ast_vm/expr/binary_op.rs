@@ -92,15 +92,14 @@ ord_op!(greater_or_equals, >=, OrderingOperator::GreaterOrEquals);
 
 #[cfg(test)]
 mod test {
+    use non_empty::{NonEmptyVec, ne_vec};
     use quickcheck::TestResult;
 
     use crate::{
         ast_vm,
         error::LuaError,
         lang::{GlobalContext, LuaFunction, LuaNumber, LuaValue, ReturnValue},
-        ne_vec,
         syn::lua_parser,
-        util::NonEmptyVec,
     };
 
     #[quickcheck]

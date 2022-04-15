@@ -43,18 +43,17 @@ fn declare_arguments(scope: &mut LocalScope<impl ScopeHolder>, names: &[Ident], 
 #[cfg(test)]
 mod test {
     use itertools::Itertools;
+    use non_empty::{NonEmptyVec, ne_vec};
 
     use crate::{
         ast_vm,
         error::LuaError,
         lang::{GlobalContext, LuaValue, ReturnValue},
         lex::Ident,
-        ne_vec,
         syn::{
             lua_parser, Block, Chunk, Expression, FunctionCall, FunctionCallArgs,
             FunctionDeclaration, FunctionName, Module, Return, Var,
         },
-        util::NonEmptyVec,
     };
 
     #[quickcheck]
@@ -216,8 +215,8 @@ mod test {
         let mut context = GlobalContext::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
         let expected = ReturnValue::MultiValue(ne_vec![
-            LuaValue::number(1),
-            LuaValue::number(2),
+            LuaValue::number(1i32),
+            LuaValue::number(2i32),
             LuaValue::Nil,
             LuaValue::Nil
         ]);

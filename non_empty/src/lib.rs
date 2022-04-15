@@ -98,7 +98,7 @@ impl<T> DerefMut for NonEmptyVec<T> {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "quickcheck")]
 impl<T: quickcheck::Arbitrary> quickcheck::Arbitrary for NonEmptyVec<T> {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         let gen_size = std::cmp::max(g.size(), 1);
@@ -153,7 +153,7 @@ impl<T> From<NonEmptyVec<T>> for Vec<T> {
 #[macro_export]
 macro_rules! ne_vec {
     ($($x:expr),+ $(,)?) => (
-        unsafe { $crate::util::NonEmptyVec::new_unchecked(vec![$($x),+]) }
+        unsafe { $crate::NonEmptyVec::new_unchecked(vec![$($x),+]) }
     );
 }
 

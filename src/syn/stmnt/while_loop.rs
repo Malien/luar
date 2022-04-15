@@ -28,13 +28,14 @@ fmt_tokens!(WhileLoop);
 
 #[cfg(test)]
 mod test {
+    use non_empty::NonEmptyVec;
     use quickcheck::Arbitrary;
 
     use super::WhileLoop;
     use crate::{
         lex::{Ident, NumberLiteral, ToTokenStream, Token},
         syn::{expr::Expression, unspanned_lua_token_parser, Block, Declaration, Statement},
-        util::NonEmptyVec, input_parsing_expectation,
+         input_parsing_expectation,
     };
 
     impl Arbitrary for WhileLoop {

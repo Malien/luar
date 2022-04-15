@@ -40,6 +40,7 @@ mod test {
     use std::collections::HashSet;
 
     use itertools::Itertools;
+    use non_empty::NonEmptyVec;
     use quickcheck::TestResult;
 
     use crate::{
@@ -53,7 +54,7 @@ mod test {
         run_lua_test,
         syn::{lua_parser, unspanned_lua_token_parser, Module, RawParseError},
         test_util::vec_of_idents,
-        util::NonEmptyVec,
+        
     };
 
     #[quickcheck]

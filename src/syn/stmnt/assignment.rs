@@ -1,8 +1,9 @@
+use non_empty::NonEmptyVec;
+
 use crate::{
     fmt_tokens,
     lex::{DynTokens, ToTokenStream, Token},
-    syn::expr::{Expression, Var},
-    util::{FlatIntersperseExt, NonEmptyVec},
+    syn::expr::{Expression, Var}, util::FlatIntersperseExt,
 };
 
 #[derive(Debug, Clone, PartialEq)]

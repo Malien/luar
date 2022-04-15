@@ -1,9 +1,8 @@
 use std::fmt::{self, Write};
 
-use crate::{
-    lang::{LuaFunction, LuaNumber},
-    util::NonEmptyVec,
-};
+use non_empty::NonEmptyVec;
+
+use crate::lang::{LuaFunction, LuaNumber};
 
 use super::{LuaValue, TableRef};
 
