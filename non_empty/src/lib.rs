@@ -1,18 +1,23 @@
 use std::{fmt, ops::{Deref, DerefMut}};
-use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NonEmptyVec<T>(Vec<T>);
 
-#[derive(Error)]
-#[error("Tried to construct NonEmptyVec from a empty Vec")]
 pub struct VecIsEmptyError<T>(Vec<T>);
+
+impl<T> fmt::Display for VecIsEmptyError<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Tried to construct NonEmptyVec from a empty Vec")
+    }
+}
 
 impl<T> fmt::Debug for VecIsEmptyError<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("VecIsEmptyError")
     }
 }
+
+impl<T> std::error::Error for VecIsEmptyError<T> {}
 
 impl<T> NonEmptyVec<T> {
     pub fn of_single(value: T) -> Self {

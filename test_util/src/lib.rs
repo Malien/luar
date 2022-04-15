@@ -10,8 +10,6 @@ use std::{
 #[repr(transparent)]
 pub struct NonShrinkable<T>(pub T);
 
-use luar_lex::Ident;
-
 impl<T> Arbitrary for NonShrinkable<T>
 where
     T: Arbitrary,
@@ -103,14 +101,6 @@ impl GenExt for Gen {
     fn next_iter(&self) -> Self {
         Gen::new(std::cmp::min(*QUICKCHECK_RECURSIVE_DEPTH, self.size() - 1))
     }
-}
-
-pub fn vec_of_idents(len: usize, prefix: &str) -> Vec<Ident> {
-    (0..len)
-        .into_iter()
-        .map(|i| format!("{}{}", prefix, i))
-        .map(Ident::new)
-        .collect()
 }
 
 #[macro_export]

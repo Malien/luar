@@ -39,7 +39,7 @@ fn multiple_assignment<'a>(
 #[cfg(test)]
 mod test {
     use crate::{
-        assert_type_error, ast_vm,
+        assert_type_error, ast_vm::{self, vec_of_idents},
         error::LuaError,
         lang::{
             EvalError, GlobalContext, LuaFunction, LuaKey, LuaValue, NaNLessTable, ReturnValue,
@@ -52,7 +52,7 @@ mod test {
     use non_empty::NonEmptyVec;
     use quickcheck::TestResult;
     use std::collections::HashSet;
-    use test_util::{run_lua_test, vec_of_idents};
+    use test_util::run_lua_test;
 
     #[quickcheck]
     fn eval_single_assignment(ident: Ident, v1: LuaValue, v2: LuaValue) -> Result<(), LuaError> {

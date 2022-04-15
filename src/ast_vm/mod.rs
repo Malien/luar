@@ -42,3 +42,12 @@ impl Engine for AstVM {
         eval_module(module, context)
     }
 }
+
+#[cfg(test)]
+pub(crate) fn vec_of_idents(len: usize, prefix: &str) -> Vec<luar_lex::Ident> {
+    (0..len)
+        .into_iter()
+        .map(|i| format!("{}{}", prefix, i))
+        .map(luar_lex::Ident::new)
+        .collect()
+}
