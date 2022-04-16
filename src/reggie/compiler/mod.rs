@@ -2,15 +2,23 @@ use std::collections::HashMap;
 
 use crate::reggie::ids::ArgumentRegisterID;
 
-use super::{meta::LocalRegCount, ids::{LocalRegisterID, GlobalCellID, StringID, JmpLabel}, ops::Instruction, machine::GlobalValues};
+use super::{
+    ids::{GlobalCellID, JmpLabel, LocalRegisterID, StringID},
+    machine::GlobalValues,
+    meta::LocalRegCount,
+    ops::Instruction,
+};
 
 pub mod expr;
 pub mod func;
 pub mod module;
+pub mod statement;
+pub mod ret;
 
 pub use expr::*;
 pub use func::*;
 pub use module::*;
+pub use statement::*;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct RegisterAllocator {
@@ -38,7 +46,7 @@ impl RegisterAllocator {
 #[derive(Debug, Clone, Default)]
 pub struct LabelAllocator {
     current: u16,
-    label_mapping: Vec<usize>
+    label_mapping: Vec<usize>,
 }
 
 impl LabelAllocator {
@@ -169,8 +177,8 @@ impl<'a, 'b> LocalFnCompState<'a, 'b> {
             .insert(ident, location);
     }
 
-    pub fn inner_scope(self) -> Self {
-        if self.func_state.scope_vars.len() == self.scope - 1 {
+    pub fn inner_scope<'c>(&'c mut self) -> LocalFnCompState<'c, 'b> {
+        if self.func_state.scope_vars.len() - 1 == self.scope {
             let scope = LocalScope::default();
             self.func_state.scope_vars.push(scope);
         } else {
@@ -178,11 +186,15 @@ impl<'a, 'b> LocalFnCompState<'a, 'b> {
         }
         Self {
             scope: self.scope + 1,
-            ..self
+            // SAFETY: Oh my fucking god! Just shut up! I can't, for the life of me, figure out
+            // how to do these lifetimes appropriately. So fuck borrow checker, I'll do my own thing.
+            // By it's fucking definition 'c is smaller than 'a or 'b, or otherwise there couldn't
+            // be am object from which I could take &'c! 
+            func_state: unsafe { &mut *(self.func_state as *mut FunctionCompilationState<'b>) },
         }
     }
 
-    pub fn new(func_state: &'a mut FunctionCompilationState<'b>) -> Self {
+    pub fn new(func_state: &'a mut FunctionCompilationState<'b>) -> LocalFnCompState<'a, 'b> {
         if func_state.scope_vars.len() == 0 {
             let scope = LocalScope::default();
             func_state.scope_vars.push(scope);
@@ -206,6 +218,8 @@ impl<'a, 'b> LocalFnCompState<'a, 'b> {
     pub fn push_label(&mut self, label: JmpLabel) {
         let instruction_position = self.func_state.instructions.len();
         self.push_instr(Instruction::Label);
-        self.func_state.label_alloc.associate_label(label, instruction_position);
+        self.func_state
+            .label_alloc
+            .associate_label(label, instruction_position);
     }
 }

@@ -1,8 +1,7 @@
-use luar_syn::{FunctionDeclaration, Return};
+use luar_syn::FunctionDeclaration;
 
 use crate::reggie::{
-    compiler::{expr::compile_expr, FunctionCompilationState, LocalFnCompState},
-    ids::ArgumentRegisterID,
+    compiler::{compile_statement, ret::compile_ret, FunctionCompilationState, LocalFnCompState},
     machine::{CodeBlock, GlobalValues},
     meta::{CodeMeta, MetaCount},
     ops::Instruction,
@@ -15,20 +14,14 @@ pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalVa
     let mut root_scope = LocalFnCompState::new(&mut state);
 
     for statement in &decl.body.statements {
-        todo!(
-            "Compiling statement \"{}\" in function body is not implemented yet",
-            statement
-        );
+        compile_statement(statement, &mut root_scope);
     }
 
-    if let Some(Return(exprs)) = &decl.body.ret {
-        if let Some(expr) = exprs.first() {
-            compile_expr(expr, &mut root_scope);
-            root_scope.push_instr(StrRD(ArgumentRegisterID(0)));
-        }
+    if let Some(ret) = &decl.body.ret {
+        compile_ret(ret, &mut root_scope);
+    } else {
+        root_scope.push_instr(Ret);
     }
-
-    state.instructions.push(Ret);
 
     let meta = CodeMeta {
         arg_count: decl.args.len().into(),

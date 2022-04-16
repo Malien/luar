@@ -1,13 +1,16 @@
-use luar_syn::{Chunk, FunctionName, Return, Var};
+use luar_syn::{Chunk, FunctionName, Var};
 
 use crate::reggie::{
-    ids::{ArgumentRegisterID, LocalBlockID},
+    ids::LocalBlockID,
     machine::{CodeBlock, GlobalValues},
     meta::{CodeMeta, MetaCount},
     ops::Instruction,
 };
 
-use super::{compile_function, expr::compile_expr, FunctionCompilationState, LocalFnCompState};
+use super::{
+    compile_function, compile_statement, ret::compile_ret, FunctionCompilationState,
+    LocalFnCompState,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledModule {
@@ -28,37 +31,19 @@ pub fn compile_module(
     for chunk in &module.chunks {
         match chunk {
             Chunk::FnDecl(decl) => {
-                let global_values = root_scope.global_values();
-                let func = compile_function(decl, global_values);
-                let local_block_id = LocalBlockID(blocks.len().try_into().unwrap());
-                blocks.push(func);
-                match &decl.name {
-                    FunctionName::Plain(Var::Named(name)) => {
-                        let cell = global_values.cell_for_name(name.as_ref());
-                        root_scope.push_instr(Instruction::ConstC(local_block_id));
-                        root_scope.push_instr(Instruction::WrapC);
-                        root_scope.push_instr(Instruction::StrDGl(cell));
-                    }
-                    _ => todo!(),
-                }
+                compile_function_declaration(&mut root_scope, decl, &mut blocks);
             }
             Chunk::Statement(statement) => {
-                todo!("Compiling statement \"{}\" is not implemented", statement)
+                compile_statement(statement, &mut root_scope);
             }
         };
     }
 
-    if let Some(Return(expressions)) = &module.ret {
-        if expressions.len() > 1 {
-            todo!();
-        }
-        if let Some(expr) = expressions.first() {
-            compile_expr(expr, &mut root_scope);
-            root_scope.push_instr(Instruction::StrRD(ArgumentRegisterID(0)));
-        }
+    if let Some(ret) = &module.ret {
+        compile_ret(ret, &mut root_scope);
+    } else {
+        root_scope.push_instr(Instruction::Ret);
     }
-
-    root_scope.push_instr(Instruction::Ret);
 
     CompiledModule {
         blocks,
@@ -75,6 +60,26 @@ pub fn compile_module(
     }
 }
 
+fn compile_function_declaration(
+    root_scope: &mut LocalFnCompState,
+    decl: &luar_syn::FunctionDeclaration,
+    blocks: &mut Vec<CodeBlock>,
+) {
+    let global_values = root_scope.global_values();
+    let func = compile_function(decl, global_values);
+    let local_block_id = LocalBlockID(blocks.len().try_into().unwrap());
+    blocks.push(func);
+    match &decl.name {
+        FunctionName::Plain(Var::Named(name)) => {
+            let cell = global_values.cell_for_name(name.as_ref());
+            root_scope.push_instr(Instruction::ConstC(local_block_id));
+            root_scope.push_instr(Instruction::WrapC);
+            root_scope.push_instr(Instruction::StrDGl(cell));
+        }
+        _ => todo!(),
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::compile_module;
@@ -82,7 +87,7 @@ mod test {
         error::LuaError,
         reggie::{
             compiler::compile_function,
-            ids::{ArgumentRegisterID, LocalBlockID, LocalRegisterID, StringID},
+            ids::{ArgumentRegisterID, JmpLabel, LocalBlockID, LocalRegisterID, StringID},
             machine::{CodeBlock, GlobalValues},
             meta::{CodeMeta, LocalRegCount, MetaCount},
             ops::Instruction,
@@ -332,4 +337,32 @@ mod test {
 
         Ok(())
     }
+
+    test_compilation!(
+        compile_simple_if,
+        "if nil then return 4 end return 5",
+        CodeBlock {
+            meta: CodeMeta {
+                arg_count: 0.into(),
+                local_count: LocalRegCount::default(),
+                return_count: 1.into(),
+                label_mappings: vec![7],
+                const_strings: vec![]
+            },
+            instructions: vec![
+                ConstN,
+                NilTest,
+                JmpEQ(JmpLabel(0)),
+                ConstI(4),
+                WrapI,
+                StrRD(ArgumentRegisterID(0)),
+                Ret,
+                Label,
+                ConstI(5),
+                WrapI,
+                StrRD(ArgumentRegisterID(0)),
+                Ret
+            ]
+        }
+    );
 }
