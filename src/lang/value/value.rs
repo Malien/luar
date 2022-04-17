@@ -118,6 +118,20 @@ impl LuaValue {
         }
     }
 
+    pub fn as_function(self) -> Option<LuaFunction> {
+        match self {
+            LuaValue::Function(func) => Some(func),
+            _ => None,
+        }
+    }
+
+    pub fn as_function_ref(&self) -> Option<&LuaFunction> {
+        match self {
+            LuaValue::Function(func) => Some(&func),
+            _ => None,
+        }
+    }
+
     pub fn true_value() -> LuaValue {
         LuaValue::number(1)
     }

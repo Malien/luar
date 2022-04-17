@@ -230,3 +230,23 @@ fn set_impl(holder: &mut impl ScopeHolder, scope: usize, key: String, value: Lua
     }
     set_impl(holder, scope - 1, key, value)
 }
+
+impl<'a> IntoIterator for &'a GlobalContext {
+    type Item = (&'a String, &'a LuaValue);
+
+    type IntoIter = std::collections::hash_map::Iter<'a, String, LuaValue>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.global_scope.scope.0.iter()
+    }
+}
+
+impl IntoIterator for GlobalContext {
+    type Item = (String, LuaValue);
+
+    type IntoIter = std::collections::hash_map::IntoIter<String, LuaValue>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.global_scope.scope.0.into_iter()
+    }
+}

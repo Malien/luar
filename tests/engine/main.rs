@@ -1,18 +1,24 @@
 pub use luar::ast_vm::AstVM;
 
+pub mod ast_vm_test_harness;
 pub mod basic_expr;
-pub mod conditional;
 
-macro_rules! tests {
-    ($name: ident, $engine: ty, $context: expr) => {
-        mod $name {
-            use crate::{basic_expr_tests, conditional_tests};
+mod ast_vm {
+    use crate::{ast_vm_test_harness::run_lua_test, basic_expr_tests};
 
-            basic_expr_tests!($engine, $context);
-            conditional_tests!($engine, $context);
-        }
-    };
+    basic_expr_tests!(luar::ast_vm::AstVM, luar::lang::GlobalContext::new());
+
+    #[test]
+    fn lua_tests() {
+        run_lua_test("conditional", include_str!("./conditional.test.lua"));
+    }
 }
 
-tests!(ast_vm, luar::ast_vm::AstVM, ::luar::lang::GlobalContext::new());
-tests!(reggie, luar::reggie::ReggieVM, ::luar::reggie::Machine::new());
+mod reggie {
+    use crate::basic_expr_tests;
+
+    basic_expr_tests!(luar::ast_vm::AstVM, luar::lang::GlobalContext::new());
+}
+
+// tests!(ast_vm, luar::ast_vm::AstVM, ::luar::lang::GlobalContext::new());
+// tests!(reggie, luar::reggie::ReggieVM, ::luar::reggie::Machine::new());
