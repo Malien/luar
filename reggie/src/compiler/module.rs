@@ -1,6 +1,6 @@
 use luar_syn::{Chunk, FunctionName, Var};
 
-use crate::reggie::{
+use crate::{
     ids::LocalBlockID,
     machine::{CodeBlock, GlobalValues},
     meta::{CodeMeta, MetaCount},
@@ -84,14 +84,12 @@ fn compile_function_declaration(
 mod test {
     use super::compile_module;
     use crate::{
-        error::LuaError,
-        reggie::{
-            compiler::compile_function,
-            ids::{ArgumentRegisterID, JmpLabel, LocalBlockID, LocalRegisterID, StringID},
-            machine::{CodeBlock, GlobalValues},
-            meta::{CodeMeta, LocalRegCount, MetaCount},
-            ops::Instruction,
-        },
+        compiler::compile_function,
+        ids::{ArgumentRegisterID, JmpLabel, LocalBlockID, LocalRegisterID, StringID},
+        machine::{CodeBlock, GlobalValues},
+        meta::{CodeMeta, LocalRegCount, MetaCount},
+        ops::Instruction,
+        LuaError,
     };
 
     use Instruction::*;

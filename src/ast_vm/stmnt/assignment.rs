@@ -396,9 +396,4 @@ mod test {
         assert_type_error!(TypeError::CannotAssignProperty { .. }, res);
         Ok(TestResult::passed())
     }
-
-    #[test]
-    fn lua_tests() -> Result<(), LuaError> {
-        run_lua_test!("./assignment.test.lua", GlobalContext::new())
-    }
 }

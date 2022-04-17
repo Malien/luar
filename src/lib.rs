@@ -8,4 +8,3 @@ pub mod error;
 pub mod lang;
 pub mod stdlib;
 pub mod ast_vm;
-pub mod reggie;

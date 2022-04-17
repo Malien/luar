@@ -1,9 +1,11 @@
-use crate::lang::{ArithmeticError, ArithmeticOperator, EvalError, LuaValue, TypeError};
+use luar_error::ArithmeticOperator;
+
+use crate::{ArithmeticError, EvalError, LuaValue, TypeError, return_value::FromLuaReturn};
 
 use super::{
     compiler::CompiledModule,
     ids::{ArgumentRegisterID, BlockID, JmpLabel, LocalRegisterID, StringID},
-    machine::{EqualityFlag, Machine, ProgramCounter, StackFrame, OrderingFlag},
+    machine::{EqualityFlag, Machine, OrderingFlag, ProgramCounter, StackFrame},
     meta::MetaCount,
     ops::Instruction,
 };
@@ -32,7 +34,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 position += 1;
             }
             Instruction::WrapI => {
-                machine.accumulators.d = LuaValue::number(machine.accumulators.i);
+                machine.accumulators.d = LuaValue::Int(machine.accumulators.i);
                 position += 1;
             }
             Instruction::StrRD(reg) => {
@@ -80,7 +82,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 position += 1;
             }
             Instruction::WrapF => {
-                machine.accumulators.d = LuaValue::number(machine.accumulators.f);
+                machine.accumulators.d = LuaValue::Float(machine.accumulators.f);
                 position += 1;
             }
             Instruction::ConstS(StringID(string_id)) => {
@@ -121,46 +123,62 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             }
             Instruction::JmpEQ(JmpLabel(jmp_label)) => {
                 if machine.equality_flag == EqualityFlag::EQ {
-                    position = block.meta.label_mappings[jmp_label as usize].try_into().unwrap();
+                    position = block.meta.label_mappings[jmp_label as usize]
+                        .try_into()
+                        .unwrap();
                 } else {
                     position += 1;
                 }
-            },
+            }
             Instruction::JmpNE(JmpLabel(jmp_label)) => {
                 if machine.equality_flag == EqualityFlag::NE {
-                    position = block.meta.label_mappings[jmp_label as usize].try_into().unwrap();
+                    position = block.meta.label_mappings[jmp_label as usize]
+                        .try_into()
+                        .unwrap();
                 } else {
                     position += 1;
                 }
-            },
+            }
             Instruction::JmpLT(JmpLabel(jmp_label)) => {
-                if machine.equality_flag == EqualityFlag::NE && machine.ordering_flag == OrderingFlag::LT {
-                    position = block.meta.label_mappings[jmp_label as usize].try_into().unwrap();
+                if machine.equality_flag == EqualityFlag::NE
+                    && machine.ordering_flag == OrderingFlag::LT
+                {
+                    position = block.meta.label_mappings[jmp_label as usize]
+                        .try_into()
+                        .unwrap();
                 } else {
                     position += 1;
                 }
-            },
+            }
             Instruction::JmpGT(JmpLabel(jmp_label)) => {
-                if machine.equality_flag == EqualityFlag::NE && machine.ordering_flag == OrderingFlag::GT {
-                    position = block.meta.label_mappings[jmp_label as usize].try_into().unwrap();
+                if machine.equality_flag == EqualityFlag::NE
+                    && machine.ordering_flag == OrderingFlag::GT
+                {
+                    position = block.meta.label_mappings[jmp_label as usize]
+                        .try_into()
+                        .unwrap();
                 } else {
                     position += 1;
                 }
-            },
+            }
             Instruction::JmpLE(JmpLabel(jmp_label)) => {
                 if machine.ordering_flag == OrderingFlag::LT {
-                    position = block.meta.label_mappings[jmp_label as usize].try_into().unwrap();
+                    position = block.meta.label_mappings[jmp_label as usize]
+                        .try_into()
+                        .unwrap();
                 } else {
                     position += 1;
                 }
-            },
+            }
             Instruction::JmpGE(JmpLabel(jmp_label)) => {
                 if machine.ordering_flag == OrderingFlag::GT {
-                    position = block.meta.label_mappings[jmp_label as usize].try_into().unwrap();
+                    position = block.meta.label_mappings[jmp_label as usize]
+                        .try_into()
+                        .unwrap();
                 } else {
                     position += 1;
                 }
-            },
+            }
 
             Instruction::LdaRF(_) => todo!(),
             Instruction::LdaRS(_) => todo!(),
@@ -288,9 +306,9 @@ fn binary_number_op(
     op: ArithmeticOperator,
     op_fn: impl FnOnce(f64, f64) -> f64,
 ) -> Result<LuaValue, TypeError> {
-    if let (Some(lhs), Some(rhs)) = (lhs.as_number(), rhs.as_number()) {
-        let res = op_fn(lhs.as_f64(), rhs.as_f64());
-        Ok(LuaValue::number(res))
+    if let (Some(lhs), Some(rhs)) = (lhs.coerce_to_f64(), rhs.coerce_to_f64()) {
+        let res = op_fn(lhs, rhs);
+        Ok(LuaValue::Float(res))
     } else {
         Err(TypeError::Arithmetic(ArithmeticError::Binary {
             lhs: lhs.clone(),
@@ -300,9 +318,15 @@ fn binary_number_op(
     }
 }
 
-pub fn call_block(machine: &mut Machine, block_id: BlockID) -> Result<&[LuaValue], EvalError> {
+pub fn call_block<'a, T: FromLuaReturn<'a>>(
+    machine: &'a mut Machine,
+    block_id: BlockID,
+) -> Result<T, EvalError> {
     let block = &machine.code_blocks[block_id];
-    let return_count = block.meta.return_count;
+    let return_count = match block.meta.return_count {
+        MetaCount::Known(count) => count,
+        MetaCount::Unknown => machine.value_count as usize,
+    };
     let stack_frame = StackFrame::new(
         &block.meta,
         ProgramCounter {
@@ -316,38 +340,30 @@ pub fn call_block(machine: &mut Machine, block_id: BlockID) -> Result<&[LuaValue
         position: 0,
     };
     eval_loop(machine)?;
-    Ok(collect_dyn_returns(machine, return_count))
+    Ok(T::from_machine_state(machine, return_count))
 }
 
-pub fn call_module(
+pub fn call_module<'a, T: FromLuaReturn<'a>>(
     module: CompiledModule,
-    machine: &mut Machine,
-) -> Result<&[LuaValue], EvalError> {
+    machine: &'a mut Machine,
+) -> Result<T, EvalError> {
     machine.code_blocks.extend(module.blocks);
     let top_level_block = machine.code_blocks.add(module.top_level);
     call_block(machine, top_level_block)
 }
 
-pub fn collect_dyn_returns(machine: &mut Machine, return_count: MetaCount) -> &[LuaValue] {
-    let count = match return_count {
-        MetaCount::Known(count) => count,
-        MetaCount::Unknown => machine.value_count as usize,
-    };
-
-    &machine.argument_registers.d[..count]
-}
-
 #[cfg(test)]
 mod test {
-    use crate::lang::LuaValue;
-    use crate::reggie::ids::{ArgumentRegisterID, JmpLabel, LocalRegisterID, StringID};
-    use crate::reggie::machine::{
+    use crate::LuaValue;
+    use crate::ids::{ArgumentRegisterID, JmpLabel, LocalRegisterID, StringID};
+    use crate::machine::{
         CodeBlock, EqualityFlag, EqualityFlag::EQ, EqualityFlag::NE, Machine, OrderingFlag,
         OrderingFlag::GT, OrderingFlag::LT,
     };
-    use crate::reggie::meta::{CodeMeta, LocalRegCount};
-    use crate::reggie::ops::Instruction::{self, *};
-    use crate::reggie::runtime::call_block;
+    use crate::meta::{CodeMeta, LocalRegCount};
+    use crate::ops::Instruction::{self, *};
+    use crate::return_value::Strict;
+    use crate::runtime::call_block;
     use ntest::timeout;
 
     macro_rules! test_instructions_with_meta {
@@ -360,7 +376,7 @@ mod test {
                     meta: $meta,
                     instructions: vec![$($instr,)*],
                 });
-                call_block(&mut machine, block_id).unwrap();
+                call_block::<()>(&mut machine, block_id).unwrap();
 
                 ($post_condition)(machine);
             }
@@ -416,13 +432,13 @@ mod test {
     });
 
     test_instructions!(wrap_i, [ConstI(42), WrapI, Ret], |machine: Machine| {
-        assert_eq!(machine.accumulators.d, LuaValue::number(42));
+        assert_eq!(machine.accumulators.d, LuaValue::Int(42));
     });
 
     test_instructions!(
         str_rd,
         [ConstI(42), WrapI, StrRD(ArgumentRegisterID(0)), Ret],
-        |machine: Machine| { assert_eq!(machine.argument_registers.d[0], LuaValue::number(42)) }
+        |machine: Machine| { assert_eq!(machine.argument_registers.d[0], LuaValue::Int(42)) }
     );
 
     test_instructions_with_locals!(
@@ -440,7 +456,7 @@ mod test {
             d: 1,
             ..Default::default()
         },
-        |machine: Machine| { assert_eq!(machine.accumulators.d, LuaValue::number(42)) }
+        |machine: Machine| { assert_eq!(machine.accumulators.d, LuaValue::Int(42)) }
     );
 
     test_instructions!(
@@ -454,7 +470,7 @@ mod test {
             LdaRD(ArgumentRegisterID(0)),
             Ret
         ],
-        |machine: Machine| { assert_eq!(machine.accumulators.d, LuaValue::number(42)) }
+        |machine: Machine| { assert_eq!(machine.accumulators.d, LuaValue::Int(42)) }
     );
 
     test_instructions_with_locals!(
@@ -474,7 +490,7 @@ mod test {
             ..Default::default()
         },
         |machine: Machine| {
-            assert_eq!(machine.argument_registers.d[0], LuaValue::number(3));
+            assert_eq!(machine.argument_registers.d[0].coerce_to_f64(), Some(3.0));
         }
     );
 
@@ -495,7 +511,7 @@ mod test {
             ..Default::default()
         },
         |machine: Machine| {
-            assert_eq!(machine.argument_registers.d[0], LuaValue::number(3));
+            assert_eq!(machine.argument_registers.d[0].coerce_to_f64(), Some(3.0));
         }
     );
 
@@ -510,7 +526,7 @@ mod test {
     });
 
     test_instructions!(wrap_f, [ConstF(42.4), WrapF, Ret], |machine: Machine| {
-        assert_eq!(machine.accumulators.d, LuaValue::number(42.4))
+        assert_eq!(machine.accumulators.d, LuaValue::Float(42.4))
     });
 
     test_instructions_with_strings!(
@@ -527,8 +543,9 @@ mod test {
         |machine: Machine| { assert_eq!(machine.accumulators.d, LuaValue::string("hello")) }
     );
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
-    #[timeout(5000)]
+    // #[timeout(5000)]
     fn lda_d_gl(value: LuaValue) {
         let mut machine = Machine::new();
         let cell_id = machine.global_values.set("value", value.clone());
@@ -542,12 +559,13 @@ mod test {
             },
             instructions: vec![LdaDGl(cell_id), Ret],
         });
-        call_block(&mut machine, block_id).unwrap();
+        call_block::<Strict<()>>(&mut machine, block_id).unwrap();
         assert!(machine.accumulators.d.total_eq(&value));
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
-    #[timeout(5000)]
+    // #[timeout(5000)]
     fn eq_test_d(lhs: LuaValue, rhs: LuaValue) {
         let mut machine = Machine::new();
         let expected = EqualityFlag::from_bool(lhs == rhs);
@@ -567,7 +585,7 @@ mod test {
                 Ret,
             ],
         });
-        call_block(&mut machine, block_id).unwrap();
+        call_block::<Strict<()>>(&mut machine, block_id).unwrap();
         assert_eq!(machine.equality_flag, expected);
     }
 
@@ -617,7 +635,7 @@ mod test {
                 });
                 machine.equality_flag = eq_flag;
                 machine.ordering_flag = ord_flag;
-                call_block(&mut machine, block_id).unwrap();
+                call_block::<Strict<()>>(&mut machine, block_id).unwrap();
                 let eq_flag_matches = triggered_eq_flag
                     .map(|flag| flag == eq_flag)
                     .unwrap_or(true);

@@ -407,11 +407,19 @@ dependencies = [
  "luar_syn",
  "mlua",
  "non_empty",
- "ntest",
  "num",
  "quickcheck",
  "quickcheck_macros",
  "test_util",
+ "thiserror",
+]
+
+[[package]]
+name = "luar_error"
+version = "0.1.0"
+dependencies = [
+ "luar_lex",
+ "luar_syn",
  "thiserror",
 ]
 
@@ -801,6 +809,21 @@ name = "regex-syntax"
 version = "0.6.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b181ba2dcf07aaccad5448e8ead58db5b742cf85dfe035e2227f137a539a189"
+
+[[package]]
+name = "reggie"
+version = "0.1.0"
+dependencies = [
+ "itertools",
+ "luar_error",
+ "luar_lex",
+ "luar_syn",
+ "non_empty",
+ "ntest",
+ "quickcheck",
+ "quickcheck_macros",
+ "test_util",
+]
 
 [[package]]
 name = "rustc-hash"

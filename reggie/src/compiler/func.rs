@@ -1,6 +1,6 @@
 use luar_syn::FunctionDeclaration;
 
-use crate::reggie::{
+use crate::{
     compiler::{compile_statement, ret::compile_ret, FunctionCompilationState, LocalFnCompState},
     machine::{CodeBlock, GlobalValues},
     meta::{CodeMeta, MetaCount},
@@ -39,13 +39,13 @@ pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalVa
 
 #[cfg(test)]
 mod test {
-    use crate::reggie::{
+    use crate::{
         ids::{ArgumentRegisterID, LocalRegisterID, StringID},
         machine::{CodeBlock, GlobalValues},
-        meta::{LocalRegCount, MetaCount},
+        meta::{CodeMeta, LocalRegCount, MetaCount},
         ops::Instruction,
+        LuaError,
     };
-    use crate::{error::LuaError, reggie::meta::CodeMeta};
 
     use super::compile_function;
 

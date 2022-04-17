@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::lang::{LuaFunction, LuaValue, TableRef};
+use crate::LuaValue;
 
 use super::{
     ids::{BlockID, GlobalCellID},
@@ -14,8 +14,6 @@ pub struct ArgumentRegisters {
     pub f: [f64; ARG_REG_COUNT],
     pub i: [i32; ARG_REG_COUNT],
     pub s: [Option<String>; ARG_REG_COUNT],
-    pub t: [Option<TableRef>; ARG_REG_COUNT],
-    pub c: [Option<LuaFunction>; ARG_REG_COUNT],
     pub d: [LuaValue; ARG_REG_COUNT],
 }
 
@@ -23,8 +21,6 @@ pub struct Accumulators {
     pub f: f64,
     pub i: i32,
     pub s: Option<String>,
-    pub t: Option<TableRef>,
-    pub c: Option<LuaFunction>,
     pub d: LuaValue,
 }
 
@@ -38,7 +34,7 @@ impl EqualityFlag {
     pub fn from_bool(v: bool) -> Self {
         match v {
             true => Self::EQ,
-            false => Self::NE
+            false => Self::NE,
         }
     }
 }
@@ -85,6 +81,7 @@ pub struct GlobalValues {
     // JIT-ted code to reference globals by their stable pointer value
     cells: Vec<GlobalValueCell>,
     mapping: HashMap<String, GlobalCellID>,
+    global_nil: LuaValue,
 }
 
 fn alloc_cell(cells: &mut Vec<GlobalValueCell>, cell: GlobalValueCell) -> GlobalCellID {
@@ -116,8 +113,19 @@ impl GlobalValues {
         }
     }
 
+    pub fn get<I: AsRef<str>>(&mut self, ident: I) -> &LuaValue {
+        self.mapping
+            .get(ident.as_ref())
+            .map(|cell_id| self.value_of_cell(*cell_id))
+            .unwrap_or(&self.global_nil)
+    }
+
     pub fn value_of_cell(&self, cell_id: GlobalCellID) -> &LuaValue {
         &self.cells[cell_id.0 as usize].value
+    }
+
+    pub fn global_nil(&self) -> &LuaValue {
+        &self.global_nil
     }
 }
 
@@ -166,8 +174,6 @@ pub struct LocalValues {
     pub f: Vec<f64>,
     pub i: Vec<i32>,
     pub s: Vec<Option<String>>,
-    pub t: Vec<Option<TableRef>>,
-    pub c: Vec<Option<LuaFunction>>,
     pub d: Vec<LuaValue>,
 }
 
@@ -177,8 +183,6 @@ impl LocalValues {
             f: vec![0.0; meta.local_count.f as usize],
             i: vec![0; meta.local_count.i as usize],
             s: vec![None; meta.local_count.s as usize],
-            t: vec![None; meta.local_count.t as usize],
-            c: vec![None; meta.local_count.c as usize],
             d: vec![LuaValue::Nil; meta.local_count.d as usize],
         }
     }
@@ -218,8 +222,6 @@ impl Machine {
                 f: 0.0,
                 i: 0,
                 s: None,
-                t: None,
-                c: None,
                 d: LuaValue::Nil,
             },
             program_counter: ProgramCounter {
@@ -234,8 +236,6 @@ impl Machine {
                 f: [0.0; ARG_REG_COUNT],
                 i: [0; ARG_REG_COUNT],
                 s: [(); ARG_REG_COUNT].map(|_| None),
-                t: [(); ARG_REG_COUNT].map(|_| None),
-                c: [(); ARG_REG_COUNT].map(|_| None),
                 d: [(); ARG_REG_COUNT].map(|_| LuaValue::Nil),
             },
             global_values: GlobalValues::default(),

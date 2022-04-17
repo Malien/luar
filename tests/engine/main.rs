@@ -8,10 +8,17 @@ mod ast_vm {
 
     basic_expr_tests!(luar::ast_vm::AstVM, luar::lang::GlobalContext::new());
 
-    #[test]
-    fn lua_tests() {
-        run_lua_test("conditional", include_str!("./conditional.test.lua"));
+    macro_rules! lua_test {
+        ($name: ident) => {
+            #[test]
+            fn $name() {
+                run_lua_test(stringify!($name), include_str!(concat!("./", stringify!($name), ".test.lua")));
+            }
+        };
     }
+
+    lua_test!(conditional);
+    lua_test!(assignment);
 }
 
 mod reggie {

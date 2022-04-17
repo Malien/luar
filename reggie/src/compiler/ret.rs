@@ -1,6 +1,6 @@
 use luar_syn::Return;
 
-use crate::reggie::{ids::ArgumentRegisterID, ops::Instruction};
+use crate::{ids::ArgumentRegisterID, ops::Instruction};
 
 use super::{compile_expr, LocalFnCompState};
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::reggie::ids::ArgumentRegisterID;
+use crate::ids::ArgumentRegisterID;
 
 use super::{
     ids::{GlobalCellID, JmpLabel, LocalRegisterID, StringID},

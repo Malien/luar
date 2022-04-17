@@ -1,6 +1,6 @@
 use luar_syn::{Statement, Conditional, ConditionalTail, Block};
 
-use crate::reggie::ops::Instruction;
+use crate::ops::Instruction;
 
 use super::{LocalFnCompState, compile_expr, ret::compile_ret};
 

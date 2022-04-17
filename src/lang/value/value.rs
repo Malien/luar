@@ -18,6 +18,12 @@ pub enum LuaValue {
     // UserData
 }
 
+impl Default for LuaValue {
+    fn default() -> Self {
+        Self::Nil
+    }
+}
+
 impl LuaValue {
     pub fn is_falsy(&self) -> bool {
         matches!(self, LuaValue::Nil)

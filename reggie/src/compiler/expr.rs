@@ -1,6 +1,6 @@
 use luar_syn::{BinaryOperator, Expression, Var};
 
-use crate::reggie::{
+use crate::{
     compiler::{LocalFnCompState, VarLookup},
     ids::LocalRegisterID,
     ops::Instruction,

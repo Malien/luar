@@ -2,7 +2,8 @@ macro_rules! test_case {
     ($name: ident) => {
         mod $name {
             use luar_syn::lua_parser;
-            use luar::{ast_vm, error::LuaError, stdlib::std_context, reggie};
+            use luar::{ast_vm, error::LuaError, stdlib::std_context};
+            use reggie::{eval_str, self};
 
             static TEST_CODE: &str = include_str!(concat!("./", stringify!($name), ".test.lua"));
 
