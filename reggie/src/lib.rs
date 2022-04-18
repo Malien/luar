@@ -12,6 +12,7 @@ pub(crate) mod ops;
 pub mod return_value;
 pub(crate) mod runtime;
 pub mod value;
+pub mod stdlib;
 
 pub use machine::Machine;
 use return_value::FromLuaReturn;
@@ -40,8 +41,10 @@ pub fn eval_module<'a, T: FromLuaReturn<'a>>(
 
 #[cfg(test)]
 mod test {
+    use std::{rc::Rc, cell::RefCell};
+
     use crate::{
-        eval_module, eval_str, return_value::Strict, LuaError, LuaValue, Machine, TypeError,
+        eval_module, eval_str, return_value::Strict, LuaError, LuaValue, Machine, TypeError, NativeFunction,
     };
     use luar_error::assert_type_error;
     use luar_syn::lua_parser;
@@ -519,4 +522,69 @@ mod test {
         assert_type_error!(TypeError::CannotAssignProperty { .. }, res);
         Ok(TestResult::passed())
     }
+
+
+    #[test]
+    fn eval_fn_call() -> Result<(), LuaError> {
+        let module = lua_parser::module("myfn(42)")?;
+        let called_with = Rc::new(RefCell::new(0));
+        let myfn = NativeFunction::dyn_fn({
+            let called_with = Rc::clone(&called_with);
+            move |first_arg: LuaValue| {
+                let mut called = called_with.borrow_mut();
+                *called = first_arg.unwrap_int();
+            }
+        });
+        let mut machine = Machine::new();
+        machine.global_values.set("myfn", LuaValue::NativeFunction(myfn));
+        eval_module::<Strict<()>>(&module, &mut machine)?;
+        let called = called_with.borrow();
+        assert_eq!(*called, 42);
+        Ok(())
+    }
+
+    #[cfg(feature = "quickcheck")]
+    #[quickcheck]
+    fn eval_fn_return(ret_value: LuaValue) -> Result<(), LuaError> {
+        let module = lua_parser::module("return myfn()")?;
+        let mut machine = Machine::new();
+        let myfn = NativeFunction::dyn_fn({
+            let ret_value = ret_value.clone();
+            move || ret_value.clone()
+        });
+        machine.global_values.set("myfn", LuaValue::NativeFunction(myfn));
+        let Strict(res) = eval_module(&module, &mut machine)?;
+        assert!(ret_value.total_eq(&res));
+        Ok(())
+    }
+
+    #[cfg(feature = "quickcheck")]
+    #[quickcheck]
+    fn calling_not_a_function_value_is_an_error(value: LuaValue) -> Result<TestResult, LuaError> {
+        if value.is_function() {
+            return Ok(TestResult::discard());
+        }
+
+        let module = lua_parser::module("value()")?;
+        let mut machine = Machine::new();
+        machine.global_values.set("value", value);
+        let res = eval_module::<Strict<()>>(&module, &mut machine);
+        assert_type_error!(TypeError::IsNotCallable(_), res);
+        Ok(TestResult::passed())
+    }
+
+    // #[quickcheck]
+    // fn eval_fn_call_multiple_returns(values: NonEmptyVec<LuaValue>) -> Result<(), LuaError> {
+    //     let module = lua_parser::module("return myfn()")?;
+    //     let mut machine = Machine::new();
+    //     let ret_values = ReturnValue::MultiValue(values);
+    //     let myfn = LuaFunction::new({
+    //         let ret_values = ret_values.clone();
+    //         move |_, _| Ok(ret_values.clone())
+    //     });
+    //     machine.set("myfn", LuaValue::Function(myfn));
+    //     let res = ast_vm::eval_module(&module, &mut machine)?;
+    //     assert!(ret_values.total_eq(&res));
+    //     Ok(())
+    // }
 }

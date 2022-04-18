@@ -1,11 +1,15 @@
 use crate::eq_with_nan::eq_with_nan;
 
+pub mod native_function;
+pub use native_function::*;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum LuaValue {
     Nil,
     Int(i32),
     Float(f64),
     String(String),
+    NativeFunction(NativeFunction)
 }
 
 impl Default for LuaValue {
@@ -39,6 +43,25 @@ impl LuaValue {
     pub fn is_table(&self) -> bool {
         // matches!(self, Self::Table(_))
         false
+    }
+
+    pub fn is_function(&self) -> bool {
+        matches!(self, Self::NativeFunction(_) /* | Self::Function(_) */)
+    }
+
+    pub fn is_truthy(&self) -> bool {
+        !self.is_falsy()
+    }
+
+    pub fn is_falsy(&self) -> bool {
+        matches!(self, Self::Nil)
+    }
+
+    pub fn unwrap_int(&self) -> i32 {
+        if let Self::Int(int) = self {
+            return *int;
+        }
+        panic!("Tried to call unwrap_int() on {:?}", self)
     }
 
     pub fn true_value() -> Self {
@@ -93,6 +116,9 @@ impl quickcheck::Arbitrary for LuaValue {
             }
             LuaValue::String(str) => {
                 Box::new(std::iter::once(LuaValue::Nil).chain(str.shrink().map(LuaValue::String)))
+            }
+            LuaValue::NativeFunction(func) => {
+                Box::new(std::iter::once(LuaValue::Nil))
             }
         }
     }

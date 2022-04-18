@@ -32,6 +32,7 @@ There is a shorthand notation for the Reggie's supported types:
 -   S - string
 -   T - table
 -   C - function
+-   A - native function
 -   U - userdata
 -   D - dynamic
 
@@ -110,7 +111,9 @@ Values on the global are stored in cells. There is two ways to address a global:
 
 ### Function call convention
 
-There is two ways to call a Reggie function. Either with `call` or `typed_call`. Let's start with `call`.
+There two variants of functions: lua function and native ones.
+
+There is two ways to call a Reggie lua function. Either with `call` or `typed_call`. Let's start with `call`.
 
 Call operand calls the value in the AC register. The arguments to a function are provided via the argument registers RD0 through RDN. If the number of arguments exceed that of N, then the rest of the arguments should be placed in ExtRD registers. Operand also takes the number of arguments passed via the [VC](#value-count) register.
 
@@ -123,6 +126,12 @@ Calling function with `typed_call` is only possible when the bytecode compiler o
 Bot `call` and `typed_call` set [RA](#return-address) register in the callee's scope to the offset where function should return after it's invocation is done.
 
 It is to be noted, that calling a function is expected to clobber all of the argument, extended argument, accumulator, and special use registers, so relying on them staying unchanged after the call is complete is a futile effort. In order to persist values after function call, it is advised to put them into local registers, since those are restored after the function call is done.
+
+There is two ways to call a native function. Either with `native_call` or `typed_call`.
+
+`native_call` will call function located in AA register. The callers conventions are the same as `call`.
+
+`native_typed_cal` follows the same principle as `typed_call`, except calling a native function in AA register.
 
 ### Foreign function interface (FFI)
 
@@ -362,6 +371,12 @@ Sets the [VC](#value-count) register from the current value in AI. AI is treated
 
 [Performs the typed call](#function-call-convention) of the value located in AC. Creates new stack frame. Sets the register [RA](#return-address) in the callee's stack frame
 
+#### native_call
+[Calls](#function-call-convention) the value located in the register AC. Creates new stack frame. Sets the register [RA](#return-address) in the callee's stack frame
+
+#### typed_native_call
+[Performs the typed call](#function-call-convention) of the value located in AC. Creates new stack frame. Sets the register [RA](#return-address) in the callee's stack frame
+
 #### D_call
 
 If value in register AD is a function, perform the same operations as in `call` with function value in register AD unwrapped.
@@ -390,6 +405,7 @@ Depending on the type of Y:
 -   if Y is S, test strings to be byte-identical
 -   if Y is T, test to be references to the same table
 -   if Y is C, test to be references to the same function (even if different compilation variations)
+-   if Y is A, test to be the same native function reference
 -   if Y is D, test if type is the same, and if they are, do value equality
     -   if dynamic type is F, compare according to IEEE-754 specification
     -   if dynamic type is I, compare integers for bit equivalence

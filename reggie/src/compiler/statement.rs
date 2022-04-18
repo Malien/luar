@@ -27,7 +27,7 @@ pub fn compile_conditional(conditional: &Conditional, state: &mut LocalFnCompSta
             compile_block(&conditional.body, state);
             state.push_label(cont_lbl);
         }
-        _ => todo!("Cannot compile else and elseif cases yet"),
+        _ => todo!("Cannot compile else and elseif clauses yet"),
     };
 }
 
