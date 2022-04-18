@@ -52,7 +52,6 @@ mod test {
     use non_empty::NonEmptyVec;
     use quickcheck::TestResult;
     use std::collections::HashSet;
-    use test_util::run_lua_test;
 
     #[quickcheck]
     fn eval_single_assignment(ident: Ident, v1: LuaValue, v2: LuaValue) -> Result<(), LuaError> {
@@ -113,9 +112,6 @@ mod test {
 
         for (ident, value) in idents.into_iter().zip(values) {
             let res = context.get(&ident).total_eq(&value);
-            if !res {
-                println!("Nope! {}\t{}", context.get(&ident), value);
-            }
             assert!(res);
         }
     }
@@ -358,7 +354,6 @@ mod test {
         prop: Ident,
         value: LuaValue,
     ) -> Result<(), LuaError> {
-        println!("{:?}\t{:?}\t{:?}", table, prop, value);
         let module = lua_parser::module(&format!(
             "tbl1[\"{}\"] = value
             tbl2.{} = value",

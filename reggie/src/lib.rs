@@ -117,21 +117,21 @@ mod test {
         Ok(())
     }
 
-    #[allow(unstable_name_collisions)]
-    fn multiple_assignment_tokens(
-        idents: impl Iterator<Item = Ident>,
-        value_idents: impl Iterator<Item = Ident>,
-    ) -> impl Iterator<Item = Token> {
-        idents
-            .map(Token::Ident)
-            .intersperse_with(|| Token::Comma)
-            .chain(std::iter::once(Token::Assignment))
-            .chain(
-                value_idents
-                    .map(Token::Ident)
-                    .intersperse_with(|| Token::Comma),
-            )
-    }
+    // #[allow(unstable_name_collisions)]
+    // fn multiple_assignment_tokens(
+    //     idents: impl Iterator<Item = Ident>,
+    //     value_idents: impl Iterator<Item = Ident>,
+    // ) -> impl Iterator<Item = Token> {
+    //     idents
+    //         .map(Token::Ident)
+    //         .intersperse_with(|| Token::Comma)
+    //         .chain(std::iter::once(Token::Assignment))
+    //         .chain(
+    //             value_idents
+    //                 .map(Token::Ident)
+    //                 .intersperse_with(|| Token::Comma),
+    //         )
+    // }
 
     // fn multi_return_fn(ret: NonEmptyVec<LuaValue>) -> LuaValue {
     //     let ret_value = ReturnValue::MultiValue(ret);
@@ -162,9 +162,6 @@ mod test {
 
     //     for (ident, value) in idents.into_iter().zip(values) {
     //         let res = context.get(&ident).total_eq(&value);
-    //         if !res {
-    //             println!("Nope! {}\t{}", context.get(&ident), value);
-    //         }
     //         assert!(res);
     //     }
     // }
@@ -407,7 +404,6 @@ mod test {
     //     prop: Ident,
     //     value: LuaValue,
     // ) -> Result<(), LuaError> {
-    //     println!("{:?}\t{:?}\t{:?}", table, prop, value);
     //     let module = lua_parser::module(&format!(
     //         "tbl1[\"{}\"] = value
     //         tbl2.{} = value",

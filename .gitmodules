@@ -1,3 +1,3 @@
-[submodule "benches/lua_benches"]
-	path = benches/lua_benches
+[submodule "tests/benches/lua_benches"]
+	path = tests/benches/lua_benches
 	url = https://github.com/Malien/Lua-Benchmarks.git

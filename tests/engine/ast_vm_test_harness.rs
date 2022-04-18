@@ -1,6 +1,8 @@
-use luar::ast_vm::eval_module;
-use luar::lang::{GlobalContext, LuaValue, ReturnValue};
-use luar::stdlib::fns;
+use ast_vm::{
+    eval_module,
+    lang::{GlobalContext, LuaValue, ReturnValue},
+    stdlib::fns,
+};
 use luar_syn::lua_parser;
 
 pub fn run_lua_test(group_name: &str, module_str: &str) {

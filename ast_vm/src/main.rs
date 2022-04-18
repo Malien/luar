@@ -1,5 +1,4 @@
-use luar::{
-    ast_vm,
+use ast_vm::{
     error::LuaError,
     lang::{EvalError, LuaValue, TypeError},
     stdlib,

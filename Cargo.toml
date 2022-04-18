@@ -1,35 +1,13 @@
-[package]
-name = "luar"
-version = "0.1.0"
-authors = ["Yaroslav <q.link0.p@gmail.com>"]
-edition = "2021"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[[bench]]
-name = "bench_main"
-harness = false
 
 [workspace]
-members = ["non_empty", "lex", "test_util", "syn", "error", "reggie"]
+members = ["non_empty", "lex", "test_util", "syn", "error", "reggie", "tests", "ast_vm"]
 
-[dependencies]
-non_empty = { path = "./non_empty" }
-luar_lex = { path = "./lex" }
-luar_syn = { path = "./syn" }
-thiserror = "1.0"
-num = "0.4"
-itertools = "0.10"
-libc = "0.2"
+# [dependencies]
 
-[dev-dependencies]
-non_empty = { path = "./non_empty", features = ["quickcheck"] }
-luar_lex = { path = "./lex", features = ["quickcheck"] }
-luar_syn = { path = "./syn", features = ["quickcheck"] }
-test_util = { path = "./test_util" }
-quickcheck = "1.0"
-quickcheck_macros = "1.0"
-criterion = "0.3.5"
-mlua = { version = "0.7", features = ["lua54", "vendored"] }
-lazy_static = "1.4.0"
-indoc = "1.0"
+# [dev-dependencies]
+# criterion = "0.3.5"
+# mlua = { version = "0.7", features = ["lua54", "vendored"] }
+# lazy_static = "1.4.0"
+# indoc = "1.0"

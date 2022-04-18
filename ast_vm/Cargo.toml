@@ -1,0 +1,23 @@
+[package]
+name = "ast_vm"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+luar_syn = { path = "../syn" }
+luar_lex = { path = "../lex" }
+non_empty = { path = "../non_empty" }
+num = "0.4"
+thiserror = "1.0"
+libc = "0.2"
+
+[dev-dependencies]
+non_empty = { path = "../non_empty", features = ["quickcheck"] }
+luar_lex = { path = "../lex", features = ["quickcheck"] }
+luar_syn = { path = "../syn", features = ["quickcheck"] }
+test_util = { path = "../test_util" }
+quickcheck = "1.0"
+quickcheck_macros = "1.0"
+itertools = "0.10"

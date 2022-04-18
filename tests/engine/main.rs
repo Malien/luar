@@ -1,12 +1,10 @@
-pub use luar::ast_vm::AstVM;
-
 pub mod ast_vm_test_harness;
 pub mod basic_expr;
 
 mod ast_vm {
     use crate::{ast_vm_test_harness::run_lua_test, basic_expr_tests};
 
-    basic_expr_tests!(luar::ast_vm::AstVM, luar::lang::GlobalContext::new());
+    basic_expr_tests!(ast_vm::ast_vm::AstVM, ast_vm::lang::GlobalContext::new());
 
     macro_rules! lua_test {
         ($name: ident) => {
@@ -22,9 +20,9 @@ mod ast_vm {
 }
 
 mod reggie {
-    use crate::basic_expr_tests;
+    // use crate::basic_expr_tests;
 
-    basic_expr_tests!(luar::ast_vm::AstVM, luar::lang::GlobalContext::new());
+    // basic_expr_tests!(ast_vm::AstVM, ast_vm::lang::GlobalContext::new());
 }
 
 // tests!(ast_vm, luar::ast_vm::AstVM, ::luar::lang::GlobalContext::new());

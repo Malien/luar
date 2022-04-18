@@ -2,12 +2,12 @@
 macro_rules! basic_expr_tests {
     ($engine: ty, $context: expr) => {
         mod basic_expr {
-            use ::luar::error::LuaError;
-            use ::luar::lang::{Engine, ReturnValue};
-            use ::luar_lex::{NumberLiteral, StringLiteral, Token};
-            use ::luar_syn::{lua_parser, unspanned_lua_token_parser};
-            use ::quickcheck::TestResult;
-            use ::quickcheck_macros::quickcheck;
+            use ast_vm::error::LuaError;
+            use ast_vm::lang::{Engine, ReturnValue};
+            use luar_lex::{NumberLiteral, StringLiteral, Token};
+            use luar_syn::{lua_parser, unspanned_lua_token_parser};
+            use quickcheck::TestResult;
+            use quickcheck_macros::quickcheck;
 
             #[test]
             fn eval_nil() -> Result<(), LuaError> {
