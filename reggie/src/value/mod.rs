@@ -1,3 +1,5 @@
+use crate::eq_with_nan::eq_with_nan;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum LuaValue {
     Nil,
@@ -26,6 +28,19 @@ impl LuaValue {
         }
     }
 
+    pub fn number_as_f64(&self) -> Option<f64> {
+        match self {
+            Self::Int(int) => Some(*int as f64),
+            Self::Float(float) => Some(*float),
+            _ => None,
+        }
+    }
+
+    pub fn is_table(&self) -> bool {
+        // matches!(self, Self::Table(_))
+        false
+    }
+
     pub fn true_value() -> Self {
         Self::Int(1)
     }
@@ -50,16 +65,6 @@ impl LuaValue {
             (Self::String(lhs), Self::String(rhs)) => lhs == rhs,
             _ => false,
         }
-    }
-}
-
-fn eq_with_nan(a: f64, b: f64) -> bool {
-    if a.is_nan() && b.is_nan() {
-        true
-    } else if a.is_infinite() && b.is_infinite() {
-        a.is_sign_negative() == b.is_sign_negative()
-    } else {
-        a == b
     }
 }
 

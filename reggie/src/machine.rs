@@ -113,7 +113,7 @@ impl GlobalValues {
         }
     }
 
-    pub fn get<I: AsRef<str>>(&mut self, ident: I) -> &LuaValue {
+    pub fn get<I: AsRef<str>>(&self, ident: I) -> &LuaValue {
         self.mapping
             .get(ident.as_ref())
             .map(|cell_id| self.value_of_cell(*cell_id))
@@ -122,6 +122,10 @@ impl GlobalValues {
 
     pub fn value_of_cell(&self, cell_id: GlobalCellID) -> &LuaValue {
         &self.cells[cell_id.0 as usize].value
+    }
+
+    pub fn set_cell(&mut self, cell_id: GlobalCellID, value: LuaValue) {
+        self.cells[cell_id.0 as usize].value = value;
     }
 
     pub fn global_nil(&self) -> &LuaValue {

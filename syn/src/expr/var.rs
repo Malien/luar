@@ -1,6 +1,6 @@
 use std::iter;
 
-use luar_lex::{DynTokens, Ident, ToTokenStream, Token};
+use luar_lex::{DynTokens, Ident, ToTokenStream, Token, fmt_tokens};
 
 use super::Expression;
 
@@ -36,6 +36,8 @@ impl ToTokenStream for Var {
         }
     }
 }
+
+fmt_tokens!(Var);
 
 #[cfg(feature = "quickcheck")]
 use quickcheck::{empty_shrinker, Arbitrary, Gen};

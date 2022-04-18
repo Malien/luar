@@ -12,8 +12,8 @@ use super::{
 pub mod expr;
 pub mod func;
 pub mod module;
-pub mod statement;
 pub mod ret;
+pub mod statement;
 
 pub use expr::*;
 pub use func::*;
@@ -24,6 +24,11 @@ pub use statement::*;
 pub struct RegisterAllocator {
     total: LocalRegCount,
     in_use: LocalRegCount,
+}
+
+pub struct LocalRegisterSpan {
+    start: u16,
+    count: u16,
 }
 
 impl RegisterAllocator {
@@ -40,6 +45,24 @@ impl RegisterAllocator {
 
     pub fn free_dyn(&mut self) {
         self.in_use.d -= 1;
+    }
+
+    pub fn alloc_dyn_count(&mut self, count: u16) -> LocalRegisterSpan {
+        let start = self.in_use.d;
+        self.in_use.d += count;
+        self.total.d = std::cmp::max(self.total.d, self.in_use.d);
+        LocalRegisterSpan { start, count }
+    }
+
+    pub fn free_dyn_count(&mut self, count: u16) {
+        self.in_use.d -= count;
+    }
+}
+
+impl LocalRegisterSpan {
+    fn at(&self, index: u16) -> LocalRegisterID {
+        assert!(index < self.count);
+        LocalRegisterID(self.start + index)
     }
 }
 
@@ -142,10 +165,6 @@ impl<'a, 'b> LocalFnCompState<'a, 'b> {
         &mut self.func_state.strings
     }
 
-    pub fn instructions(&mut self) -> &mut Vec<Instruction> {
-        &mut self.func_state.instructions
-    }
-
     pub fn push_instr(&mut self, instr: Instruction) {
         self.func_state.instructions.push(instr)
     }
@@ -156,18 +175,18 @@ impl<'a, 'b> LocalFnCompState<'a, 'b> {
         StringID(str_idx.try_into().unwrap())
     }
 
-    pub fn lookup_var(&mut self, ident: &str) -> VarLookup {
+    pub fn lookup_var(&mut self, ident: impl AsRef<str>) -> VarLookup {
         let local_reg = self.func_state.scope_vars[..=(self.scope)]
             .into_iter()
             .rev()
-            .find_map(|scope| scope.0.get(ident));
+            .find_map(|scope| scope.0.get(ident.as_ref()));
 
         if let Some(register) = local_reg {
             VarLookup::Local(*register)
-        } else if let Some(register) = self.func_state.arguments.0.get(ident) {
+        } else if let Some(register) = self.func_state.arguments.0.get(ident.as_ref()) {
             VarLookup::Argument(*register)
         } else {
-            VarLookup::GlobalCell(self.func_state.global_values.cell_for_name(ident))
+            VarLookup::GlobalCell(self.func_state.global_values.cell_for_name(ident.as_ref()))
         }
     }
 
@@ -189,7 +208,7 @@ impl<'a, 'b> LocalFnCompState<'a, 'b> {
             // SAFETY: Oh my fucking god! Just shut up! I can't, for the life of me, figure out
             // how to do these lifetimes appropriately. So fuck borrow checker, I'll do my own thing.
             // By it's fucking definition 'c is smaller than 'a or 'b, or otherwise there couldn't
-            // be am object from which I could take &'c! 
+            // be am object from which I could take &'c!
             func_state: unsafe { &mut *(self.func_state as *mut FunctionCompilationState<'b>) },
         }
     }

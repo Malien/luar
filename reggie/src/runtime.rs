@@ -1,6 +1,6 @@
 use luar_error::ArithmeticOperator;
 
-use crate::{ArithmeticError, EvalError, LuaValue, TypeError, return_value::FromLuaReturn};
+use crate::{return_value::FromLuaReturn, ArithmeticError, EvalError, LuaValue, TypeError};
 
 use super::{
     compiler::CompiledModule,
@@ -179,6 +179,10 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                     position += 1;
                 }
             }
+            Instruction::StrDGl(cell) => {
+                machine.global_values.set_cell(cell, machine.accumulators.d.clone());
+                position += 1;
+            },
 
             Instruction::LdaRF(_) => todo!(),
             Instruction::LdaRS(_) => todo!(),
@@ -216,7 +220,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::StrTGl(_) => todo!(),
             Instruction::StrCGl(_) => todo!(),
             Instruction::StrUGl(_) => todo!(),
-            Instruction::StrDGl(_) => todo!(),
             Instruction::LdaDynGl => todo!(),
             Instruction::StrDynGl => todo!(),
             Instruction::FAddR(_) => todo!(),
@@ -354,7 +357,6 @@ pub fn call_module<'a, T: FromLuaReturn<'a>>(
 
 #[cfg(test)]
 mod test {
-    use crate::LuaValue;
     use crate::ids::{ArgumentRegisterID, JmpLabel, LocalRegisterID, StringID};
     use crate::machine::{
         CodeBlock, EqualityFlag, EqualityFlag::EQ, EqualityFlag::NE, Machine, OrderingFlag,
@@ -364,6 +366,7 @@ mod test {
     use crate::ops::Instruction::{self, *};
     use crate::return_value::Strict;
     use crate::runtime::call_block;
+    use crate::LuaValue;
     use ntest::timeout;
 
     macro_rules! test_instructions_with_meta {
@@ -650,5 +653,28 @@ mod test {
                 assert_eq!(machine.accumulators.i, expected_value);
             }
         }
+    }
+
+    #[test]
+    #[timeout(5000)]
+    fn str_d_gl() {
+        let mut machine = Machine::new();
+
+        let cell = machine.global_values.cell_for_name("global_value");
+        assert_eq!(machine.global_values.value_of_cell(cell), &LuaValue::Nil);
+
+        let block_id = machine.code_blocks.add(CodeBlock {
+            meta: CodeMeta {
+                arg_count: 0.into(),
+                local_count: LocalRegCount::default(),
+                return_count: 0.into(),
+                label_mappings: vec![],
+                const_strings: vec![],
+            },
+            instructions: vec![ConstI(42), WrapI, StrDGl(cell), Ret],
+        });
+        call_block::<()>(&mut machine, block_id).unwrap();
+
+        assert_eq!(machine.global_values.value_of_cell(cell), &LuaValue::Int(42));
     }
 }

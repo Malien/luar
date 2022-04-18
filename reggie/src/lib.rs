@@ -4,6 +4,7 @@
 extern crate quickcheck_macros;
 
 pub(crate) mod compiler;
+pub(crate) mod eq_with_nan;
 pub(crate) mod ids;
 pub(crate) mod machine;
 pub(crate) mod meta;
@@ -39,14 +40,16 @@ pub fn eval_module<'a, T: FromLuaReturn<'a>>(
 
 #[cfg(test)]
 mod test {
-    use crate::{eval_str, LuaError, Machine};
-    use itertools::Itertools;
-    use luar_lex::{Ident, Token};
+    use crate::{
+        eval_module, eval_str, return_value::Strict, LuaError, LuaValue, Machine, TypeError,
+    };
+    use luar_error::assert_type_error;
+    use luar_syn::lua_parser;
 
     #[cfg(feature = "quickcheck")]
-    use crate::{eval_module, LuaValue};
+    use itertools::Itertools;
     #[cfg(feature = "quickcheck")]
-    use luar_syn::lua_parser;
+    use luar_lex::{Ident, NumberLiteral, StringLiteral, Token};
     #[cfg(feature = "quickcheck")]
     use quickcheck::TestResult;
 
@@ -54,6 +57,52 @@ mod test {
     fn eval_empty() -> Result<(), LuaError> {
         let mut machine = Machine::new();
         eval_str("", &mut machine)
+    }
+
+    #[test]
+    fn eval_nil() -> Result<(), LuaError> {
+        let mut machine = Machine::new();
+        assert_eq!(
+            eval_str::<LuaValue>("return nil", &mut machine)?,
+            LuaValue::Nil
+        );
+        Ok(())
+    }
+
+    #[cfg(feature = "quickcheck")]
+    #[quickcheck]
+    fn eval_number_literal(num: f64) -> Result<TestResult, LuaError> {
+        use crate::eq_with_nan::eq_with_nan;
+        use luar_syn::unspanned_lua_token_parser;
+
+        if !num.is_finite() {
+            return Ok(TestResult::discard());
+        }
+        let module =
+            unspanned_lua_token_parser::module([Token::Return, Token::Number(NumberLiteral(num))])?;
+        let mut machine = Machine::new();
+        let res = eval_module::<LuaValue>(&module, &mut machine)?
+            .number_as_f64()
+            .unwrap();
+        assert!(eq_with_nan(res, num));
+        Ok(TestResult::passed())
+    }
+
+    #[cfg(feature = "quickcheck")]
+    #[quickcheck]
+    fn eval_string_literal(str: String) -> Result<(), LuaError> {
+        use luar_syn::unspanned_lua_token_parser;
+
+        let module = unspanned_lua_token_parser::module([
+            Token::Return,
+            Token::String(StringLiteral(str.clone())),
+        ])?;
+        let mut context = Machine::new();
+        assert_eq!(
+            eval_module::<LuaValue>(&module, &mut context)?,
+            LuaValue::String(str)
+        );
+        Ok(())
     }
 
     #[cfg(feature = "quickcheck")]
@@ -117,96 +166,116 @@ mod test {
         Ok(())
     }
 
-    // #[allow(unstable_name_collisions)]
-    // fn multiple_assignment_tokens(
-    //     idents: impl Iterator<Item = Ident>,
-    //     value_idents: impl Iterator<Item = Ident>,
-    // ) -> impl Iterator<Item = Token> {
-    //     idents
-    //         .map(Token::Ident)
-    //         .intersperse_with(|| Token::Comma)
-    //         .chain(std::iter::once(Token::Assignment))
-    //         .chain(
-    //             value_idents
-    //                 .map(Token::Ident)
-    //                 .intersperse_with(|| Token::Comma),
-    //         )
-    // }
+    #[cfg(feature = "quickcheck")]
+    #[allow(unstable_name_collisions)]
+    fn multiple_assignment_tokens(
+        idents: impl Iterator<Item = Ident>,
+        value_idents: impl Iterator<Item = Ident>,
+    ) -> impl Iterator<Item = Token> {
+        idents
+            .map(Token::Ident)
+            .intersperse_with(|| Token::Comma)
+            .chain(std::iter::once(Token::Assignment))
+            .chain(
+                value_idents
+                    .map(Token::Ident)
+                    .intersperse_with(|| Token::Comma),
+            )
+    }
 
+    // #[cfg(feature = "quickcheck")]
     // fn multi_return_fn(ret: NonEmptyVec<LuaValue>) -> LuaValue {
     //     let ret_value = ReturnValue::MultiValue(ret);
     //     let lua_fn = LuaFunction::new(move |_, _| Ok(ret_value.clone()));
     //     LuaValue::Function(lua_fn)
     // }
 
-    // fn assign_values(
-    //     context: &mut GlobalContext,
-    //     names: impl IntoIterator<Item = Ident>,
-    //     values: impl IntoIterator<Item = LuaValue>,
-    // ) {
-    //     for (name, value) in names.into_iter().zip(values) {
-    //         context.set(name, value)
-    //     }
-    // }
+    #[cfg(feature = "quickcheck")]
+    fn assign_values(
+        global: &mut crate::machine::GlobalValues,
+        names: impl IntoIterator<Item = Ident>,
+        values: impl IntoIterator<Item = LuaValue>,
+    ) {
+        for (name, value) in names.into_iter().zip(values) {
+            global.set(name, value);
+        }
+    }
 
-    // fn assert_multiple_assignment(
-    //     context: &GlobalContext,
-    //     idents: Vec<Ident>,
-    //     values: Vec<LuaValue>,
-    // ) {
-    //     if idents.len() > values.len() {
-    //         for ident in &idents[values.len()..] {
-    //             assert_eq!(context.get(ident), &LuaValue::Nil);
-    //         }
-    //     }
+    #[cfg(feature = "quickcheck")]
+    fn assert_multiple_assignment(
+        global: &crate::machine::GlobalValues,
+        idents: Vec<Ident>,
+        values: Vec<LuaValue>,
+    ) {
+        if idents.len() > values.len() {
+            for ident in &idents[values.len()..] {
+                assert_eq!(global.get(ident), &LuaValue::Nil);
+            }
+        }
 
-    //     for (ident, value) in idents.into_iter().zip(values) {
-    //         let res = context.get(&ident).total_eq(&value);
-    //         assert!(res);
-    //     }
-    // }
+        for (ident, value) in idents.into_iter().zip(values) {
+            let res = global.get(&ident).total_eq(&value);
+            assert!(res);
+        }
+    }
 
-    // fn put_dummy_values<'a>(
-    //     context: &mut GlobalContext,
-    //     idents: impl IntoIterator<Item = &'a Ident>,
-    // ) {
-    //     for ident in idents {
-    //         context.set(ident.clone(), LuaValue::number(42));
-    //     }
-    // }
+    #[cfg(feature = "quickcheck")]
+    fn put_dummy_values<'a>(
+        values: &mut crate::machine::GlobalValues,
+        idents: impl IntoIterator<Item = &'a Ident>,
+    ) {
+        for ident in idents {
+            values.set(ident.clone(), LuaValue::Int(42));
+        }
+    }
 
-    // #[quickcheck]
-    // #[allow(unstable_name_collisions)]
-    // fn eval_multiple_assignment(
-    //     idents: HashSet<Ident>,
-    //     values: NonEmptyVec<LuaValue>,
-    // ) -> Result<TestResult, LuaError> {
-    //     if idents.len() == 0 {
-    //         return Ok(TestResult::discard());
-    //     }
-    //     // Make iteration order deterministic
-    //     let idents: Vec<_> = idents.into_iter().collect();
-    //     let value_idents = vec_of_idents(values.len(), "value");
+    #[cfg(feature = "quickcheck")]
+    fn vec_of_idents(len: usize, prefix: &str) -> Vec<luar_lex::Ident> {
+        (0..len)
+            .into_iter()
+            .map(|i| format!("{}{}", prefix, i))
+            .map(luar_lex::Ident::new)
+            .collect()
+    }
 
-    //     let tokens: Vec<_> =
-    //         multiple_assignment_tokens(idents.iter().cloned(), value_idents.iter().cloned())
-    //             .collect();
-    //     let module = unspanned_lua_token_parser::module(tokens)?;
+    #[cfg(feature = "quickcheck")]
+    #[quickcheck]
+    #[allow(unstable_name_collisions)]
+    fn eval_multiple_assignment(
+        idents: std::collections::HashSet<Ident>,
+        values: non_empty::NonEmptyVec<LuaValue>,
+    ) -> Result<TestResult, LuaError> {
+        if idents.len() == 0 {
+            return Ok(TestResult::discard());
+        }
+        // Make iteration order deterministic
 
-    //     let mut context = GlobalContext::new();
-    //     assign_values(
-    //         &mut context,
-    //         value_idents.iter().cloned(),
-    //         values.iter().cloned(),
-    //     );
-    //     put_dummy_values(&mut context, &idents);
+        use luar_syn::unspanned_lua_token_parser;
 
-    //     ast_vm::eval_module(&module, &mut context)?;
-    //     assert_multiple_assignment(&context, idents, values.into());
+        use crate::compiler::compile_module;
+        let idents: Vec<_> = idents.into_iter().collect();
+        let value_idents = vec_of_idents(values.len(), "value");
 
-    //     Ok(TestResult::passed())
-    // }
+        let tokens: Vec<_> =
+            multiple_assignment_tokens(idents.iter().cloned(), value_idents.iter().cloned())
+                .collect();
+        let module = unspanned_lua_token_parser::module(tokens)?;
 
+        let mut machine = Machine::new();
+        assign_values(
+            &mut machine.global_values,
+            value_idents.iter().cloned(),
+            values.iter().cloned(),
+        );
+        put_dummy_values(&mut machine.global_values, &idents);
+
+        eval_module::<Strict<()>>(&module, &mut machine)?;
+        assert_multiple_assignment(&machine.global_values, idents, values.into());
+
+        Ok(TestResult::passed())
+    }
+
+    // #[cfg(feature = "quickcheck")]
     // #[quickcheck]
     // #[allow(unstable_name_collisions)]
     // fn multiple_expanded_assignment(
@@ -254,13 +323,16 @@ mod test {
     //     Ok(TestResult::passed())
     // }
 
+    // #[cfg(feature = "quickcheck")]
     // #[allow(unstable_name_collisions)]
     // fn multiple_expanded_assignment_in_the_middle_module(
     //     idents: impl Iterator<Item = Ident>,
     //     left_idents: impl Iterator<Item = Ident>,
     //     right_idents: impl Iterator<Item = Ident>,
     //     fn_name: Ident,
-    // ) -> Result<Module, RawParseError> {
+    // ) -> Result<luar_syn::Module, luar_syn::RawParseError> {
+    //     use luar_syn::unspanned_lua_token_parser;
+
     //     let tokens: Vec<_> = idents
     //         .map(Token::Ident)
     //         .intersperse_with(|| Token::Comma)
@@ -285,6 +357,7 @@ mod test {
     //     unspanned_lua_token_parser::module(tokens)
     // }
 
+    // #[cfg(feature = "quickcheck")]
     // #[quickcheck]
     // fn multiple_expanded_assignment_in_the_middle(
     //     idents: HashSet<Ident>,
@@ -325,6 +398,7 @@ mod test {
     //     Ok(TestResult::passed())
     // }
 
+    // #[cfg(feature = "quickcheck")]
     // #[quickcheck]
     // fn assigning_to_a_table_member(key: LuaKey, value: LuaValue) -> Result<TestResult, LuaError> {
     //     if let LuaKey::Number(num) = key {
@@ -345,6 +419,7 @@ mod test {
     //     Ok(TestResult::passed())
     // }
 
+    // #[cfg(feature = "quickcheck")]
     // #[quickcheck]
     // fn assigning_to_existing_member_overrides_it(
     //     key: LuaKey,
@@ -371,6 +446,7 @@ mod test {
     //     Ok(TestResult::passed())
     // }
 
+    // #[cfg(feature = "quickcheck")]
     // #[quickcheck]
     // fn assigning_to_a_non_indexable_value_is_an_error(
     //     key: LuaKey,
@@ -389,15 +465,16 @@ mod test {
     //     Ok(TestResult::passed())
     // }
 
-    // #[test]
-    // fn assigning_to_a_nil_member_is_an_error() -> Result<(), LuaError> {
-    //     let module = lua_parser::module("tbl = {} tbl[nil] = 42")?;
-    //     let mut context = GlobalContext::new();
-    //     let res = ast_vm::eval_module(&module, &mut context);
-    //     assert_type_error!(TypeError::NilLookup, res);
-    //     Ok(())
-    // }
+    #[test]
+    fn assigning_to_a_nil_member_is_an_error() -> Result<(), LuaError> {
+        let module = lua_parser::module("tbl = {} tbl[nil] = 42")?;
+        let mut machine = Machine::new();
+        let res = eval_module::<Strict<()>>(&module, &mut machine);
+        assert_type_error!(TypeError::NilLookup, res);
+        Ok(())
+    }
 
+    // #[cfg(feature = "quickcheck")]
     // #[quickcheck]
     // fn assigning_to_a_property_is_the_same_as_to_a_member_keyed_by_the_string_of_property_name(
     //     NaNLessTable(table): NaNLessTable,
@@ -425,20 +502,21 @@ mod test {
     //     Ok(())
     // }
 
-    // #[quickcheck]
-    // fn accessing_property_of_a_non_indexable_value_is_an_error(
-    //     prop: Ident,
-    //     value: LuaValue,
-    // ) -> Result<TestResult, LuaError> {
-    //     if value.is_table() {
-    //         return Ok(TestResult::discard());
-    //     }
+    #[cfg(feature = "quickcheck")]
+    #[quickcheck]
+    fn accessing_property_of_a_non_indexable_value_is_an_error(
+        prop: Ident,
+        value: LuaValue,
+    ) -> Result<TestResult, LuaError> {
+        if value.is_table() {
+            return Ok(TestResult::discard());
+        }
 
-    //     let module = lua_parser::module(&format!("value.{} = 42", prop))?;
-    //     let mut context = GlobalContext::new();
-    //     context.set("value", value);
-    //     let res = ast_vm::eval_module(&module, &mut context);
-    //     assert_type_error!(TypeError::CannotAssignProperty { .. }, res);
-    //     Ok(TestResult::passed())
-    // }
+        let module = lua_parser::module(&format!("value.{} = 42", prop))?;
+        let mut machine = Machine::new();
+        machine.global_values.set("value", value);
+        let res = eval_module::<Strict<()>>(&module, &mut machine);
+        assert_type_error!(TypeError::CannotAssignProperty { .. }, res);
+        Ok(TestResult::passed())
+    }
 }

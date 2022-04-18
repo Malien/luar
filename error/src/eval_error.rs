@@ -165,7 +165,7 @@ impl<V: fmt::Display + fmt::Debug> Error for ArithmeticError<V> {}
 #[macro_export]
 macro_rules! assert_type_error {
     ($pattern:pat, $value:expr) => {
-        if let ::Err($crate::EvalError::TypeError(err)) = $value {
+        if let ::std::result::Result::Err($crate::EvalError::TypeError(err)) = $value {
             if let $pattern = err.as_ref() {
             } else {
                 panic!("Unexpected result type");
