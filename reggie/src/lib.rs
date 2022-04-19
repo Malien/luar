@@ -21,9 +21,9 @@ pub type EvalError = luar_error::EvalError<LuaValue>;
 pub type TypeError = luar_error::TypeError<LuaValue>;
 pub type ArithmeticError = luar_error::ArithmeticError<LuaValue>;
 
-use value::FromLuaReturn;
+use value::FromReturn;
 
-pub fn eval_str<'a, T: FromLuaReturn<'a>>(
+pub fn eval_str<'a, T: FromReturn<'a>>(
     module_str: &str,
     machine: &'a mut Machine,
 ) -> Result<T, LuaError> {
@@ -31,7 +31,7 @@ pub fn eval_str<'a, T: FromLuaReturn<'a>>(
     eval_module(&module, machine).map_err(LuaError::from)
 }
 
-pub fn eval_module<'a, T: FromLuaReturn<'a>>(
+pub fn eval_module<'a, T: FromReturn<'a>>(
     module: &luar_syn::Module,
     machine: &'a mut Machine,
 ) -> Result<T, EvalError> {
@@ -530,7 +530,7 @@ mod test {
     fn eval_fn_call() -> Result<(), LuaError> {
         let module = lua_parser::module("myfn(42)")?;
         let called_with = Rc::new(RefCell::new(0));
-        let myfn = NativeFunction::dyn_fn({
+        let myfn = NativeFunction::new({
             let called_with = Rc::clone(&called_with);
             move |first_arg: LuaValue| {
                 let mut called = called_with.borrow_mut();
@@ -552,7 +552,7 @@ mod test {
     fn eval_fn_return(ret_value: LuaValue) -> Result<(), LuaError> {
         let module = lua_parser::module("return myfn()")?;
         let mut machine = Machine::new();
-        let myfn = NativeFunction::dyn_fn({
+        let myfn = NativeFunction::new({
             let ret_value = ret_value.clone();
             move || ret_value.clone()
         });
@@ -585,7 +585,7 @@ mod test {
         let module = lua_parser::module("return myfn()")?;
         let mut machine = Machine::new();
         let ret_values = (value1.clone(), value2.clone());
-        let myfn = NativeFunction::dyn_fn({
+        let myfn = NativeFunction::new({
             let ret_values = ret_values.clone();
             move || Ok(ret_values.clone())
         });

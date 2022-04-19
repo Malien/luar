@@ -1,6 +1,6 @@
 use luar_error::ArithmeticOperator;
 
-use crate::{ArithmeticError, EvalError, LuaValue, TypeError, value::FromLuaReturn};
+use crate::{ArithmeticError, EvalError, LuaValue, TypeError, value::FromReturn};
 
 use super::{
     compiler::CompiledModule,
@@ -321,7 +321,7 @@ fn binary_number_op(
     }
 }
 
-pub fn call_block<'a, T: FromLuaReturn<'a>>(
+pub fn call_block<'a, T: FromReturn<'a>>(
     machine: &'a mut Machine,
     block_id: BlockID,
 ) -> Result<T, EvalError> {
@@ -346,7 +346,7 @@ pub fn call_block<'a, T: FromLuaReturn<'a>>(
     Ok(T::from_machine_state(machine, return_count))
 }
 
-pub fn call_module<'a, T: FromLuaReturn<'a>>(
+pub fn call_module<'a, T: FromReturn<'a>>(
     module: CompiledModule,
     machine: &'a mut Machine,
 ) -> Result<T, EvalError> {

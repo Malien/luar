@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::rc::Rc;
 
 use crate::{eq_with_nan::eq_with_nan, ids::BlockID};
 
@@ -8,6 +8,8 @@ pub use native_function::*;
 pub mod traits;
 pub use traits::*;
 
+pub mod signature;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum LuaValue {
     Nil,
@@ -15,7 +17,7 @@ pub enum LuaValue {
     Float(f64),
     String(String),
     NativeFunction(NativeFunction),
-    Function(BlockID)
+    Function(BlockID),
 }
 
 impl Default for LuaValue {
@@ -104,7 +106,9 @@ impl std::fmt::Display for LuaValue {
             LuaValue::Int(int) => std::fmt::Display::fmt(int, f),
             LuaValue::Float(float) => std::fmt::Display::fmt(float, f),
             LuaValue::String(string) => std::fmt::Debug::fmt(string, f),
-            LuaValue::NativeFunction(function) => write!(f, "native_function: {:p}", Arc::as_ptr(&function.0)),
+            LuaValue::NativeFunction(function) => {
+                write!(f, "native_function: {:p}", Rc::as_ptr(&function.0))
+            }
             LuaValue::Function(block_id) => write!(f, "function: {:#x}", block_id.0),
         }
     }
