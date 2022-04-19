@@ -1,6 +1,6 @@
 use luar_error::ArithmeticOperator;
 
-use crate::{return_value::FromLuaReturn, ArithmeticError, EvalError, LuaValue, TypeError};
+use crate::{ArithmeticError, EvalError, LuaValue, TypeError, value::FromLuaReturn};
 
 use super::{
     compiler::CompiledModule,
@@ -364,9 +364,8 @@ mod test {
     };
     use crate::meta::{CodeMeta, LocalRegCount};
     use crate::ops::Instruction::{self, *};
-    use crate::return_value::Strict;
     use crate::runtime::call_block;
-    use crate::LuaValue;
+    use crate::{LuaValue, Strict};
     use ntest::timeout;
 
     macro_rules! test_instructions_with_meta {

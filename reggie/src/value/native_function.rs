@@ -222,6 +222,20 @@ impl LuaReturnRepresentable for LuaValue {
     }
 }
 
+impl LuaReturnRepresentable for (LuaValue, LuaValue) {
+    fn returns() -> FunctionSignatureList {
+        FunctionSignatureList::Finite(vec![ArgumentType::Dynamic, ArgumentType::Dynamic])
+    }
+    fn to_lua_return(self, machine: &mut Machine) -> Result<(), EvalError> {
+        machine.argument_registers.d[0] = self.0;
+        machine.argument_registers.d[1] = self.1;
+        Ok(())
+    }
+    fn return_count() -> usize {
+        2
+    }
+}
+
 impl<T> LuaReturnRepresentable for Result<T, EvalError>
 where
     T: LuaReturnRepresentable,
@@ -271,6 +285,19 @@ impl FromArgs for (LuaValue,) {
             (machine.argument_registers.d[0].clone(),)
         } else {
             (LuaValue::Nil,)
+        }
+    }
+}
+
+impl FromArgs for (LuaValue, LuaValue) {
+    fn from_args(machine: &mut Machine, argument_count: u32) -> Self {
+        match argument_count {
+            0 => (LuaValue::Nil, LuaValue::Nil),
+            1 => (machine.argument_registers.d[0].clone(), LuaValue::Nil),
+            _ => (
+                machine.argument_registers.d[0].clone(),
+                machine.argument_registers.d[1].clone(),
+            ),
         }
     }
 }

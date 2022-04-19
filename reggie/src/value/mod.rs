@@ -1,7 +1,10 @@
-use crate::eq_with_nan::eq_with_nan;
+use crate::{eq_with_nan::eq_with_nan, ids::BlockID};
 
 pub mod native_function;
 pub use native_function::*;
+
+pub mod traits;
+pub use traits::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LuaValue {
@@ -9,7 +12,8 @@ pub enum LuaValue {
     Int(i32),
     Float(f64),
     String(String),
-    NativeFunction(NativeFunction)
+    NativeFunction(NativeFunction),
+    Function(BlockID)
 }
 
 impl Default for LuaValue {
@@ -117,7 +121,7 @@ impl quickcheck::Arbitrary for LuaValue {
             LuaValue::String(str) => {
                 Box::new(std::iter::once(LuaValue::Nil).chain(str.shrink().map(LuaValue::String)))
             }
-            LuaValue::NativeFunction(func) => {
+            LuaValue::NativeFunction(_) | LuaValue::Function(_) => {
                 Box::new(std::iter::once(LuaValue::Nil))
             }
         }
