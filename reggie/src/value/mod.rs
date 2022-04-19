@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{eq_with_nan::eq_with_nan, ids::BlockID};
 
 pub mod native_function;
@@ -91,6 +93,19 @@ impl LuaValue {
             (Self::Float(lhs), Self::Float(rhs)) => eq_with_nan(*lhs, *rhs),
             (Self::String(lhs), Self::String(rhs)) => lhs == rhs,
             _ => false,
+        }
+    }
+}
+
+impl std::fmt::Display for LuaValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LuaValue::Nil => f.write_str("nil"),
+            LuaValue::Int(int) => std::fmt::Display::fmt(int, f),
+            LuaValue::Float(float) => std::fmt::Display::fmt(float, f),
+            LuaValue::String(string) => std::fmt::Debug::fmt(string, f),
+            LuaValue::NativeFunction(function) => write!(f, "native_function: {:p}", Arc::as_ptr(&function.0)),
+            LuaValue::Function(block_id) => write!(f, "function: {:#x}", block_id.0),
         }
     }
 }
