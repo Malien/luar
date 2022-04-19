@@ -55,9 +55,9 @@ mod test {
     #[cfg(feature = "quickcheck")]
     use luar_lex::{Ident, NumberLiteral, StringLiteral, Token};
     #[cfg(feature = "quickcheck")]
-    use quickcheck::TestResult;
-    #[cfg(feature = "quickcheck")]
     use non_empty::NonEmptyVec;
+    #[cfg(feature = "quickcheck")]
+    use quickcheck::TestResult;
 
     #[test]
     fn eval_empty() -> Result<(), LuaError> {
@@ -69,7 +69,7 @@ mod test {
     fn eval_nil() -> Result<(), LuaError> {
         let mut machine = Machine::new();
         assert_eq!(
-            eval_str::<LuaValue>("return nil", &mut machine)?,
+            eval_str::<Strict<LuaValue>>("return nil", &mut machine)?.0,
             LuaValue::Nil
         );
         Ok(())
@@ -87,7 +87,8 @@ mod test {
         let module =
             unspanned_lua_token_parser::module([Token::Return, Token::Number(NumberLiteral(num))])?;
         let mut machine = Machine::new();
-        let res = eval_module::<LuaValue>(&module, &mut machine)?
+        let res = eval_module::<Strict<LuaValue>>(&module, &mut machine)?
+            .0
             .number_as_f64()
             .unwrap();
         assert!(eq_with_nan(res, num));
@@ -105,8 +106,8 @@ mod test {
         ])?;
         let mut context = Machine::new();
         assert_eq!(
-            eval_module::<LuaValue>(&module, &mut context)?,
-            LuaValue::String(str)
+            eval_module::<Strict<&LuaValue>>(&module, &mut context)?.0,
+            &LuaValue::String(str)
         );
         Ok(())
     }

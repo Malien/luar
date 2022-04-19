@@ -1,5 +1,6 @@
 use crate::{LuaValue, Machine};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Strict<T>(pub T);
 
 // pub struct TryStrict<T>(pub T);
@@ -66,6 +67,10 @@ impl SizedLuaReturn for LuaValue {
     const COUNT: usize = 1;
 }
 
+impl<'a, T: SizedLuaReturn> SizedLuaReturn for &'a T {
+    const COUNT: usize = T::COUNT;
+}
+
 impl SizedLuaReturn for bool {
     const COUNT: usize = 1;
 }
@@ -123,9 +128,9 @@ where
 {
     fn from_machine_state(machine: &'a Machine, return_count: usize) -> Self {
         if return_count == 0 {
-            T::from_multi_return(machine)
-        } else {
             T::from_absent_value(machine)
+        } else {
+            T::from_multi_return(machine)
         }
     }
 }
