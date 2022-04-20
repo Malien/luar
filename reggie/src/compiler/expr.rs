@@ -1,12 +1,12 @@
-use luar_syn::{BinaryOperator, Expression, Var};
+use luar_syn::{BinaryOperator, Expression};
 
 use crate::{
-    compiler::{LocalFnCompState, VarLookup},
-    ids::LocalRegisterID,
+    compiler::{compile_var_lookup, LocalScopeCompilationState, compile_fn_call},
+    ids::{LocalRegisterID, ArgumentRegisterID},
     ops::Instruction,
 };
 
-pub fn compile_expr(expr: &Expression, state: &mut LocalFnCompState) {
+pub fn compile_expr(expr: &Expression, state: &mut LocalScopeCompilationState) {
     use Instruction::*;
 
     match expr {
@@ -29,12 +29,12 @@ pub fn compile_expr(expr: &Expression, state: &mut LocalFnCompState) {
         Expression::BinaryOperator { lhs, op, rhs } => {
             compile_binary_op(*op, lhs, rhs, state);
         }
-        Expression::Variable(Var::Named(ident)) => {
-            match state.lookup_var(ident.as_ref()) {
-                VarLookup::Argument(reg) => state.push_instr(LdaRD(reg)),
-                VarLookup::Local(reg) => state.push_instr(LdaLD(reg)),
-                VarLookup::GlobalCell(cell) => state.push_instr(LdaDGl(cell)),
-            };
+        Expression::Variable(var) => {
+            compile_var_lookup(var, state);
+        }
+        Expression::FunctionCall(fn_call) => {
+            compile_fn_call(fn_call, state);
+            state.push_instr(LdaProt(ArgumentRegisterID(0)));
         }
         _ => todo!(),
     }
@@ -44,7 +44,7 @@ fn compile_binary_op(
     op: BinaryOperator,
     lhs: &Expression,
     rhs: &Expression,
-    state: &mut LocalFnCompState,
+    state: &mut LocalScopeCompilationState,
 ) {
     use Instruction::*;
 
@@ -71,7 +71,7 @@ fn compile_binary_op(
     state.reg().free_dyn();
 }
 
-fn compile_eq_op(state: &mut LocalFnCompState, lhs_value: LocalRegisterID) {
+fn compile_eq_op(state: &mut LocalScopeCompilationState, lhs_value: LocalRegisterID) {
     use Instruction::*;
     let true_lbl = state.alloc_label();
     let cont_lbl = state.alloc_label();

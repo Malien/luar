@@ -54,7 +54,7 @@ impl LuaValue {
     }
 
     pub fn is_function(&self) -> bool {
-        matches!(self, Self::NativeFunction(_) /* | Self::Function(_) */)
+        matches!(self, Self::NativeFunction(_) | Self::Function(_))
     }
 
     pub fn is_truthy(&self) -> bool {
@@ -70,6 +70,13 @@ impl LuaValue {
             return *int;
         }
         panic!("Tried to call unwrap_int() on {:?}", self)
+    }
+
+    pub fn unwrap_lua_function(&self) -> BlockID {
+        if let Self::Function(block_id) = self {
+            return *block_id;
+        }
+        panic!("Tried to call unwrap_lua_function() on {:?}", self)
     }
 
     pub fn true_value() -> Self {

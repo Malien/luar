@@ -223,7 +223,7 @@ Stores the value from an accumulator register AY into an register XYZ.
 
 The type of register (Y) determines the type of an accumulator (AY). X cannot specify an accumulator register
 
-#### mov_ABC_XBZ
+<!-- #### mov_ABC_XBZ
 
 Moves the value of register ABC into XBZ, where
 
@@ -231,7 +231,7 @@ Moves the value of register ABC into XBZ, where
 -   B is the [type of register's value](#type-notation) (`N`, `F`, `S`, `T`, `C`, `U`, `D`)
 -   C is the source register number
 -   X is the destination register type (`R`, `ExtR`, `L`)
--   z is the destination register number
+-   z is the destination register number -->
 
 #### lda_X_gl &lt;global_cell_ref&gt;
 
@@ -242,6 +242,14 @@ Loads global value referenced by &lt;global_cell_ref&gt;. Value is stored into t
 #### lda_dyn_gl
 
 Loads global value described by AS register into a AD register. If the value is not present in global scope, AD is set to the dynamic value of `nil`.
+
+#### lda_prot_Z
+
+-   Z is the number of dynamic argument (RD) source register
+
+Depending on the current value of [VC](#value-count):
+-   If [VC](#value-count) is less than the integer value of Z, the value of RDZ is loaded into register AD (equivalent to lda_RDZ)
+-   if [VC](#value-count) is greater or equal to the integer value of Z, the value of nil is loaded into AD (equivalent to const_N)
 
 #### str_X_gl &lt;global_cell_ref&gt;
 

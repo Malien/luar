@@ -10,15 +10,19 @@ use super::{
 };
 
 pub mod expr;
+pub mod fn_call;
 pub mod func;
 pub mod module;
 pub mod ret;
 pub mod statement;
+pub mod var;
 
 pub use expr::*;
+pub use fn_call::*;
 pub use func::*;
 pub use module::*;
 pub use statement::*;
+pub use var::*;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct RegisterAllocator {
@@ -63,6 +67,16 @@ impl LocalRegisterSpan {
     fn at(&self, index: u16) -> LocalRegisterID {
         assert!(index < self.count);
         LocalRegisterID(self.start + index)
+    }
+}
+
+impl<'a> IntoIterator for &'a LocalRegisterSpan {
+    type Item = LocalRegisterID;
+
+    type IntoIter = std::iter::Map<std::ops::Range<u16>, fn (u16) -> LocalRegisterID>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (self.start..self.start + self.count).into_iter().map(LocalRegisterID)
     }
 }
 
@@ -145,7 +159,7 @@ impl<'a> FunctionCompilationState<'a> {
 }
 
 #[derive(Debug)]
-pub struct LocalFnCompState<'a, 'b> {
+pub struct LocalScopeCompilationState<'a, 'b> {
     func_state: &'a mut FunctionCompilationState<'b>,
     scope: usize,
 }
@@ -156,7 +170,7 @@ pub enum VarLookup {
     GlobalCell(GlobalCellID),
 }
 
-impl<'a, 'b> LocalFnCompState<'a, 'b> {
+impl<'a, 'b> LocalScopeCompilationState<'a, 'b> {
     pub fn reg(&mut self) -> &mut RegisterAllocator {
         &mut self.func_state.reg_alloc
     }
@@ -173,6 +187,10 @@ impl<'a, 'b> LocalFnCompState<'a, 'b> {
         let str_idx = self.strings().len();
         self.strings().push(str);
         StringID(str_idx.try_into().unwrap())
+    }
+
+    pub fn instructions(&self) -> &[Instruction] {
+        &self.func_state.instructions
     }
 
     pub fn lookup_var(&mut self, ident: impl AsRef<str>) -> VarLookup {
@@ -196,7 +214,7 @@ impl<'a, 'b> LocalFnCompState<'a, 'b> {
             .insert(ident, location);
     }
 
-    pub fn inner_scope<'c>(&'c mut self) -> LocalFnCompState<'c, 'b> {
+    pub fn inner_scope<'c>(&'c mut self) -> LocalScopeCompilationState<'c, 'b> {
         if self.func_state.scope_vars.len() - 1 == self.scope {
             let scope = LocalScope::default();
             self.func_state.scope_vars.push(scope);
@@ -213,7 +231,9 @@ impl<'a, 'b> LocalFnCompState<'a, 'b> {
         }
     }
 
-    pub fn new(func_state: &'a mut FunctionCompilationState<'b>) -> LocalFnCompState<'a, 'b> {
+    pub fn new(
+        func_state: &'a mut FunctionCompilationState<'b>,
+    ) -> LocalScopeCompilationState<'a, 'b> {
         if func_state.scope_vars.len() == 0 {
             let scope = LocalScope::default();
             func_state.scope_vars.push(scope);

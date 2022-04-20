@@ -2,9 +2,9 @@ use luar_syn::Return;
 
 use crate::{ids::ArgumentRegisterID, ops::Instruction};
 
-use super::{compile_expr, LocalFnCompState};
+use super::{compile_expr, LocalScopeCompilationState};
 
-pub fn compile_ret(ret: &Return, state: &mut LocalFnCompState) {
+pub fn compile_ret(ret: &Return, state: &mut LocalScopeCompilationState) {
     let Return(expressions) = ret;
     if expressions.len() > 1 {
         todo!("Cannot compile multiple return yet");

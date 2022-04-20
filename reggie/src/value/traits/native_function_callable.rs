@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
-use crate::{FFIFunc, FromArgs, Machine, ReturnRepresentable};
+use crate::{machine::ArgumentRegisters, FFIFunc, FromArgs, ReturnRepresentable, EvalError};
 
 pub trait NativeFunctionCallable {
-    fn call(&self, machine: &mut Machine);
+    fn call(&self, argument_registers: &mut ArgumentRegisters, value_count: u32) -> Result<(), EvalError>;
     fn return_count(&self) -> usize;
 }
 
@@ -17,11 +17,10 @@ where
     F: FFIFunc<Args>,
     Args: FromArgs,
 {
-    fn call(&self, machine: &mut Machine) {
-        let args = Args::from_args(machine, machine.value_count);
+    fn call(&self, argument_registers: &mut ArgumentRegisters, value_count: u32) -> Result<(), EvalError>{
+        let args = Args::from_args(argument_registers, value_count);
         let res = self.func.call(args);
-        // TODO: cause error from within FFI calls to propagate inside of the VM
-        res.to_lua_return(machine).unwrap();
+        res.to_lua_return(argument_registers)
     }
 
     fn return_count(&self) -> usize {

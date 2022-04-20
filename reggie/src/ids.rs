@@ -1,20 +1,15 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ArgumentRegisterID(pub u16);
+macro_rules! wrap {
+    ($name: ident, $type: ty) => {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        pub struct $name(pub $type);
+    };
+}
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LocalRegisterID(pub u16);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct GlobalCellID(pub u32);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct StringID(pub u16);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct JmpLabel(pub u16);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BlockID(pub u32);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LocalBlockID(pub u16);
+wrap!(ArgumentRegisterID, u16);
+wrap!(LocalRegisterID, u16);
+wrap!(GlobalCellID, u32);
+wrap!(StringID, u16);
+wrap!(JmpLabel, u16);
+wrap!(BlockID, u32);
+wrap!(LocalBlockID, u16);
+wrap!(ModuleID, u32);

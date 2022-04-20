@@ -62,6 +62,9 @@ pub enum Instruction {
     // str_dyn_gl
     StrDynGl,
 
+    // lda_prot_Z
+    LdaProt(ArgumentRegisterID),
+
     // F_add_XZ
     FAddR(ArgumentRegisterID),
     FAddL(LocalRegisterID),

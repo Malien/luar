@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::LuaValue;
+use crate::{compiler::CompiledModule, ids::ModuleID, LuaValue};
 
 use super::{
     ids::{BlockID, GlobalCellID},
@@ -21,6 +21,7 @@ pub struct Accumulators {
     pub f: f64,
     pub i: i32,
     pub s: Option<String>,
+    pub c: BlockID,
     pub d: LuaValue,
 }
 
@@ -144,33 +145,87 @@ pub struct CodeBlock {
     pub meta: CodeMeta,
     pub instructions: Vec<Instruction>,
 }
-pub struct CodeBlocks(Vec<CodeBlock>);
+
+pub struct ModuleAssociatedBlock {
+    pub module: ModuleID,
+    pub meta: CodeMeta,
+    pub instructions: Vec<Instruction>,
+}
+
+struct ModuleBlocks {
+    top_level: BlockID,
+    blocks: Vec<BlockID>,
+}
+
+#[derive(Default)]
+pub struct CodeBlocks {
+    blocks: Vec<ModuleAssociatedBlock>,
+    modules: Vec<ModuleBlocks>,
+}
 
 impl std::ops::Index<BlockID> for CodeBlocks {
-    type Output = CodeBlock;
+    type Output = ModuleAssociatedBlock;
 
     fn index(&self, index: BlockID) -> &Self::Output {
-        &self.0[index.0 as usize]
+        &self.blocks[index.0 as usize]
     }
 }
 
 impl std::ops::IndexMut<BlockID> for CodeBlocks {
     fn index_mut(&mut self, index: BlockID) -> &mut Self::Output {
-        &mut self.0[index.0 as usize]
+        &mut self.blocks[index.0 as usize]
+    }
+}
+
+impl std::ops::Index<ModuleID> for CodeBlocks {
+    type Output = Vec<BlockID>;
+
+    fn index(&self, index: ModuleID) -> &Self::Output {
+        &self.modules[index.0 as usize].blocks
     }
 }
 
 impl CodeBlocks {
-    pub fn add(&mut self, code_block: CodeBlock) -> BlockID {
-        let id = self.0.len().try_into().unwrap();
-        self.0.push(code_block);
-        BlockID(id)
+    fn add_block(&mut self, code_block: CodeBlock, module: ModuleID) -> BlockID {
+        let id = self.blocks.len().try_into().unwrap();
+        let id = BlockID(id);
+        self.blocks.push(ModuleAssociatedBlock {
+            module,
+            instructions: code_block.instructions,
+            meta: code_block.meta,
+        });
+        id
     }
-}
 
-impl Extend<CodeBlock> for CodeBlocks {
-    fn extend<T: IntoIterator<Item = CodeBlock>>(&mut self, iter: T) {
-        self.0.extend(iter);
+    pub fn add_module(&mut self, module: CompiledModule) -> BlockID {
+        let block_count = module.blocks.len() + 1;
+        self.blocks.reserve(block_count);
+        let mut module_blocks = Vec::with_capacity(block_count);
+
+        let module_id = ModuleID(self.modules.len().try_into().unwrap());
+        let top_level_block_id = self.add_block(module.top_level, module_id);
+
+        for block in module.blocks {
+            let block_id = self.add_block(block, module_id);
+            module_blocks.push(block_id);
+        }
+
+        self.modules.push(ModuleBlocks {
+            top_level: top_level_block_id,
+            blocks: module_blocks,
+        });
+
+        top_level_block_id
+    }
+
+    pub fn add_top_level_block(&mut self, code_block: CodeBlock) -> BlockID {
+        let module_id = ModuleID(self.modules.len().try_into().unwrap());
+        let block_id = self.add_block(code_block, module_id);
+        self.modules.push(ModuleBlocks {
+            top_level: block_id,
+            blocks: vec![],
+        });
+        block_id
     }
 }
 
@@ -221,11 +276,19 @@ pub struct Machine {
 
 impl Machine {
     pub fn new() -> Self {
+        let mut code_blocks = CodeBlocks::default();
+        let dummy_block = CodeBlock {
+            meta: Default::default(),
+            instructions: vec![/* Assert */],
+        };
+        let dummy_block_id = code_blocks.add_top_level_block(dummy_block);
+
         Self {
             accumulators: Accumulators {
                 f: 0.0,
                 i: 0,
                 s: None,
+                c: dummy_block_id,
                 d: LuaValue::Nil,
             },
             program_counter: ProgramCounter {
@@ -243,7 +306,7 @@ impl Machine {
                 d: [(); ARG_REG_COUNT].map(|_| LuaValue::Nil),
             },
             global_values: GlobalValues::default(),
-            code_blocks: CodeBlocks(vec![]),
+            code_blocks: CodeBlocks::default(),
             stack: vec![],
         }
     }

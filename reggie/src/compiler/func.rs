@@ -1,7 +1,11 @@
+use luar_lex::Ident;
 use luar_syn::FunctionDeclaration;
 
 use crate::{
-    compiler::{compile_statement, ret::compile_ret, FunctionCompilationState, LocalFnCompState},
+    compiler::{
+        compile_statement, ret::compile_ret, FunctionCompilationState, LocalScopeCompilationState,
+    },
+    ids::ArgumentRegisterID,
     machine::{CodeBlock, GlobalValues},
     meta::{CodeMeta, MetaCount},
     ops::Instruction,
@@ -11,7 +15,13 @@ pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalVa
     use Instruction::*;
     let return_count = decl.body.ret.as_ref().map(|ret| ret.0.len()).unwrap_or(0);
     let mut state = FunctionCompilationState::with_args(decl.args.iter().cloned(), global_values);
-    let mut root_scope = LocalFnCompState::new(&mut state);
+    let mut root_scope = LocalScopeCompilationState::new(&mut state);
+
+    let arg_count = decl.args.len().try_into().unwrap();
+    compile_preamble(arg_count, &mut root_scope);
+    let preamble_size = root_scope.instructions().len();
+
+    alias_arguments(&decl.args, &mut root_scope);
 
     for statement in &decl.body.statements {
         compile_statement(statement, &mut root_scope);
@@ -28,6 +38,7 @@ pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalVa
         const_strings: state.strings,
         label_mappings: state.label_alloc.into_mappings(),
         return_count: MetaCount::Known(return_count),
+        preamble_end: preamble_size,
         local_count: state.reg_alloc.into_used_register_count(),
     };
 
@@ -37,12 +48,33 @@ pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalVa
     }
 }
 
+fn compile_preamble(arg_count: u16, state: &mut LocalScopeCompilationState) {
+    use Instruction::*;
+
+    for i in 0..arg_count {
+        state.push_instr(LdaProt(ArgumentRegisterID(i)));
+        state.push_instr(StrRD(ArgumentRegisterID(i)));
+    }
+}
+
+fn alias_arguments(args: &Vec<Ident>, state: &mut LocalScopeCompilationState) {
+    use Instruction::*;
+
+    let arg_count = args.len().try_into().unwrap();
+    let locals = state.reg().alloc_dyn_count(arg_count);
+    for (ident, i) in args.iter().cloned().zip(0..) {
+        state.push_instr(LdaRD(ArgumentRegisterID(i)));
+        state.push_instr(StrLD(locals.at(i)));
+        state.define_local(ident.into(), locals.at(i));
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::{
         ids::{ArgumentRegisterID, LocalRegisterID, StringID},
         machine::{CodeBlock, GlobalValues},
-        meta::{CodeMeta, LocalRegCount, MetaCount},
+        meta::{CodeMeta, LocalRegCount},
         ops::Instruction,
         LuaError,
     };
@@ -63,10 +95,8 @@ mod test {
                     meta,
                     CodeMeta {
                         arg_count: 0.into(),
-                        const_strings: vec![],
-                        label_mappings: vec![],
                         return_count: 1.into(),
-                        local_count: LocalRegCount::default(),
+                        ..Default::default()
                     }
                 );
 
@@ -116,9 +146,8 @@ mod test {
             CodeMeta {
                 arg_count: 0.into(),
                 const_strings: vec!["hello".to_string()],
-                label_mappings: vec![],
-                return_count: MetaCount::Known(1),
-                local_count: LocalRegCount::default(),
+                return_count: 1.into(),
+                ..Default::default()
             }
         );
 
@@ -146,10 +175,8 @@ mod test {
             meta,
             CodeMeta {
                 arg_count: 0.into(),
-                const_strings: vec![],
-                label_mappings: vec![],
-                return_count: MetaCount::Known(0),
-                local_count: LocalRegCount::default(),
+                return_count: 0.into(),
+                ..Default::default()
             }
         );
 
@@ -169,10 +196,8 @@ mod test {
             meta,
             CodeMeta {
                 arg_count: 0.into(),
-                const_strings: vec![],
-                label_mappings: vec![],
-                return_count: MetaCount::Known(0),
-                local_count: LocalRegCount::default(),
+                return_count: 0.into(),
+                ..Default::default()
             }
         );
 
@@ -209,13 +234,12 @@ mod test {
             meta,
             CodeMeta {
                 arg_count: 0.into(),
-                const_strings: vec![],
-                label_mappings: vec![],
-                return_count: MetaCount::Known(1),
+                return_count: 1.into(),
                 local_count: LocalRegCount {
                     d: 1,
                     ..Default::default()
                 },
+                ..Default::default()
             }
         );
 
@@ -244,13 +268,12 @@ mod test {
         end",
         CodeMeta {
             arg_count: 0.into(),
-            const_strings: vec![],
-            label_mappings: vec![],
-            return_count: MetaCount::Known(1),
+            return_count: 1.into(),
             local_count: LocalRegCount {
                 d: 1,
                 ..Default::default()
             },
+            ..Default::default()
         },
         [
             ConstI(1),
@@ -271,13 +294,12 @@ mod test {
         end",
         CodeMeta {
             arg_count: 0.into(),
-            const_strings: vec![],
-            label_mappings: vec![],
-            return_count: MetaCount::Known(1),
+            return_count: 1.into(),
             local_count: LocalRegCount {
                 d: 1,
                 ..Default::default()
             },
+            ..Default::default()
         },
         [
             ConstI(1),
@@ -298,13 +320,12 @@ mod test {
         end",
         CodeMeta {
             arg_count: 0.into(),
-            const_strings: vec![],
-            label_mappings: vec![],
-            return_count: MetaCount::Known(1),
+            return_count: 1.into(),
             local_count: LocalRegCount {
                 d: 1,
                 ..Default::default()
             },
+            ..Default::default()
         },
         [
             ConstI(1),
@@ -332,13 +353,13 @@ mod test {
             meta,
             CodeMeta {
                 arg_count: 2.into(),
-                const_strings: vec![],
-                label_mappings: vec![],
-                return_count: MetaCount::Known(1),
+                return_count: 1.into(),
+                preamble_end: 4,
                 local_count: LocalRegCount {
-                    d: 1,
+                    d: 3,
                     ..Default::default()
                 },
+                ..Default::default()
             }
         );
 
@@ -346,10 +367,18 @@ mod test {
         assert_eq!(
             instructions,
             vec![
+                LdaProt(ArgumentRegisterID(0)),
+                StrRD(ArgumentRegisterID(0)),
+                LdaProt(ArgumentRegisterID(1)),
+                StrRD(ArgumentRegisterID(1)),
                 LdaRD(ArgumentRegisterID(0)),
                 StrLD(LocalRegisterID(0)),
                 LdaRD(ArgumentRegisterID(1)),
-                DAddL(LocalRegisterID(0)),
+                StrLD(LocalRegisterID(1)),
+                LdaLD(LocalRegisterID(0)),
+                StrLD(LocalRegisterID(2)),
+                LdaLD(LocalRegisterID(1)),
+                DAddL(LocalRegisterID(2)),
                 StrRD(ArgumentRegisterID(0)),
                 Ret,
             ]

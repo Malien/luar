@@ -63,6 +63,8 @@ impl ToTokenStream for FunctionCallArgs {
     }
 }
 
+fmt_tokens!(FunctionCallArgs);
+
 #[cfg(feature = "quickcheck")]
 use quickcheck::{empty_shrinker, Arbitrary, Gen};
 #[cfg(feature = "quickcheck")]

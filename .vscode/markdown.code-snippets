@@ -8,5 +8,10 @@
         "scope": "markdown",
         "prefix": "EF",
         "body": "[EF](#equality-flag)"
+    },
+    "Value count": {
+        "scope": "markdown",
+        "prefix": "VC",
+        "body": "[VC](#value-count)"
     }
 }

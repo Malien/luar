@@ -9,7 +9,7 @@ use crate::{
 
 use super::{
     compile_function, compile_statement, ret::compile_ret, FunctionCompilationState,
-    LocalFnCompState,
+    LocalScopeCompilationState,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -26,7 +26,7 @@ pub fn compile_module(
 
     let return_count = module.ret.as_ref().map(|ret| ret.0.len()).unwrap_or(0);
     let mut state = FunctionCompilationState::new(global_values);
-    let mut root_scope = LocalFnCompState::new(&mut state);
+    let mut root_scope = LocalScopeCompilationState::new(&mut state);
 
     for chunk in &module.chunks {
         match chunk {
@@ -55,13 +55,14 @@ pub fn compile_module(
                 return_count: MetaCount::Known(return_count),
                 label_mappings: state.label_alloc.into_mappings(),
                 const_strings: state.strings,
+                preamble_end: 0,
             },
         },
     }
 }
 
 fn compile_function_declaration(
-    root_scope: &mut LocalFnCompState,
+    root_scope: &mut LocalScopeCompilationState,
     decl: &luar_syn::FunctionDeclaration,
     blocks: &mut Vec<CodeBlock>,
 ) {
@@ -246,13 +247,12 @@ mod test {
             ],
             meta: CodeMeta {
                 arg_count: MetaCount::Known(0),
-                const_strings: vec![],
-                label_mappings: vec![],
                 return_count: MetaCount::Known(1),
                 local_count: LocalRegCount {
                     d: 1,
                     ..Default::default()
                 },
+                ..Default::default()
             }
         }
     );
@@ -273,13 +273,12 @@ mod test {
             ],
             meta: CodeMeta {
                 arg_count: MetaCount::Known(0),
-                const_strings: vec![],
-                label_mappings: vec![],
                 return_count: MetaCount::Known(1),
                 local_count: LocalRegCount {
                     d: 1,
                     ..Default::default()
                 },
+                ..Default::default()
             }
         }
     );
@@ -300,13 +299,12 @@ mod test {
             ],
             meta: CodeMeta {
                 arg_count: 0.into(),
-                const_strings: vec![],
-                label_mappings: vec![],
                 return_count: MetaCount::Known(1),
                 local_count: LocalRegCount {
                     d: 1,
                     ..Default::default()
                 },
+                ..Default::default()
             }
         }
     );
@@ -342,10 +340,9 @@ mod test {
         CodeBlock {
             meta: CodeMeta {
                 arg_count: 0.into(),
-                local_count: LocalRegCount::default(),
                 return_count: 1.into(),
                 label_mappings: vec![7],
-                const_strings: vec![]
+                ..Default::default()
             },
             instructions: vec![
                 ConstN,

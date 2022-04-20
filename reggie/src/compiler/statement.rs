@@ -2,9 +2,9 @@ use luar_syn::{Assignment, Block, Conditional, ConditionalTail, Statement, Var};
 
 use crate::ops::Instruction;
 
-use super::{compile_expr, ret::compile_ret, LocalFnCompState};
+use super::{compile_expr, ret::compile_ret, LocalScopeCompilationState, compile_fn_call};
 
-pub fn compile_statement(statement: &Statement, state: &mut LocalFnCompState) {
+pub fn compile_statement(statement: &Statement, state: &mut LocalScopeCompilationState) {
     match statement {
         Statement::If(conditional) => {
             compile_conditional(conditional, state);
@@ -12,11 +12,14 @@ pub fn compile_statement(statement: &Statement, state: &mut LocalFnCompState) {
         Statement::Assignment(assignment) => {
             compile_assignment(assignment, state);
         }
+        Statement::FunctionCall(fn_call) => {
+            compile_fn_call(fn_call, state);
+        }
         _ => todo!("Compiling statement \"{}\" is not implemented", statement),
     };
 }
 
-pub fn compile_conditional(conditional: &Conditional, state: &mut LocalFnCompState) {
+pub fn compile_conditional(conditional: &Conditional, state: &mut LocalScopeCompilationState) {
     compile_expr(&conditional.condition, state);
     state.push_instr(Instruction::NilTest);
 
@@ -31,7 +34,7 @@ pub fn compile_conditional(conditional: &Conditional, state: &mut LocalFnCompSta
     };
 }
 
-pub fn compile_block(block: &Block, state: &mut LocalFnCompState) {
+pub fn compile_block(block: &Block, state: &mut LocalScopeCompilationState) {
     let mut inner_scope = state.inner_scope();
     for statement in &block.statements {
         compile_statement(statement, &mut inner_scope);
@@ -41,7 +44,7 @@ pub fn compile_block(block: &Block, state: &mut LocalFnCompState) {
     }
 }
 
-pub fn compile_assignment(assignment: &Assignment, state: &mut LocalFnCompState) {
+pub fn compile_assignment(assignment: &Assignment, state: &mut LocalScopeCompilationState) {
     let intermediates = state
         .reg()
         .alloc_dyn_count(assignment.names.len().try_into().unwrap());
@@ -65,7 +68,7 @@ pub fn compile_assignment(assignment: &Assignment, state: &mut LocalFnCompState)
     state.reg().free_dyn_count(intermediates.count);
 }
 
-pub fn compile_store(var: &Var, state: &mut LocalFnCompState) {
+pub fn compile_store(var: &Var, state: &mut LocalScopeCompilationState) {
     match var {
         Var::Named(ident) => {
             let store_instruction = match state.lookup_var(ident) {
