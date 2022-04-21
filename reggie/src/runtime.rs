@@ -1,19 +1,15 @@
-use std::borrow::Borrow;
-
-use luar_error::ArithmeticOperator;
-
-use crate::{
-    ids::LocalBlockID, value::FromReturn, ArithmeticError, EvalError, LuaValue, NativeFunction,
-    NativeFunctionKind, TypeError,
-};
-
 use super::{
     compiler::CompiledModule,
-    ids::{ArgumentRegisterID, BlockID, JmpLabel, LocalRegisterID, StringID},
+    ids::{ArgumentRegisterID, BlockID, LocalRegisterID},
     machine::{EqualityFlag, Machine, OrderingFlag, ProgramCounter, StackFrame},
-    meta::MetaCount,
     ops::Instruction,
 };
+use crate::{
+    meta::ReturnCount, value::FromReturn, ArithmeticError, EvalError, LuaValue, NativeFunction,
+    NativeFunctionKind, TypeError,
+};
+use luar_error::ArithmeticOperator;
+use std::borrow::Borrow;
 
 pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
     let mut block = &machine.code_blocks[machine.program_counter.block];
@@ -90,8 +86,8 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 machine.accumulators.d = LuaValue::Float(machine.accumulators.f);
                 *position += 1;
             }
-            Instruction::ConstS(StringID(string_id)) => {
-                machine.accumulators.s = Some(block.meta.const_strings[string_id as usize].clone());
+            Instruction::ConstS(string_id) => {
+                machine.accumulators.s = Some(block.meta.const_strings[string_id].clone());
                 *position += 1;
             }
             Instruction::WrapS => {
@@ -99,8 +95,9 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                     LuaValue::String(machine.accumulators.s.as_ref().unwrap().clone());
                 *position += 1;
             }
-            Instruction::ConstC(LocalBlockID(local_block_id)) => {
-                machine.accumulators.c = machine.code_blocks[block.module][local_block_id as usize];
+            Instruction::ConstC(local_block_id) => {
+                machine.accumulators.c =
+                    machine.code_blocks.blocks_of_module(block.module)[local_block_id];
                 *position += 1;
             }
             Instruction::WrapC => {
@@ -123,69 +120,55 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 );
                 *position += 1;
             }
-            Instruction::Jmp(JmpLabel(jmp_label)) => {
-                *position = block.meta.label_mappings[jmp_label as usize]
-                    .try_into()
-                    .unwrap();
+            Instruction::Jmp(jmp_label) => {
+                *position = block.meta.label_mappings[jmp_label];
             }
             Instruction::Label => {
                 /* nop */
                 *position += 1;
             }
-            Instruction::JmpEQ(JmpLabel(jmp_label)) => {
+            Instruction::JmpEQ(jmp_label) => {
                 if machine.equality_flag == EqualityFlag::EQ {
-                    *position = block.meta.label_mappings[jmp_label as usize]
-                        .try_into()
-                        .unwrap();
+                    *position = block.meta.label_mappings[jmp_label];
                 } else {
                     *position += 1;
                 }
             }
-            Instruction::JmpNE(JmpLabel(jmp_label)) => {
+            Instruction::JmpNE(jmp_label) => {
                 if machine.equality_flag == EqualityFlag::NE {
-                    *position = block.meta.label_mappings[jmp_label as usize]
-                        .try_into()
-                        .unwrap();
+                    *position = block.meta.label_mappings[jmp_label];
                 } else {
                     *position += 1;
                 }
             }
-            Instruction::JmpLT(JmpLabel(jmp_label)) => {
+            Instruction::JmpLT(jmp_label) => {
                 if machine.equality_flag == EqualityFlag::NE
                     && machine.ordering_flag == OrderingFlag::LT
                 {
-                    *position = block.meta.label_mappings[jmp_label as usize]
-                        .try_into()
-                        .unwrap();
+                    *position = block.meta.label_mappings[jmp_label];
                 } else {
                     *position += 1;
                 }
             }
-            Instruction::JmpGT(JmpLabel(jmp_label)) => {
+            Instruction::JmpGT(jmp_label) => {
                 if machine.equality_flag == EqualityFlag::NE
                     && machine.ordering_flag == OrderingFlag::GT
                 {
-                    *position = block.meta.label_mappings[jmp_label as usize]
-                        .try_into()
-                        .unwrap();
+                    *position = block.meta.label_mappings[jmp_label];
                 } else {
                     *position += 1;
                 }
             }
-            Instruction::JmpLE(JmpLabel(jmp_label)) => {
+            Instruction::JmpLE(jmp_label) => {
                 if machine.ordering_flag == OrderingFlag::LT {
-                    *position = block.meta.label_mappings[jmp_label as usize]
-                        .try_into()
-                        .unwrap();
+                    *position = block.meta.label_mappings[jmp_label];
                 } else {
                     *position += 1;
                 }
             }
-            Instruction::JmpGE(JmpLabel(jmp_label)) => {
+            Instruction::JmpGE(jmp_label) => {
                 if machine.ordering_flag == OrderingFlag::GT {
-                    *position = block.meta.label_mappings[jmp_label as usize]
-                        .try_into()
-                        .unwrap();
+                    *position = block.meta.label_mappings[jmp_label];
                 } else {
                     *position += 1;
                 }
@@ -196,7 +179,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                     .set_cell(cell, machine.accumulators.d.clone());
                 *position += 1;
             }
-            Instruction::SetVC => {
+            Instruction::StrVC => {
                 machine.value_count = machine.accumulators.i.try_into().unwrap();
                 *position += 1;
             }
@@ -263,28 +246,59 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 *position = 0;
                 machine.program_counter.block = machine.accumulators.c;
             }
+            Instruction::RDShiftRight => {
+                machine
+                    .argument_registers
+                    .d
+                    .rotate_right((machine.accumulators.i as u16) as usize);
+                *position += 1;
+            }
+            Instruction::LdaVC => {
+                machine.accumulators.i = machine.value_count as i32;
+                *position += 1;
+            }
+            Instruction::IAddR(reg) => {
+                machine.accumulators.i += machine.argument_registers.i[reg.0 as usize];
+                *position += 1;
+            }
+            Instruction::IAddL(reg) => {
+                machine.accumulators.i += frame.local_values.i[reg.0 as usize];
+                *position += 1;
+            }
+            Instruction::StrLI(reg) => {
+                frame.local_values.i[reg.0 as usize] = machine.accumulators.i;
+                *position += 1;
+            }
+            Instruction::LdaLI(reg) => {
+                machine.accumulators.i = frame.local_values.i[reg.0 as usize];
+                *position += 1;
+            }
+            Instruction::StrRI(reg) => {
+                machine.argument_registers.i[reg.0 as usize] = machine.accumulators.i;
+                *position += 1;
+            }
+            Instruction::LdaRI(reg) => {
+                machine.accumulators.i = machine.argument_registers.i[reg.0 as usize];
+                *position += 1;
+            }
 
             Instruction::LdaRF(_) => todo!(),
             Instruction::LdaRS(_) => todo!(),
-            Instruction::LdaRI(_) => todo!(),
             Instruction::LdaRT(_) => todo!(),
             Instruction::LdaRC(_) => todo!(),
             Instruction::LdaRU(_) => todo!(),
             Instruction::LdaLF(_) => todo!(),
             Instruction::LdaLS(_) => todo!(),
-            Instruction::LdaLI(_) => todo!(),
             Instruction::LdaLT(_) => todo!(),
             Instruction::LdaLC(_) => todo!(),
             Instruction::LdaLU(_) => todo!(),
             Instruction::StrRF(_) => todo!(),
             Instruction::StrRS(_) => todo!(),
-            Instruction::StrRI(_) => todo!(),
             Instruction::StrRT(_) => todo!(),
             Instruction::StrRC(_) => todo!(),
             Instruction::StrRU(_) => todo!(),
             Instruction::StrLF(_) => todo!(),
             Instruction::StrLS(_) => todo!(),
-            Instruction::StrLI(_) => todo!(),
             Instruction::StrLT(_) => todo!(),
             Instruction::StrLC(_) => todo!(),
             Instruction::StrLU(_) => todo!(),
@@ -310,8 +324,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::FSubL(_) => todo!(),
             Instruction::FDivR(_) => todo!(),
             Instruction::FDivL(_) => todo!(),
-            Instruction::IAddR(_) => todo!(),
-            Instruction::IAddL(_) => todo!(),
             Instruction::IMulR(_) => todo!(),
             Instruction::IMulL(_) => todo!(),
             Instruction::ISubR(_) => todo!(),
@@ -374,6 +386,12 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::JmpC(_) => todo!(),
             Instruction::JmpT(_) => todo!(),
             Instruction::JmpU(_) => todo!(),
+            Instruction::RFShiftRight => todo!(),
+            Instruction::RIShiftRight => todo!(),
+            Instruction::RSShiftRight => todo!(),
+            Instruction::RTShiftRight => todo!(),
+            Instruction::RCShiftRight => todo!(),
+            Instruction::RUShiftRight => todo!(),
         }
     }
 }
@@ -401,10 +419,7 @@ pub fn call_block<'a, T: FromReturn<'a>>(
     block_id: BlockID,
 ) -> Result<T, EvalError> {
     let block = &machine.code_blocks[block_id];
-    let return_count = match block.meta.return_count {
-        MetaCount::Known(count) => count,
-        MetaCount::Unknown => machine.value_count,
-    };
+    let return_count = block.meta.return_count;
     let stack_frame = StackFrame::new(
         &block.meta,
         ProgramCounter {
@@ -418,6 +433,10 @@ pub fn call_block<'a, T: FromReturn<'a>>(
         position: 0,
     };
     eval_loop(machine)?;
+    let return_count = match return_count {
+        ReturnCount::Constant(count) => count,
+        _ => machine.value_count,
+    };
     Ok(T::from_machine_state(machine, return_count))
 }
 
@@ -433,6 +452,7 @@ pub fn call_module<'a, T: FromReturn<'a>>(
 mod test {
     use crate::compiler::CompiledModule;
     use crate::ids::{ArgumentRegisterID, JmpLabel, LocalBlockID, LocalRegisterID, StringID};
+    use crate::keyed_vec::keyed_vec;
     use crate::machine::{
         CodeBlock, EqualityFlag, EqualityFlag::EQ, EqualityFlag::NE, Machine, OrderingFlag,
         OrderingFlag::GT, OrderingFlag::LT,
@@ -490,7 +510,7 @@ mod test {
                 CodeMeta {
                     arg_count: 0.into(),
                     return_count: 0.into(),
-                    const_strings: vec![
+                    const_strings: $crate::keyed_vec::keyed_vec![
                         $($strings.to_owned(),)*
                     ],
                     ..Default::default()
@@ -665,7 +685,7 @@ mod test {
         [ConstI(1), Jmp(JmpLabel(0)), ConstI(2), Label, Ret],
         CodeMeta {
             arg_count: 0.into(),
-            label_mappings: vec![3],
+            label_mappings: keyed_vec![3],
             return_count: 0.into(),
             ..Default::default()
         },
@@ -697,7 +717,7 @@ mod test {
                     meta: CodeMeta {
                         arg_count: 0.into(),
                         return_count: 0.into(),
-                        label_mappings: vec![3],
+                        label_mappings: keyed_vec![3],
                         ..Default::default()
                     },
                     instructions: vec![ConstI(1), jmp_instr(JmpLabel(0)), ConstI(2), Label, Ret],
@@ -749,7 +769,7 @@ mod test {
         )
     }
 
-    test_instructions!(set_vc, [ConstI(42), SetVC, Ret], |machine: Machine| {
+    test_instructions!(set_vc, [ConstI(42), StrVC, Ret], |machine: Machine| {
         assert_eq!(machine.value_count, 42);
     });
 
@@ -802,7 +822,7 @@ mod test {
                 StrRD(ArgumentRegisterID(0)),
                 LdaDGl(value_cell),
                 ConstI(1),
-                SetVC,
+                StrVC,
                 DCall,
                 Ret,
             ],
@@ -827,7 +847,7 @@ mod test {
                 return_count: 0.into(),
                 ..Default::default()
             },
-            instructions: vec![LdaDGl(value_cell), ConstI(1), SetVC, DCall, Ret],
+            instructions: vec![LdaDGl(value_cell), ConstI(1), StrVC, DCall, Ret],
         });
         let res = call_block::<()>(&mut machine, block_id);
         assert!(matches!(res, Err(EvalError::AssertionError)));
@@ -838,7 +858,7 @@ mod test {
         let mut machine = Machine::new();
 
         let module = CompiledModule {
-            blocks: vec![CodeBlock {
+            blocks: keyed_vec![CodeBlock {
                 meta: CodeMeta {
                     arg_count: 1.into(),
                     return_count: 1.into(),
@@ -863,7 +883,7 @@ mod test {
                     WrapI,
                     StrRD(ArgumentRegisterID(0)),
                     ConstI(1),
-                    SetVC,
+                    StrVC,
                     ConstC(LocalBlockID(0)),
                     WrapC,
                     DCall,
@@ -900,7 +920,7 @@ mod test {
         };
 
         let module = CompiledModule {
-            blocks: vec![block1.clone(), block2.clone()],
+            blocks: keyed_vec![block1.clone(), block2.clone()],
             top_level: CodeBlock {
                 meta: CodeMeta {
                     ..Default::default()
@@ -934,7 +954,7 @@ mod test {
             WrapI,
             StrRD(ArgumentRegisterID(3)),
             ConstI(3),
-            SetVC,
+            StrVC,
             LdaProt(ArgumentRegisterID(2)),
             StrRD(ArgumentRegisterID(0)),
             LdaProt(ArgumentRegisterID(3)),
@@ -952,7 +972,7 @@ mod test {
         let mut machine = Machine::new();
 
         let module = CompiledModule {
-            blocks: vec![CodeBlock {
+            blocks: keyed_vec![CodeBlock {
                 meta: CodeMeta {
                     arg_count: 1.into(),
                     return_count: 1.into(),
@@ -977,7 +997,7 @@ mod test {
                     WrapI,
                     StrRD(ArgumentRegisterID(0)),
                     ConstI(1),
-                    SetVC,
+                    StrVC,
                     ConstC(LocalBlockID(0)),
                     TypedCall,
                     Ret,
@@ -990,4 +1010,88 @@ mod test {
         let res = call_block::<LuaValue>(&mut machine, top_level_block).unwrap();
         assert_eq!(res, LuaValue::Float(69.0));
     }
+
+    test_instructions!(
+        rd_shift_right,
+        [
+            ConstI(1),
+            WrapI,
+            StrRD(ArgumentRegisterID(0)),
+            ConstI(2),
+            WrapI,
+            StrRD(ArgumentRegisterID(1)),
+            ConstI(3),
+            WrapI,
+            StrRD(ArgumentRegisterID(2)),
+            ConstI(2),
+            RDShiftRight,
+            Ret
+        ],
+        |machine: Machine| {
+            assert_eq!(machine.argument_registers.d[2], LuaValue::Int(1));
+            assert_eq!(machine.argument_registers.d[3], LuaValue::Int(2));
+            assert_eq!(machine.argument_registers.d[4], LuaValue::Int(3));
+        }
+    );
+
+    test_instructions!(
+        lda_vc,
+        [ConstI(69), StrVC, ConstI(42), LdaVC, Ret],
+        |machine: Machine| {
+            assert_eq!(machine.accumulators.i, 69);
+        }
+    );
+
+    test_instructions_with_locals!(
+        str_li_and_lda_li,
+        [
+            ConstI(69),
+            StrLI(LocalRegisterID(0)),
+            ConstI(42),
+            LdaLI(LocalRegisterID(0)),
+            Ret
+        ],
+        LocalRegCount {
+            i: 1,
+            ..Default::default()
+        },
+        |machine: Machine| {
+            assert_eq!(machine.accumulators.i, 69);
+        }
+    );
+
+    test_instructions!(
+        str_ri_and_lda_ri,
+        [
+            ConstI(69),
+            StrRI(ArgumentRegisterID(0)),
+            ConstI(42),
+            LdaRI(ArgumentRegisterID(0)),
+            Ret
+        ],
+        |machine: Machine| {
+            assert_eq!(machine.accumulators.i, 69);
+        }
+    );
+
+    test_instructions_with_locals!(
+        i_add,
+        [
+            ConstI(68000),
+            StrLI(LocalRegisterID(0)),
+            ConstI(420),
+            StrRI(ArgumentRegisterID(0)),
+            ConstI(1000),
+            IAddL(LocalRegisterID(0)),
+            IAddR(ArgumentRegisterID(0)),
+            Ret
+        ],
+        LocalRegCount {
+            i: 1,
+            ..Default::default()
+        },
+        |machine: Machine| {
+            assert_eq!(machine.accumulators.i, 69420);
+        }
+    );
 }

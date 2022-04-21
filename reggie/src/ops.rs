@@ -65,6 +65,15 @@ pub enum Instruction {
     // lda_prot_Z
     LdaProt(ArgumentRegisterID),
 
+    // RX_shift_right
+    RFShiftRight,
+    RIShiftRight,
+    RSShiftRight,
+    RTShiftRight,
+    RCShiftRight,
+    RUShiftRight,
+    RDShiftRight,
+
     // F_add_XZ
     FAddR(ArgumentRegisterID),
     FAddL(LocalRegisterID),
@@ -127,8 +136,10 @@ pub enum Instruction {
     FToS,
     // D_to_s
     DToS,
-    // set_vc
-    SetVC,
+    // str_vc
+    StrVC,
+    // lda_vc
+    LdaVC,
     // call
     Call,
     // typed_call

@@ -20,7 +20,7 @@ pub fn compile_fn_call(call: &FunctionCall, state: &mut LocalScopeCompilationSta
                     state.push_instr(StrRD(ArgumentRegisterID(idx)));
                 }
                 state.push_instr(ConstI(locals.count as i32));
-                state.push_instr(SetVC);
+                state.push_instr(StrVC);
                 compile_var_lookup(func, state);
                 state.push_instr(DCall);
             },

@@ -12,6 +12,7 @@ pub(crate) mod ops;
 pub(crate) mod runtime;
 pub mod stdlib;
 pub mod value;
+pub(crate) mod keyed_vec;
 
 pub use machine::Machine;
 pub use value::*;
@@ -45,7 +46,7 @@ mod test {
 
     use crate::{
         eval_module, eval_str, value::Strict, LuaError, LuaValue, Machine, NativeFunction,
-        TypeError,
+        TypeError, runtime::call_block,
     };
     use luar_error::assert_type_error;
     use luar_syn::lua_parser;
@@ -252,7 +253,7 @@ mod test {
         idents: std::collections::HashSet<Ident>,
         values: non_empty::NonEmptyVec<LuaValue>,
     ) -> Result<TestResult, LuaError> {
-        if idents.len() == 0 {
+        if idents.len() == 0 || idents.len() > 16 {
             return Ok(TestResult::discard());
         }
         // Make iteration order deterministic
@@ -260,7 +261,7 @@ mod test {
         use luar_syn::unspanned_lua_token_parser;
 
         let idents: Vec<_> = idents.into_iter().collect();
-        let value_idents = vec_of_idents(values.len(), "value");
+        let value_idents = vec_of_idents(values.len().get(), "value");
 
         let tokens: Vec<_> =
             multiple_assignment_tokens(idents.iter().cloned(), value_idents.iter().cloned())
@@ -627,8 +628,11 @@ mod test {
 
     #[cfg(feature = "quickcheck")]
     #[quickcheck]
-    fn function_multiple_returns(values: NonEmptyVec<LuaValue>) -> Result<(), LuaError> {
-        let idents: Vec<_> = (0..values.len())
+    fn function_multiple_returns(values: NonEmptyVec<LuaValue>) -> Result<TestResult, LuaError> {
+        if values.len().get() > 16 {
+            return Ok(TestResult::discard())
+        }
+        let idents: Vec<_> = (0..values.len().get())
             .into_iter()
             .map(|i| format!("value{}", i))
             .map(Ident::new)
@@ -646,12 +650,12 @@ mod test {
             machine.global_values.set(ident, value.clone());
         }
         let res = eval_module::<&[LuaValue]>(&module, &mut machine)?;
-        assert!(res.len() == values.len());
+        assert!(res.len() == values.len().get());
         assert!(res
             .into_iter()
             .zip(&values)
             .all(|(lhs, rhs)| lhs.total_eq(rhs)));
-        Ok(())
+        Ok(TestResult::passed())
     }
 
     #[test]
@@ -748,39 +752,39 @@ mod test {
         Ok(())
     }
 
-    // #[test]
-    // fn multiple_return_is_propagated() -> Result<(), LuaError> {
-    //     let module = lua_parser::module(
-    //         "function mult()
-    //             return 1, 2
-    //         end
-    //         function m1()
-    //             return mult()
-    //         end
-    //         function m2()
-    //             return 3, mult()
-    //         end
-    //         function m3()
-    //             return mult(), 3
-    //         end",
-    //     )?;
-    //     let mut context = GlobalContext::new();
-    //     ast_vm::eval_module(&module, &mut context)?;
-    //     let expectations = [
-    //         ("mult", &[1, 2]),
-    //         ("m1", &[1, 2]),
-    //         ("m2", &[3, 1, 2]),
-    //         ("m3", &[1, 3]),
-    //     ];
-    //     for (func, expected) in expectations {
-    //         let res = context
-    //             .get(func)
-    //             .unwrap_function_ref()
-    //             .clone()
-    //             .call(&mut context, &[])?;
-    //         assert_eq!(res, expected);
-    //     }
+    #[test]
+    fn multiple_return_is_propagated() -> Result<(), LuaError> {
+        let module = lua_parser::module(
+            "function mult()
+                return 1, 2
+            end
+            function m1()
+                return mult()
+            end
+            function m2()
+                return 3, mult()
+            end
+            function m3()
+                return mult(), 3
+            end",
+        )?;
+        let mut machine = Machine::new();
+        eval_module::<Strict<()>>(&module, &mut machine)?;
+        let expectations: [(&str, &[i32]); 4] = [
+            ("mult", &[1, 2]),
+            ("m1", &[1, 2]),
+            ("m2", &[3, 1, 2]),
+            ("m3", &[1, 3]),
+        ];
+        for (func, expected) in expectations {
+            let block_id = machine
+                .global_values
+                .get(func)
+                .unwrap_lua_function();
+            let res = call_block::<&[LuaValue]>(&mut machine, block_id)?;
+            assert!(res.into_iter().map(LuaValue::unwrap_int).eq(expected.into_iter().cloned()));
+        }
 
-    //     Ok(())
-    // }
+        Ok(())
+    }
 }

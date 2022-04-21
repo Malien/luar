@@ -103,10 +103,10 @@ impl ScopeHolder for GlobalContext {
         Self: Sized,
     {
         let scope = prev_scope + 1;
-        if scope == self.local_scopes.len() {
+        if scope == self.local_scopes.len().get() {
             self.local_scopes.push(Scope::default());
         }
-        assert!(scope <= self.local_scopes.len());
+        assert!(scope <= self.local_scopes.len().get());
         self.local_scopes[scope].0.clear();
         return LocalScope::new(self, scope);
     }
@@ -165,10 +165,10 @@ impl<'a> ScopeHolder for FunctionContext<'a> {
         Self: Sized,
     {
         let scope = prev_scope + 1;
-        if scope == self.scopes.len() {
+        if scope == self.scopes.len().get() {
             self.scopes.push(Scope::default());
         }
-        assert!(scope <= self.scopes.len());
+        assert!(scope <= self.scopes.len().get());
         self.scopes[scope].0.clear();
         return LocalScope::new(self, scope);
     }

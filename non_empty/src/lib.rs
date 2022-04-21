@@ -1,4 +1,4 @@
-use std::{fmt, ops::{Deref, DerefMut}};
+use std::{fmt, ops::{Deref, DerefMut}, num::NonZeroUsize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NonEmptyVec<T>(Vec<T>);
@@ -87,6 +87,15 @@ impl<T> NonEmptyVec<T> {
 
     pub fn push(&mut self, value: T) {
         self.0.push(value)
+    }
+
+    pub fn split_last(&self) -> (&[T], &T) {
+        (&self.0[..self.len().get() - 1], self.last())
+    }
+
+    pub fn len(&self) -> NonZeroUsize {
+        // Can be new_unchecked
+        NonZeroUsize::new(self.0.len()).unwrap()
     }
 }
 

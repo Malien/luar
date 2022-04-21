@@ -2,8 +2,9 @@ use luar_syn::{Chunk, FunctionName, Var};
 
 use crate::{
     ids::LocalBlockID,
+    keyed_vec::KeyedVec,
     machine::{CodeBlock, GlobalValues},
-    meta::{CodeMeta, MetaCount},
+    meta::{ArgumentCount, CodeMeta, ReturnCount},
     ops::Instruction,
 };
 
@@ -14,7 +15,7 @@ use super::{
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompiledModule {
-    pub blocks: Vec<CodeBlock>,
+    pub blocks: KeyedVec<LocalBlockID, CodeBlock>,
     pub top_level: CodeBlock,
 }
 
@@ -22,15 +23,9 @@ pub fn compile_module(
     module: &luar_syn::Module,
     global_values: &mut GlobalValues,
 ) -> CompiledModule {
-    let mut blocks = Vec::new();
-
-    let return_count = module
-        .ret
-        .as_ref()
-        .map(|ret| ret.0.len().try_into().unwrap())
-        .unwrap_or(0);
     let mut state = FunctionCompilationState::new(global_values);
     let mut root_scope = LocalScopeCompilationState::new(&mut state);
+    let mut blocks = KeyedVec::new();
 
     for chunk in &module.chunks {
         match chunk {
@@ -42,7 +37,6 @@ pub fn compile_module(
             }
         };
     }
-
     if let Some(ret) = &module.ret {
         compile_ret(ret, &mut root_scope);
     } else {
@@ -54,9 +48,12 @@ pub fn compile_module(
         top_level: CodeBlock {
             instructions: state.instructions,
             meta: CodeMeta {
-                arg_count: MetaCount::Known(0),
+                arg_count: ArgumentCount::Known(0),
                 local_count: state.reg_alloc.into_used_register_count(),
-                return_count: MetaCount::Known(return_count),
+                return_count: state
+                    .return_count
+                    .into_return_count()
+                    .unwrap_or(ReturnCount::Constant(0)),
                 label_mappings: state.label_alloc.into_mappings(),
                 const_strings: state.strings,
             },
@@ -67,24 +64,18 @@ pub fn compile_module(
 fn compile_function_declaration(
     root_scope: &mut LocalScopeCompilationState,
     decl: &luar_syn::FunctionDeclaration,
-    blocks: &mut Vec<CodeBlock>,
+    blocks: &mut KeyedVec<LocalBlockID, CodeBlock>,
 ) {
     let global_values = root_scope.global_values();
     let func = compile_function(decl, global_values);
 
     let func_to_save = if needs_wrapper(&func.meta) {
-        let return_count = func.meta.return_count;
-        let arg_count = func.meta.arg_count;
-        let func_id = LocalBlockID(blocks.len().try_into().unwrap());
-        blocks.push(func);
-        let wrapper_code = compile_dyn_wrapper(arg_count, return_count, func_id);
-        wrapper_code
+        wrap_function(func, blocks)
     } else {
         func
     };
 
-    let func_id = LocalBlockID(blocks.len().try_into().unwrap());
-    blocks.push(func_to_save);
+    let func_id = blocks.push(func_to_save);
 
     match &decl.name {
         FunctionName::Plain(Var::Named(name)) => {
@@ -97,25 +88,36 @@ fn compile_function_declaration(
     }
 }
 
+fn wrap_function(func: CodeBlock, blocks: &mut KeyedVec<LocalBlockID, CodeBlock>) -> CodeBlock {
+    let return_count = func.meta.return_count;
+    let arg_count = func.meta.arg_count;
+    let func_id = blocks.push(func);
+    compile_dyn_wrapper(arg_count, return_count, func_id)
+}
+
 fn needs_wrapper(meta: &CodeMeta) -> bool {
     !matches!(
-        (meta.arg_count, meta.return_count),
-        (MetaCount::Known(0), MetaCount::Unknown) | (MetaCount::Unknown, MetaCount::Unknown)
-    )
+        meta.arg_count,
+        ArgumentCount::Known(0) | ArgumentCount::Unknown
+    ) || matches!(meta.return_count, ReturnCount::Constant(_))
 }
 
 #[cfg(test)]
 mod test {
+    use std::num::NonZeroU16;
+
     use super::compile_module;
     use crate::{
         compiler::compile_function,
         ids::{ArgumentRegisterID, JmpLabel, LocalBlockID, LocalRegisterID, StringID},
+        keyed_vec::keyed_vec,
         machine::{CodeBlock, GlobalValues},
-        meta::{CodeMeta, LocalRegCount, MetaCount},
+        meta::{ArgumentCount, CodeMeta, LocalRegCount, ReturnCount},
         ops::Instruction,
         LuaError,
     };
 
+    use luar_syn::lua_parser;
     use Instruction::*;
 
     macro_rules! test_instruction_output {
@@ -162,7 +164,7 @@ mod test {
         );
         assert_eq!(
             compiled_module.top_level.meta.const_strings,
-            vec!["hello".to_string()]
+            keyed_vec!["hello".to_string()]
         );
 
         use Instruction::*;
@@ -190,7 +192,7 @@ mod test {
         );
         assert_eq!(
             compiled_module.top_level.meta.return_count,
-            MetaCount::Known(0)
+            ReturnCount::Constant(0)
         );
         use Instruction::*;
         assert_eq!(compiled_module.top_level.instructions, vec![Ret]);
@@ -227,7 +229,7 @@ mod test {
         let module = luar_syn::lua_parser::module("return 1 + 2")?;
         let module = compile_module(&module, &mut GlobalValues::default());
 
-        assert_eq!(module.top_level.meta.return_count, MetaCount::Known(1));
+        assert_eq!(module.top_level.meta.return_count, ReturnCount::Constant(1));
         assert_eq!(
             module.top_level.meta.local_count,
             LocalRegCount {
@@ -269,8 +271,8 @@ mod test {
                 Ret
             ],
             meta: CodeMeta {
-                arg_count: MetaCount::Known(0),
-                return_count: MetaCount::Known(1),
+                arg_count: ArgumentCount::Known(0),
+                return_count: ReturnCount::Constant(1),
                 local_count: LocalRegCount {
                     d: 1,
                     ..Default::default()
@@ -295,8 +297,8 @@ mod test {
                 Ret
             ],
             meta: CodeMeta {
-                arg_count: MetaCount::Known(0),
-                return_count: MetaCount::Known(1),
+                arg_count: ArgumentCount::Known(0),
+                return_count: ReturnCount::Constant(1),
                 local_count: LocalRegCount {
                     d: 1,
                     ..Default::default()
@@ -322,7 +324,7 @@ mod test {
             ],
             meta: CodeMeta {
                 arg_count: 0.into(),
-                return_count: MetaCount::Known(1),
+                return_count: ReturnCount::Constant(1),
                 local_count: LocalRegCount {
                     d: 1,
                     ..Default::default()
@@ -341,18 +343,18 @@ mod test {
         let module = compile_module(&module, &mut global_values);
         let func = compile_function(&function_decl, &mut GlobalValues::default());
 
-        assert_eq!(module.top_level.meta.return_count, MetaCount::Known(0));
+        assert_eq!(module.top_level.meta.return_count, ReturnCount::Constant(0));
         assert_eq!(module.top_level.meta.local_count, LocalRegCount::default());
         assert_eq!(
             module.top_level.instructions,
             vec![
-                ConstC(LocalBlockID(0)),
+                ConstC(LocalBlockID(1)),
                 WrapC,
                 StrDGl(global_values.cell_for_name("foo")),
                 Ret
             ]
         );
-        assert_eq!(module.blocks, vec![func]);
+        assert!(module.blocks.slice().contains(&func));
 
         Ok(())
     }
@@ -364,7 +366,7 @@ mod test {
             meta: CodeMeta {
                 arg_count: 0.into(),
                 return_count: 1.into(),
-                label_mappings: vec![7],
+                label_mappings: keyed_vec![7],
                 ..Default::default()
             },
             instructions: vec![
@@ -383,4 +385,45 @@ mod test {
             ]
         }
     );
+
+    #[test]
+    fn correct_return_count() {
+        use ReturnCount::*;
+
+        let expectations = [
+            ("", Constant(0)),
+            ("return", Constant(0)),
+            ("return 1", Constant(1)),
+            ("return 1,2,3", Constant(3)),
+            ("return func()", Unbounded),
+            (
+                "return 1,2,func()",
+                MinBounded(unsafe { NonZeroU16::new_unchecked(2) }),
+            ),
+            ("if nil then return end", Constant(0)),
+            (
+                "if nil then return end return 5",
+                Bounded {
+                    min: 0,
+                    max: unsafe { NonZeroU16::new_unchecked(1) },
+                },
+            ),
+            ("if nil then return 1,2,3 end return func()", Unbounded),
+            (
+                "if nil then return 1,2,func() end return 1,func()",
+                MinBounded(unsafe { NonZeroU16::new_unchecked(1) }),
+            ),
+        ];
+
+        let mut global_values = GlobalValues::default();
+        for (module_str, return_count) in expectations {
+            let module = lua_parser::module(module_str).unwrap();
+            let compiled_module = compile_module(&module, &mut global_values);
+            assert_eq!(
+                compiled_module.top_level.meta.return_count, return_count,
+                "Expected module \"{}\" to have return count of {:?}, got {:?}",
+                module_str, return_count, compiled_module.top_level.meta.return_count
+            );
+        }
+    }
 }

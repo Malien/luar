@@ -261,6 +261,12 @@ Store value in AX into a global value referenced by &lt;global_cell_ref&gt;
 
 Stores values in AD into the global with the name described in AS. If global cell for value with such name does not exist, it is created on the fly.
 
+#### RX_shift_right
+
+- X is the [type of register's value](#type-notation) (`F`, `I`, `S`, `T`, `C`, `U`, `D`)
+
+Shifts argument registers right by amount stored in AI register. Lower 16 bits will be taken as a argument from AI. For e.g. RD_shift_right with AI set to 2, shifts RD0 to RD2, RD1 to RD3, RD2 to RD4, etc. Value of registers RD0 and RD1 in such case is undefined.
+
 #### F_add_XZ
 
 Adds the value of the register XFZ to the current value of accumulator register AF.
@@ -367,9 +373,13 @@ Depending on the type of AD:
 -   If the type is I or F, do the string conversion (as in `I_to_s` and `F_to_s`)
 -   Otherwise raise `string` error
 
-#### set_vc
+#### str_vc
 
-Sets the [VC](#value-count) register from the current value in AI. AI is treated to have an unsigned value.
+Stores the value of lower 16 bits of AI register into the [VC](#value-count) register.
+
+#### lda_vc
+
+Loads the current value of [VC](#value-count) into AI register.
 
 #### call
 

@@ -1,8 +1,10 @@
-use luar_syn::{Assignment, Block, Conditional, ConditionalTail, Statement, Var};
+use std::num::NonZeroU16;
 
-use crate::ops::Instruction;
+use luar_syn::{Assignment, Block, Conditional, ConditionalTail, Expression, Statement, Var};
 
-use super::{compile_expr, ret::compile_ret, LocalScopeCompilationState, compile_fn_call};
+use crate::{ids::ArgumentRegisterID, ops::Instruction};
+
+use super::{compile_expr, compile_fn_call, ret::compile_ret, LocalScopeCompilationState};
 
 pub fn compile_statement(statement: &Statement, state: &mut LocalScopeCompilationState) {
     match statement {
@@ -45,27 +47,41 @@ pub fn compile_block(block: &Block, state: &mut LocalScopeCompilationState) {
 }
 
 pub fn compile_assignment(assignment: &Assignment, state: &mut LocalScopeCompilationState) {
-    let intermediates = state
-        .reg()
-        .alloc_dyn_count(assignment.names.len().try_into().unwrap());
-    for i in 0..intermediates.count {
-        if let Some(expr) = assignment.values.get(i as usize) {
-            compile_expr(expr, state);
-        } else {
-            state.push_instr(Instruction::ConstN);
-        }
-        state.push_instr(Instruction::StrLD(intermediates.at(i)));
-    }
-    if assignment.values.len() > assignment.names.len() {
-        for expr in &assignment.values[(intermediates.count as usize)..] {
-            compile_expr(expr, state);
+    let count: NonZeroU16 = assignment.names.len().try_into().unwrap();
+    let intermediates = state.reg().alloc_dyn_nonzero(count);
+
+    let (head, last) = assignment.values.split_last();
+    for (expr, idx) in head.iter().zip(0..) {
+        compile_expr(expr, state);
+        if let Some(local_reg) = intermediates.try_at(idx) {
+            state.push_instr(Instruction::StrLD(local_reg));
         }
     }
+
+    match last {
+        Expression::FunctionCall(fn_call) if assignment.names.len().get() > head.len() + 1 => {
+            compile_fn_call(fn_call, state);
+            let filled_in_names_count: u16 = head.len().try_into().unwrap();
+            let left_unfilled_names = count.get() - filled_in_names_count;
+
+            for idx in 0..left_unfilled_names {
+                state.push_instr(Instruction::LdaProt(ArgumentRegisterID(idx)));
+                state.push_instr(Instruction::StrLD(
+                    intermediates.at(filled_in_names_count + idx),
+                ));
+            }
+        }
+        expr => {
+            compile_expr(expr, state);
+            state.push_instr(Instruction::StrLD(intermediates.last()))
+        }
+    }
+
     for (var, i) in assignment.names.iter().zip(0..) {
         state.push_instr(Instruction::LdaLD(intermediates.at(i)));
         compile_store(var, state);
     }
-    state.reg().free_dyn_count(intermediates.count);
+    state.reg().free_dyn_count(intermediates.count.get());
 }
 
 pub fn compile_store(var: &Var, state: &mut LocalScopeCompilationState) {

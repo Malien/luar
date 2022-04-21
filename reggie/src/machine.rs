@@ -1,6 +1,11 @@
 use std::collections::HashMap;
 
-use crate::{compiler::CompiledModule, ids::ModuleID, LuaValue};
+use crate::{
+    compiler::CompiledModule,
+    ids::{LocalBlockID, ModuleID},
+    keyed_vec::{keyed_vec, KeyedVec},
+    LuaValue,
+};
 
 use super::{
     ids::{BlockID, GlobalCellID},
@@ -8,7 +13,9 @@ use super::{
     ops::Instruction,
 };
 
-const ARG_REG_COUNT: usize = 16;
+// const ARG_REG_COUNT: usize = 16;
+// TODO: Implement ExtR in order to make argument register more likely to be in cache(?)
+const ARG_REG_COUNT: usize = 32;
 
 pub struct ArgumentRegisters {
     pub f: [f64; ARG_REG_COUNT],
@@ -80,15 +87,9 @@ pub struct GlobalValues {
     // Maybe it's better to utilize some kind of a amortized linked-list-like
     // structure to provide reference stability, as it is more efficient for
     // JIT-ted code to reference globals by their stable pointer value
-    cells: Vec<GlobalValueCell>,
+    cells: KeyedVec<GlobalCellID, GlobalValueCell>,
     mapping: HashMap<String, GlobalCellID>,
     global_nil: LuaValue,
-}
-
-fn alloc_cell(cells: &mut Vec<GlobalValueCell>, cell: GlobalValueCell) -> GlobalCellID {
-    let idx = cells.len();
-    cells.push(cell);
-    GlobalCellID(idx.try_into().unwrap())
 }
 
 impl GlobalValues {
@@ -96,7 +97,7 @@ impl GlobalValues {
         *self
             .mapping
             .entry(ident.into())
-            .or_insert_with(|| alloc_cell(&mut self.cells, GlobalValueCell::default()))
+            .or_insert_with(|| self.cells.push(GlobalValueCell::default()))
     }
 
     pub fn set<I: Into<String> + AsRef<str>>(&mut self, ident: I, value: LuaValue) -> GlobalCellID {
@@ -104,13 +105,10 @@ impl GlobalValues {
         match self.mapping.entry(ident.into()) {
             Occupied(entry) => {
                 let id = *entry.get();
-                self.cells[id.0 as usize].value = value;
+                self.cells[id].value = value;
                 id
             }
-            Vacant(entry) => *entry.insert(alloc_cell(
-                &mut self.cells,
-                GlobalValueCell::with_value(value),
-            )),
+            Vacant(entry) => *entry.insert(self.cells.push(GlobalValueCell::with_value(value))),
         }
     }
 
@@ -122,11 +120,11 @@ impl GlobalValues {
     }
 
     pub fn value_of_cell(&self, cell_id: GlobalCellID) -> &LuaValue {
-        &self.cells[cell_id.0 as usize].value
+        &self.cells[cell_id].value
     }
 
     pub fn set_cell(&mut self, cell_id: GlobalCellID, value: LuaValue) {
-        self.cells[cell_id.0 as usize].value = value;
+        self.cells[cell_id].value = value;
     }
 
     pub fn global_nil(&self) -> &LuaValue {
@@ -154,58 +152,47 @@ pub struct ModuleAssociatedBlock {
 
 struct ModuleBlocks {
     top_level: BlockID,
-    blocks: Vec<BlockID>,
+    blocks: KeyedVec<LocalBlockID, BlockID>,
 }
 
 #[derive(Default)]
 pub struct CodeBlocks {
-    blocks: Vec<ModuleAssociatedBlock>,
-    modules: Vec<ModuleBlocks>,
+    blocks: KeyedVec<BlockID, ModuleAssociatedBlock>,
+    modules: KeyedVec<ModuleID, ModuleBlocks>,
 }
 
 impl std::ops::Index<BlockID> for CodeBlocks {
     type Output = ModuleAssociatedBlock;
 
     fn index(&self, index: BlockID) -> &Self::Output {
-        &self.blocks[index.0 as usize]
+        &self.blocks[index]
     }
 }
 
 impl std::ops::IndexMut<BlockID> for CodeBlocks {
     fn index_mut(&mut self, index: BlockID) -> &mut Self::Output {
-        &mut self.blocks[index.0 as usize]
-    }
-}
-
-impl std::ops::Index<ModuleID> for CodeBlocks {
-    type Output = Vec<BlockID>;
-
-    fn index(&self, index: ModuleID) -> &Self::Output {
-        &self.modules[index.0 as usize].blocks
+        &mut self.blocks[index]
     }
 }
 
 impl CodeBlocks {
     fn add_block(&mut self, code_block: CodeBlock, module: ModuleID) -> BlockID {
-        let id = self.blocks.len().try_into().unwrap();
-        let id = BlockID(id);
         self.blocks.push(ModuleAssociatedBlock {
             module,
             instructions: code_block.instructions,
             meta: code_block.meta,
-        });
-        id
+        })
     }
 
     pub fn add_module(&mut self, module: CompiledModule) -> BlockID {
         let block_count = module.blocks.len() + 1;
         self.blocks.reserve(block_count);
-        let mut module_blocks = Vec::with_capacity(block_count);
+        let mut module_blocks = KeyedVec::with_capacity(block_count);
 
-        let module_id = ModuleID(self.modules.len().try_into().unwrap());
+        let module_id = self.modules.next_key();
         let top_level_block_id = self.add_block(module.top_level, module_id);
 
-        for block in module.blocks {
+        for block in module.blocks.values() {
             let block_id = self.add_block(block, module_id);
             module_blocks.push(block_id);
         }
@@ -219,13 +206,17 @@ impl CodeBlocks {
     }
 
     pub fn add_top_level_block(&mut self, code_block: CodeBlock) -> BlockID {
-        let module_id = ModuleID(self.modules.len().try_into().unwrap());
+        let module_id = self.modules.next_key();
         let block_id = self.add_block(code_block, module_id);
         self.modules.push(ModuleBlocks {
             top_level: block_id,
-            blocks: vec![],
+            blocks: keyed_vec![],
         });
         block_id
+    }
+
+    pub fn blocks_of_module(&self, module: ModuleID) -> &KeyedVec<LocalBlockID, BlockID> {
+        &self.modules[module].blocks
     }
 }
 

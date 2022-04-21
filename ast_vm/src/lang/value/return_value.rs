@@ -48,7 +48,7 @@ impl ReturnValue {
             ReturnValue::Function(func) => LuaValue::Function(func),
             ReturnValue::Table(table) => LuaValue::Table(table),
             ReturnValue::MultiValue(values) => {
-                assert_eq!(values.len(), 1);
+                assert_eq!(values.len().get(), 1);
                 values.move_first()
             }
         }
