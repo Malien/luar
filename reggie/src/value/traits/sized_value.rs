@@ -1,36 +1,36 @@
 use crate::LuaValue;
 
 pub trait SizedValue {
-    const COUNT: usize;
+    const COUNT: u16;
 }
 
 macro_rules! count {
-    () => { 0usize };
-    ($x:tt $($xs:tt)*) => (1usize + count!($($xs) *))
+    () => { 0 };
+    ($x:tt $($xs:tt)*) => (1 + count!($($xs) *))
 }
 
 macro_rules! impl_return_size_tuple {
     ($($gen: ident) +) => {
         impl<$($gen),+> SizedValue for ($($gen,)+) {
-            const COUNT: usize = count!($($gen) +);
+            const COUNT: u16 = count!($($gen) +);
         }
     };
 }
 
 impl SizedValue for () {
-    const COUNT: usize = 0;
+    const COUNT: u16 = 0;
 }
 
 impl SizedValue for LuaValue {
-    const COUNT: usize = 1;
+    const COUNT: u16 = 1;
 }
 
 impl<'a, T: SizedValue> SizedValue for &'a T {
-    const COUNT: usize = T::COUNT;
+    const COUNT: u16 = T::COUNT;
 }
 
 impl SizedValue for bool {
-    const COUNT: usize = 1;
+    const COUNT: u16 = 1;
 }
 
 impl_return_size_tuple! { A }

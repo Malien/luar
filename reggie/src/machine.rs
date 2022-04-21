@@ -264,7 +264,7 @@ impl StackFrame {
 pub struct Machine {
     pub accumulators: Accumulators,
     pub program_counter: ProgramCounter,
-    pub value_count: u32,
+    pub value_count: u16,
     pub equality_flag: EqualityFlag,
     pub ordering_flag: OrderingFlag,
     pub type_test_result: TypeTestResult,

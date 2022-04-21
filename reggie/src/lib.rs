@@ -587,7 +587,7 @@ mod test {
         let ret_values = (value1.clone(), value2.clone());
         let myfn = NativeFunction::new({
             let ret_values = ret_values.clone();
-            move || Ok(ret_values.clone())
+            move || ret_values.clone()
         });
         machine
             .global_values

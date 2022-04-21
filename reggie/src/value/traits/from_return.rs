@@ -4,7 +4,7 @@ pub trait FromReturn<'a>
 where
     Self: Sized,
 {
-    fn from_machine_state(machine: &'a Machine, return_count: usize) -> Self;
+    fn from_machine_state(machine: &'a Machine, return_count: u16) -> Self;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -15,7 +15,7 @@ pub struct Strict<T>(pub T);
 // pub struct CannotCollectReturn;
 
 impl<'a> FromReturn<'a> for () {
-    fn from_machine_state(_: &'a Machine, _: usize) -> Self {
+    fn from_machine_state(_: &'a Machine, _: u16) -> Self {
         ()
     }
 }
@@ -24,7 +24,7 @@ impl<'a, T> FromReturn<'a> for Strict<T>
 where
     T: FromReturn<'a> + SizedValue,
 {
-    fn from_machine_state(machine: &'a Machine, return_count: usize) -> Self {
+    fn from_machine_state(machine: &'a Machine, return_count: u16) -> Self {
         assert_eq!(
             return_count, 
             T::COUNT, 
@@ -38,7 +38,7 @@ where
 }
 
 impl<'a, T> FromReturn<'a> for Result<T, T::Error> where T: TryFromReturn<'a> {
-    fn from_machine_state(machine: &'a Machine, return_count: usize) -> Self {
+    fn from_machine_state(machine: &'a Machine, return_count: u16) -> Self {
         T::try_from_machine_state(machine, return_count)
     }
 }
@@ -47,7 +47,7 @@ impl<'a, T> FromReturn<'a> for T
 where 
     T: FromMultiReturnPart<'a, 0> 
 {
-    fn from_machine_state(machine: &'a Machine, return_count: usize) -> Self {
+    fn from_machine_state(machine: &'a Machine, return_count: u16) -> Self {
         if return_count == 0 {
             T::from_absent_value(machine)
         } else {
@@ -71,7 +71,7 @@ macro_rules! impl_from_lua_return_tuple {
         where
             $($generic: FromMultiReturnPart<'a, $pos>),+
         {
-            fn from_machine_state(machine: &'a Machine, return_count: usize) -> Self {
+            fn from_machine_state(machine: &'a Machine, return_count: u16) -> Self {
                 match return_count {
                     $($pos => ($(match_arm!{ machine, $gen $present },)+),)+
                     _ => ($($generic::from_multi_return(machine),)+)
@@ -101,7 +101,7 @@ impl_from_lua_return_tuple! {
 }
 
 impl<'a> FromReturn<'a> for &'a [LuaValue] {
-    fn from_machine_state(machine: &'a Machine, return_count: usize) -> Self {
-        &machine.argument_registers.d[..return_count]
+    fn from_machine_state(machine: &'a Machine, return_count: u16) -> Self {
+        &machine.argument_registers.d[..(return_count as usize)]
     }
 }

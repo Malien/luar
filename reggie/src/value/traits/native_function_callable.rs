@@ -3,8 +3,8 @@ use std::marker::PhantomData;
 use crate::{machine::ArgumentRegisters, FFIFunc, FromArgs, ReturnRepresentable, EvalError};
 
 pub trait NativeFunctionCallable {
-    fn call(&self, argument_registers: &mut ArgumentRegisters, value_count: u32) -> Result<(), EvalError>;
-    fn return_count(&self) -> usize;
+    fn call(&self, argument_registers: &mut ArgumentRegisters, value_count: u16) -> Result<(), EvalError>;
+    fn return_count(&self) -> u16;
 }
 
 pub struct NativeFunctionWrapper<F, Args> {
@@ -17,13 +17,13 @@ where
     F: FFIFunc<Args>,
     Args: FromArgs,
 {
-    fn call(&self, argument_registers: &mut ArgumentRegisters, value_count: u32) -> Result<(), EvalError>{
+    fn call(&self, argument_registers: &mut ArgumentRegisters, value_count: u16) -> Result<(), EvalError>{
         let args = Args::from_args(argument_registers, value_count);
         let res = self.func.call(args);
         res.to_lua_return(argument_registers)
     }
 
-    fn return_count(&self) -> usize {
+    fn return_count(&self) -> u16 {
         F::Output::return_count()
     }
 }

@@ -5,21 +5,27 @@ use crate::{
     compiler::{
         compile_statement, ret::compile_ret, FunctionCompilationState, LocalScopeCompilationState,
     },
-    ids::ArgumentRegisterID,
+    ids::{ArgumentRegisterID, LocalBlockID},
     machine::{CodeBlock, GlobalValues},
     meta::{CodeMeta, MetaCount},
     ops::Instruction,
 };
 
+pub struct CompiledFunction {
+    wrapper: CodeBlock,
+    optimized: Option<CodeBlock>,
+}
+
 pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalValues) -> CodeBlock {
     use Instruction::*;
-    let return_count = decl.body.ret.as_ref().map(|ret| ret.0.len()).unwrap_or(0);
+    let return_count = decl
+        .body
+        .ret
+        .as_ref()
+        .map(|ret| ret.0.len().try_into().unwrap())
+        .unwrap_or(0);
     let mut state = FunctionCompilationState::with_args(decl.args.iter().cloned(), global_values);
     let mut root_scope = LocalScopeCompilationState::new(&mut state);
-
-    let arg_count = decl.args.len().try_into().unwrap();
-    compile_preamble(arg_count, &mut root_scope);
-    let preamble_size = root_scope.instructions().len();
 
     alias_arguments(&decl.args, &mut root_scope);
 
@@ -34,11 +40,10 @@ pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalVa
     }
 
     let meta = CodeMeta {
-        arg_count: decl.args.len().into(),
+        arg_count: MetaCount::Known(decl.args.len().try_into().unwrap()),
         const_strings: state.strings,
         label_mappings: state.label_alloc.into_mappings(),
         return_count: MetaCount::Known(return_count),
-        preamble_end: preamble_size,
         local_count: state.reg_alloc.into_used_register_count(),
     };
 
@@ -48,12 +53,40 @@ pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalVa
     }
 }
 
-fn compile_preamble(arg_count: u16, state: &mut LocalScopeCompilationState) {
+pub fn compile_dyn_wrapper(
+    arg_count: MetaCount,
+    return_count: MetaCount,
+    local_block_id: LocalBlockID,
+) -> CodeBlock {
     use Instruction::*;
 
-    for i in 0..arg_count {
-        state.push_instr(LdaProt(ArgumentRegisterID(i)));
-        state.push_instr(StrRD(ArgumentRegisterID(i)));
+    let mut instructions = Vec::new();
+
+    if let MetaCount::Known(arg_count) = arg_count {
+        for i in 0..arg_count {
+            instructions.push(LdaProt(ArgumentRegisterID(i)));
+            instructions.push(StrRD(ArgumentRegisterID(i)));
+        }
+    }
+
+    instructions.push(ConstC(local_block_id));
+    instructions.push(TypedCall);
+
+    if let MetaCount::Known(return_count) = return_count {
+        let return_count: u32 = return_count.try_into().unwrap();
+        instructions.push(ConstI(return_count as i32));
+        instructions.push(SetVC);
+    }
+
+    instructions.push(Ret);
+
+    CodeBlock {
+        instructions,
+        meta: CodeMeta {
+            arg_count,
+            return_count,
+            ..Default::default()
+        },
     }
 }
 
@@ -354,7 +387,6 @@ mod test {
             CodeMeta {
                 arg_count: 2.into(),
                 return_count: 1.into(),
-                preamble_end: 4,
                 local_count: LocalRegCount {
                     d: 3,
                     ..Default::default()
@@ -367,10 +399,6 @@ mod test {
         assert_eq!(
             instructions,
             vec![
-                LdaProt(ArgumentRegisterID(0)),
-                StrRD(ArgumentRegisterID(0)),
-                LdaProt(ArgumentRegisterID(1)),
-                StrRD(ArgumentRegisterID(1)),
                 LdaRD(ArgumentRegisterID(0)),
                 StrLD(LocalRegisterID(0)),
                 LdaRD(ArgumentRegisterID(1)),

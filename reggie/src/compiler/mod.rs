@@ -11,7 +11,7 @@ use super::{
 
 pub mod expr;
 pub mod fn_call;
-pub mod func;
+pub mod function;
 pub mod module;
 pub mod ret;
 pub mod statement;
@@ -19,7 +19,7 @@ pub mod var;
 
 pub use expr::*;
 pub use fn_call::*;
-pub use func::*;
+pub use function::*;
 pub use module::*;
 pub use statement::*;
 pub use var::*;

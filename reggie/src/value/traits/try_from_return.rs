@@ -6,7 +6,7 @@ where
 {
     type Error;
 
-    fn try_from_machine_state(machine: &'a Machine, return_count: usize) -> Result<Self, Self::Error>;
+    fn try_from_machine_state(machine: &'a Machine, return_count: u16) -> Result<Self, Self::Error>;
 }
 
 impl<'a, T> TryFromReturn<'a> for T 
@@ -15,7 +15,7 @@ where
 {
     type Error = T::Error;
     
-    fn try_from_machine_state(machine: &'a Machine, return_count: usize) -> Result<Self, Self::Error> {
+    fn try_from_machine_state(machine: &'a Machine, return_count: u16) -> Result<Self, Self::Error> {
         if return_count == 0 {
             T::try_from_multi_return(machine)
         } else {
@@ -46,7 +46,7 @@ where
 {
     type Error = Tuple2ConversionError<T::Error, U::Error>;
     
-    fn try_from_machine_state(machine: &'a Machine, return_count: usize) -> Result<Self, Self::Error> {
+    fn try_from_machine_state(machine: &'a Machine, return_count: u16) -> Result<Self, Self::Error> {
         let first = match return_count {
             0 => T::try_from_absent_value(machine),
             _ => T::try_from_multi_return(machine),

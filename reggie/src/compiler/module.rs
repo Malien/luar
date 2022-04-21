@@ -8,8 +8,8 @@ use crate::{
 };
 
 use super::{
-    compile_function, compile_statement, ret::compile_ret, FunctionCompilationState,
-    LocalScopeCompilationState,
+    compile_dyn_wrapper, compile_function, compile_statement, ret::compile_ret,
+    FunctionCompilationState, LocalScopeCompilationState,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -24,7 +24,11 @@ pub fn compile_module(
 ) -> CompiledModule {
     let mut blocks = Vec::new();
 
-    let return_count = module.ret.as_ref().map(|ret| ret.0.len()).unwrap_or(0);
+    let return_count = module
+        .ret
+        .as_ref()
+        .map(|ret| ret.0.len().try_into().unwrap())
+        .unwrap_or(0);
     let mut state = FunctionCompilationState::new(global_values);
     let mut root_scope = LocalScopeCompilationState::new(&mut state);
 
@@ -55,7 +59,6 @@ pub fn compile_module(
                 return_count: MetaCount::Known(return_count),
                 label_mappings: state.label_alloc.into_mappings(),
                 const_strings: state.strings,
-                preamble_end: 0,
             },
         },
     }
@@ -68,17 +71,37 @@ fn compile_function_declaration(
 ) {
     let global_values = root_scope.global_values();
     let func = compile_function(decl, global_values);
-    let local_block_id = LocalBlockID(blocks.len().try_into().unwrap());
-    blocks.push(func);
+
+    let func_to_save = if needs_wrapper(&func.meta) {
+        let return_count = func.meta.return_count;
+        let arg_count = func.meta.arg_count;
+        let func_id = LocalBlockID(blocks.len().try_into().unwrap());
+        blocks.push(func);
+        let wrapper_code = compile_dyn_wrapper(arg_count, return_count, func_id);
+        wrapper_code
+    } else {
+        func
+    };
+
+    let func_id = LocalBlockID(blocks.len().try_into().unwrap());
+    blocks.push(func_to_save);
+
     match &decl.name {
         FunctionName::Plain(Var::Named(name)) => {
             let cell = global_values.cell_for_name(name.as_ref());
-            root_scope.push_instr(Instruction::ConstC(local_block_id));
+            root_scope.push_instr(Instruction::ConstC(func_id));
             root_scope.push_instr(Instruction::WrapC);
             root_scope.push_instr(Instruction::StrDGl(cell));
         }
         _ => todo!(),
     }
+}
+
+fn needs_wrapper(meta: &CodeMeta) -> bool {
+    !matches!(
+        (meta.arg_count, meta.return_count),
+        (MetaCount::Known(0), MetaCount::Unknown) | (MetaCount::Unknown, MetaCount::Unknown)
+    )
 }
 
 #[cfg(test)]

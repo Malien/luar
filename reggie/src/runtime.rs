@@ -31,7 +31,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 machine.stack.pop();
                 match machine.stack.last_mut() {
                     Some(new_frame) => frame = new_frame,
-                    None => break,
+                    None => return Ok(()),
                 }
             }
             Instruction::ConstI(value) => {
@@ -197,7 +197,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 *position += 1;
             }
             Instruction::SetVC => {
-                machine.value_count = machine.accumulators.i as u32;
+                machine.value_count = machine.accumulators.i.try_into().unwrap();
                 *position += 1;
             }
             Instruction::DCall => match machine.accumulators.d.clone() {
@@ -217,11 +217,13 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                         .expect("New stack frame have just been pushed");
                     block = new_block;
                     *position = 0;
+                    machine.program_counter.block = block_id;
                 }
                 LuaValue::NativeFunction(NativeFunction(native_fn_kind)) => {
                     match native_fn_kind.borrow() {
                         NativeFunctionKind::Dyn(dyn_fn) => {
                             dyn_fn.call(&mut machine.argument_registers, machine.value_count)?;
+                            machine.value_count = dyn_fn.return_count();
                         }
                         NativeFunctionKind::OverloadSet(_) => {
                             todo!("Cannot call native functions defined with overload sets yet")
@@ -236,13 +238,31 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 }
             },
             Instruction::LdaProt(reg) => {
-                machine.accumulators.d = if machine.value_count > reg.0 as u32 {
+                machine.accumulators.d = if machine.value_count > reg.0 {
                     machine.argument_registers.d[reg.0 as usize].clone()
                 } else {
                     LuaValue::Nil
                 };
                 *position += 1;
-            },
+            }
+            Instruction::TypedCall => {
+                let new_block = &machine.code_blocks[machine.accumulators.c];
+                let new_frame = StackFrame::new(
+                    &new_block.meta,
+                    ProgramCounter {
+                        position: *position + 1,
+                        block: machine.program_counter.block,
+                    },
+                );
+                machine.stack.push(new_frame);
+                frame = machine
+                    .stack
+                    .last_mut()
+                    .expect("New stack frame have just been pushed");
+                block = new_block;
+                *position = 0;
+                machine.program_counter.block = machine.accumulators.c;
+            }
 
             Instruction::LdaRF(_) => todo!(),
             Instruction::LdaRS(_) => todo!(),
@@ -312,7 +332,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::FToS => todo!(),
             Instruction::DToS => todo!(),
             Instruction::Call => todo!(),
-            Instruction::TypedCall => todo!(),
             Instruction::EqTestRF(_) => todo!(),
             Instruction::EqTestRS(_) => todo!(),
             Instruction::EqTestRI(_) => todo!(),
@@ -357,8 +376,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::JmpU(_) => todo!(),
         }
     }
-
-    Ok(())
 }
 
 fn binary_number_op(
@@ -386,7 +403,7 @@ pub fn call_block<'a, T: FromReturn<'a>>(
     let block = &machine.code_blocks[block_id];
     let return_count = match block.meta.return_count {
         MetaCount::Known(count) => count,
-        MetaCount::Unknown => machine.value_count as usize,
+        MetaCount::Unknown => machine.value_count,
     };
     let stack_frame = StackFrame::new(
         &block.meta,
@@ -913,20 +930,15 @@ mod test {
             ConstI(42),
             WrapI,
             StrRD(ArgumentRegisterID(2)),
-
             ConstI(69),
             WrapI,
             StrRD(ArgumentRegisterID(3)),
-
             ConstI(3),
             SetVC,
-
             LdaProt(ArgumentRegisterID(2)),
             StrRD(ArgumentRegisterID(0)),
-
             LdaProt(ArgumentRegisterID(3)),
             StrRD(ArgumentRegisterID(1)),
-
             Ret
         ],
         |machine: Machine| {
@@ -934,4 +946,48 @@ mod test {
             assert_eq!(machine.argument_registers.d[1], LuaValue::Nil);
         }
     );
+
+    #[test]
+    fn typed_call() {
+        let mut machine = Machine::new();
+
+        let module = CompiledModule {
+            blocks: vec![CodeBlock {
+                meta: CodeMeta {
+                    arg_count: 1.into(),
+                    return_count: 1.into(),
+                    ..Default::default()
+                },
+                instructions: vec![
+                    ConstI(1),
+                    WrapI,
+                    DAddR(ArgumentRegisterID(0)),
+                    StrRD(ArgumentRegisterID(0)),
+                    Ret,
+                ],
+            }],
+            top_level: CodeBlock {
+                meta: CodeMeta {
+                    arg_count: 0.into(),
+                    return_count: 1.into(),
+                    ..Default::default()
+                },
+                instructions: vec![
+                    ConstI(68),
+                    WrapI,
+                    StrRD(ArgumentRegisterID(0)),
+                    ConstI(1),
+                    SetVC,
+                    ConstC(LocalBlockID(0)),
+                    TypedCall,
+                    Ret,
+                ],
+            },
+        };
+
+        let top_level_block = machine.code_blocks.add_module(module);
+
+        let res = call_block::<LuaValue>(&mut machine, top_level_block).unwrap();
+        assert_eq!(res, LuaValue::Float(69.0));
+    }
 }

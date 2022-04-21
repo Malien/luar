@@ -36,7 +36,7 @@ pub fn compile_expr(expr: &Expression, state: &mut LocalScopeCompilationState) {
             compile_fn_call(fn_call, state);
             state.push_instr(LdaProt(ArgumentRegisterID(0)));
         }
-        _ => todo!(),
+        _ => todo!("Cannot compile \"{}\" expression yet", expr),
     }
 }
 
