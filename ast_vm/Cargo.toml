@@ -9,6 +9,7 @@ edition = "2021"
 luar_syn = { path = "../syn" }
 luar_lex = { path = "../lex" }
 non_empty = { path = "../non_empty" }
+luar_error = { path = "../error" }
 num = "0.4"
 thiserror = "1.0"
 libc = "0.2"

@@ -4,10 +4,14 @@ extern crate quickcheck_macros;
 
 pub mod util;
 
-pub mod error;
 pub mod lang;
 pub mod stdlib;
 pub mod ast_vm;
 
 pub use ast_vm::*;
-pub use error::*;
+
+use lang::LuaValue;
+pub type LuaError = luar_error::LuaError<LuaValue>;
+pub type EvalError = luar_error::EvalError<LuaValue>;
+pub type TypeError = luar_error::TypeError<LuaValue>;
+pub type ArithmeticError = luar_error::ArithmeticError<LuaValue>;
