@@ -65,20 +65,20 @@ pub enum TypeTestResult {
 
 #[derive(Debug, Clone)]
 pub struct GlobalValueCell {
-    value: LuaValue,
+    pub value: LuaValue,
+    pub name: String,
 }
 
 impl GlobalValueCell {
-    pub fn with_value(value: LuaValue) -> Self {
-        Self { value }
-    }
-}
-
-impl Default for GlobalValueCell {
-    fn default() -> Self {
+    pub fn new(name: String) -> Self {
         Self {
+            name,
             value: LuaValue::Nil,
         }
+    }
+
+    pub fn with_value(name: String, value: LuaValue) -> Self {
+        Self { name, value }
     }
 }
 
@@ -94,21 +94,26 @@ pub struct GlobalValues {
 
 impl GlobalValues {
     pub fn cell_for_name<I: Into<String> + AsRef<str>>(&mut self, ident: I) -> GlobalCellID {
+        let name = ident.into();
         *self
             .mapping
-            .entry(ident.into())
-            .or_insert_with(|| self.cells.push(GlobalValueCell::default()))
+            .entry(name.clone())
+            .or_insert_with(|| self.cells.push(GlobalValueCell::new(name)))
     }
 
     pub fn set<I: Into<String> + AsRef<str>>(&mut self, ident: I, value: LuaValue) -> GlobalCellID {
         use std::collections::hash_map::Entry::*;
-        match self.mapping.entry(ident.into()) {
+        let name = ident.into();
+        match self.mapping.entry(name) {
             Occupied(entry) => {
                 let id = *entry.get();
                 self.cells[id].value = value;
                 id
             }
-            Vacant(entry) => *entry.insert(self.cells.push(GlobalValueCell::with_value(value))),
+            Vacant(entry) => {
+                let name = entry.key().clone();
+                *entry.insert(self.cells.push(GlobalValueCell::with_value(name, value)))
+            }
         }
     }
 
@@ -129,6 +134,16 @@ impl GlobalValues {
 
     pub fn global_nil(&self) -> &LuaValue {
         &self.global_nil
+    }
+}
+
+impl<'a> IntoIterator for &'a GlobalValues {
+    type Item = &'a GlobalValueCell;
+
+    type IntoIter = std::slice::Iter<'a, GlobalValueCell>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.cells.slice().iter()
     }
 }
 

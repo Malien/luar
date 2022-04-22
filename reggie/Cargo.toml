@@ -19,5 +19,6 @@ itertools = "0.10"
 non_empty = { path = "../non_empty", features = ["quickcheck"] }
 test_util = { path = "../test_util" }
 luar_lex = { path = "../lex", features = ["quickcheck"] }
+quickcheck = { version = "1.0" }
 quickcheck_macros = "1.0"
 ntest = "0.7.5"

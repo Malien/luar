@@ -17,10 +17,17 @@ path = "./engine/main.rs"
 name = "correctness"
 path = "./correctness/main.rs"
 
+[[test]]
+name = "reggie"
+path = "./reggie/main.rs"
+
 [dependencies]
 ast_vm = { path = "../ast_vm" }
-reggie = { path = "../reggie" }
-luar_lex = { path = "../lex" }
+reggie = { path = "../reggie", features = ["quickcheck"] }
+luar_lex = { path = "../lex", features = ["quickcheck"] }
+luar_error = { path = "../error" }
 luar_syn = { path = "../syn" }
+non_empty = { path = "../non_empty" }
+itertools = "0.10"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"

@@ -414,53 +414,21 @@ fn binary_number_op(
     }
 }
 
-pub fn call_block<'a, T: FromReturn<'a>>(
-    machine: &'a mut Machine,
-    block_id: BlockID,
-) -> Result<T, EvalError> {
-    let block = &machine.code_blocks[block_id];
-    let return_count = block.meta.return_count;
-    let stack_frame = StackFrame::new(
-        &block.meta,
-        ProgramCounter {
-            block: BlockID(0),
-            position: 0,
-        },
-    );
-    machine.stack.push(stack_frame);
-    machine.program_counter = ProgramCounter {
-        block: block_id,
-        position: 0,
-    };
-    eval_loop(machine)?;
-    let return_count = match return_count {
-        ReturnCount::Constant(count) => count,
-        _ => machine.value_count,
-    };
-    Ok(T::from_machine_state(machine, return_count))
-}
-
-pub fn call_module<'a, T: FromReturn<'a>>(
-    module: CompiledModule,
-    machine: &'a mut Machine,
-) -> Result<T, EvalError> {
-    let top_level_block = machine.code_blocks.add_module(module);
-    call_block(machine, top_level_block)
-}
-
 #[cfg(test)]
 mod test {
-    use crate::compiler::CompiledModule;
-    use crate::ids::{ArgumentRegisterID, JmpLabel, LocalBlockID, LocalRegisterID, StringID};
-    use crate::keyed_vec::keyed_vec;
-    use crate::machine::{
-        CodeBlock, EqualityFlag, EqualityFlag::EQ, EqualityFlag::NE, Machine, OrderingFlag,
-        OrderingFlag::GT, OrderingFlag::LT,
+    use crate::{
+        call_block,
+        compiler::CompiledModule,
+        ids::{ArgumentRegisterID, JmpLabel, LocalBlockID, LocalRegisterID, StringID},
+        keyed_vec::keyed_vec,
+        machine::{
+            CodeBlock, EqualityFlag, EqualityFlag::EQ, EqualityFlag::NE, Machine, OrderingFlag,
+            OrderingFlag::GT, OrderingFlag::LT,
+        },
+        meta::{CodeMeta, LocalRegCount},
+        ops::Instruction::{self, *},
+        EvalError, LuaValue, NativeFunction, Strict,
     };
-    use crate::meta::{CodeMeta, LocalRegCount};
-    use crate::ops::Instruction::{self, *};
-    use crate::runtime::call_block;
-    use crate::{EvalError, LuaValue, NativeFunction, Strict};
     use ntest::timeout;
 
     macro_rules! test_instructions_with_meta {

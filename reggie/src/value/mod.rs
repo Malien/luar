@@ -79,6 +79,14 @@ impl LuaValue {
         panic!("Tried to call unwrap_lua_function() on {:?}", self)
     }
 
+    pub fn as_lua_function(self) -> Option<BlockID> {
+        if let Self::Function(block_id) = self {
+            Some(block_id)
+        } else {
+            None
+        }
+    }
+
     pub fn true_value() -> Self {
         Self::Int(1)
     }
