@@ -8,6 +8,7 @@ use reggie::{eval_module, eval_str, value::Strict, LuaError, LuaValue, Machine};
 mod assignment;
 mod function;
 mod local_decl;
+mod unary_op;
 
 pub fn eq_with_nan(a: f64, b: f64) -> bool {
     if a.is_nan() && b.is_nan() {

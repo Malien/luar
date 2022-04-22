@@ -39,7 +39,7 @@ mod test {
 
         use crate::{
             assert_type_error, ast_vm,
-            error::LuaError,
+            LuaError,
             lang::{
                 ArithmeticError, EvalError, GlobalContext, ReturnValue, ScopeHolder, TypeError,
             },

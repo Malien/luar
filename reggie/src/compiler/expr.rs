@@ -1,4 +1,4 @@
-use luar_syn::{BinaryOperator, Expression};
+use luar_syn::{BinaryOperator, Expression, UnaryOperator};
 
 use crate::{
     compiler::{compile_var_lookup, LocalScopeCompilationState, compile_fn_call},
@@ -35,6 +35,19 @@ pub fn compile_expr(expr: &Expression, state: &mut LocalScopeCompilationState) {
         Expression::FunctionCall(fn_call) => {
             compile_fn_call(fn_call, state);
             state.push_instr(LdaProt(ArgumentRegisterID(0)));
+        }
+        Expression::UnaryOperator { op: UnaryOperator::Not, exp } => {
+            compile_expr(exp, state);
+            let true_label = state.alloc_label();
+            let cont_label = state.alloc_label();
+            state.push_instr(NilTest);
+            state.push_instr(JmpEQ(true_label));
+            state.push_instr(ConstN);
+            state.push_instr(Jmp(cont_label));
+            state.push_label(true_label);
+            state.push_instr(ConstI(1));
+            state.push_instr(WrapI);
+            state.push_label(cont_label);
         }
         _ => todo!("Cannot compile \"{}\" expression yet", expr),
     }
