@@ -281,6 +281,10 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 machine.accumulators.i = machine.argument_registers.i[reg.0 as usize];
                 *position += 1;
             }
+            Instruction::NilTest => {
+                machine.equality_flag = EqualityFlag::from_bool(machine.accumulators.d == LuaValue::Nil);
+                *position += 1;
+            },
 
             Instruction::LdaRF(_) => todo!(),
             Instruction::LdaRS(_) => todo!(),
@@ -371,7 +375,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::TestLU(_) => todo!(),
             Instruction::TestLD(_) => todo!(),
             Instruction::TypeTest => todo!(),
-            Instruction::NilTest => todo!(),
             Instruction::WrapT => todo!(),
             Instruction::WrapU => todo!(),
             Instruction::CastF => todo!(),
@@ -1060,6 +1063,39 @@ mod test {
         },
         |machine: Machine| {
             assert_eq!(machine.accumulators.i, 69420);
+        }
+    );
+
+    test_instructions!(
+        nil_test_nil,
+        [
+            ConstI(1),
+            WrapI,
+            StrRD(ArgumentRegisterID(0)),
+            ConstI(2),
+            EqTestRD(ArgumentRegisterID(0)),
+            ConstN,
+            NilTest,
+            Ret
+        ],
+        |machine: Machine| {
+            assert_eq!(machine.equality_flag, EqualityFlag::EQ);
+        }
+    );
+
+    test_instructions!(
+        nil_test_non_nill,
+        [
+            ConstI(1),
+            WrapI,
+            StrRD(ArgumentRegisterID(0)),
+            ConstI(1),
+            EqTestRD(ArgumentRegisterID(0)),
+            NilTest,
+            Ret
+        ],
+        |machine: Machine| {
+            assert_eq!(machine.equality_flag, EqualityFlag::NE);
         }
     );
 }

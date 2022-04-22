@@ -23,6 +23,7 @@ pub fn compile_fn_call(call: &FunctionCall, state: &mut LocalScopeCompilationSta
                 state.push_instr(StrVC);
                 compile_var_lookup(func, state);
                 state.push_instr(DCall);
+                state.reg().free_dyn_count(locals.count);
             },
             luar_syn::FunctionCallArgs::Table(table) => todo!(
                 "Cannot compile function calls with tables \"{} {}\" as arguments yet",

@@ -27,7 +27,7 @@ reggie = { path = "../reggie", features = ["quickcheck"] }
 luar_lex = { path = "../lex", features = ["quickcheck"] }
 luar_error = { path = "../error" }
 luar_syn = { path = "../syn" }
-non_empty = { path = "../non_empty" }
+non_empty = { path = "../non_empty", features = ["quickcheck"] }
 itertools = "0.10"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"

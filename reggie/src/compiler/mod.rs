@@ -28,6 +28,7 @@ pub struct RegisterAllocator {
     in_use: LocalRegCount,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct LocalRegisterSpan {
     start: u16,
     count: u16,

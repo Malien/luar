@@ -11,16 +11,14 @@ end
 
 
 foo_too = 69
-local foo_too = 42
 
 function _bar_too()
     return foo_too
 end
 
-foo_three = foo_too
-
-function global_var_cannot_be_redeclared_local() 
-    assert(foo_three == 69)
+function local_shadows_global_in_that_scope() 
+    local foo_too = 42
+    assert(foo_too == 42)
     assert(_bar_too() == 69)
 end
 
@@ -30,28 +28,39 @@ function _foo_four()
     return a
 end
 
-function _bar_four()
-    local a = 42
-    return _foo_four()
-end
-
 function local_vars_do_not_leak_through_function_calls()
-    assert(not _bar_four())
+    local a = 42
+    assert(not _foo_four())
 end
 
 
 
-function _foo_five()
+
+function local_scopes_are_different()
+    assert(not _foo_five())
     if 1 then
         local foo = 42
     end
 
     if 1 then
-        return foo
+        assert(not foo)
     end
-    return 69
 end
 
-function local_scopes_are_different()
-    assert(not _foo_five())
+
+
+
+function redeclaring_local_creates_new_local()
+    local foo = 42
+    local foo
+    assert(not foo)
+end
+
+
+
+
+function redeclaring_local_with_new_value_creates_new_local_with_that_value()
+    local foo = 42
+    local foo = 69
+    assert(foo == 69)
 end
