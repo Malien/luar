@@ -1,5 +1,5 @@
 use luar_lex::Ident;
-use luar_syn::FunctionDeclaration;
+use luar_syn::{FunctionDeclaration, Var};
 
 use crate::{
     compiler::{
@@ -29,6 +29,11 @@ pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalVa
         root_scope.push_instr(Ret);
     }
 
+    let debug_name = match decl.name {
+        luar_syn::FunctionName::Plain(ref var) => last_ident(var).map(ToString::to_string),
+        luar_syn::FunctionName::Method(_, ref name) => Some(name.to_string()),
+    };
+
     let meta = CodeMeta {
         arg_count: ArgumentCount::Known(decl.args.len().try_into().unwrap()),
         const_strings: state.strings,
@@ -38,6 +43,7 @@ pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalVa
             .into_return_count()
             .unwrap_or(ReturnCount::Constant(0)),
         local_count: state.reg_alloc.into_used_register_count(),
+        debug_name,
     };
 
     CodeBlock {
@@ -46,10 +52,19 @@ pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalVa
     }
 }
 
+fn last_ident(var: &Var) -> Option<&Ident> {
+    match var {
+        Var::Named(ref ident) => Some(ident),
+        Var::PropertyAccess { ref property, .. } => Some(property),
+        Var::MemberLookup { .. } => None,
+    }
+}
+
 pub fn compile_dyn_wrapper(
     arg_count: ArgumentCount,
     return_count: ReturnCount,
     local_block_id: LocalBlockID,
+    debug_name: String,
 ) -> CodeBlock {
     use Instruction::*;
 
@@ -78,6 +93,7 @@ pub fn compile_dyn_wrapper(
         meta: CodeMeta {
             arg_count,
             return_count,
+            debug_name: Some(debug_name),
             ..Default::default()
         },
     }
@@ -100,10 +116,10 @@ mod test {
     use crate::{
         ids::{ArgumentRegisterID, LocalRegisterID, StringID},
         keyed_vec::keyed_vec,
-        machine::{CodeBlock, GlobalValues},
+        machine::CodeBlock,
         meta::{CodeMeta, LocalRegCount},
         ops::Instruction,
-        LuaError,
+        GlobalValues, LuaError,
     };
 
     use super::compile_function;

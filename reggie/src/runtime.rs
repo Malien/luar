@@ -9,7 +9,7 @@ use std::borrow::Borrow;
 
 pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
     let mut block = &machine.code_blocks[machine.program_counter.block];
-    let position = &mut machine.program_counter.position;
+    let mut position = &mut machine.program_counter.position;
     let mut frame = machine
         .stack
         .last_mut()
@@ -19,7 +19,8 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
         match instr {
             Instruction::Ret => {
                 block = &machine.code_blocks[frame.return_addr.block];
-                *position = frame.return_addr.position;
+                machine.program_counter = frame.return_addr;
+                position = &mut machine.program_counter.position;
                 machine.stack.pop();
                 match machine.stack.last_mut() {
                     Some(new_frame) => frame = new_frame,
@@ -51,23 +52,17 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 *position += 1;
             }
             Instruction::DAddR(reg) => {
-                let res = binary_number_op(
+                machine.accumulators.d = add_dyn(
                     &machine.accumulators.d,
                     &machine.argument_registers.d[reg.0 as usize],
-                    ArithmeticOperator::Add,
-                    std::ops::Add::add,
                 )?;
-                machine.accumulators.d = res;
                 *position += 1;
             }
             Instruction::DAddL(reg) => {
-                let res = binary_number_op(
+                machine.accumulators.d = add_dyn(
                     &machine.accumulators.d,
                     &frame.local_values.d[reg.0 as usize],
-                    ArithmeticOperator::Add,
-                    std::ops::Add::add,
                 )?;
-                machine.accumulators.d = res;
                 *position += 1;
             }
             Instruction::ConstN => {
@@ -282,6 +277,20 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                     EqualityFlag::from_bool(machine.accumulators.d == LuaValue::Nil);
                 *position += 1;
             }
+            Instruction::DSubR(reg) => {
+                machine.accumulators.d = sub_dyn(
+                    &machine.accumulators.d,
+                    &machine.argument_registers.d[reg.0 as usize],
+                )?;
+                *position += 1;
+            }
+            Instruction::DSubL(reg) => {
+                machine.accumulators.d = sub_dyn(
+                    &machine.accumulators.d,
+                    &frame.local_values.d[reg.0 as usize],
+                )?;
+                *position += 1;
+            }
 
             Instruction::LdaRF(_) => todo!(),
             Instruction::LdaRS(_) => todo!(),
@@ -333,8 +342,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::IDivL(_) => todo!(),
             Instruction::DMulR(_) => todo!(),
             Instruction::DMulL(_) => todo!(),
-            Instruction::DSubR(_) => todo!(),
-            Instruction::DSubL(_) => todo!(),
             Instruction::DDivR(_) => todo!(),
             Instruction::DDivL(_) => todo!(),
             Instruction::SConcatR(_) => todo!(),
@@ -396,21 +403,37 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
     }
 }
 
-fn binary_number_op(
-    lhs: &LuaValue,
-    rhs: &LuaValue,
-    op: ArithmeticOperator,
-    op_fn: impl FnOnce(f64, f64) -> f64,
-) -> Result<LuaValue, TypeError> {
-    if let (Some(lhs), Some(rhs)) = (lhs.coerce_to_f64(), rhs.coerce_to_f64()) {
-        let res = op_fn(lhs, rhs);
-        Ok(LuaValue::Float(res))
-    } else {
-        Err(TypeError::Arithmetic(ArithmeticError::Binary {
-            lhs: lhs.clone(),
-            rhs: rhs.clone(),
-            op,
-        }))
+fn sub_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
+    match (lhs, rhs) {
+        (LuaValue::Int(lhs), LuaValue::Int(rhs)) => Ok(LuaValue::Int(lhs - rhs)),
+        (lhs, rhs) => {
+            if let (Some(lhs), Some(rhs)) = (lhs.coerce_to_f64(), rhs.coerce_to_f64()) {
+                Ok(LuaValue::Float(lhs - rhs))
+            } else {
+                Err(TypeError::Arithmetic(ArithmeticError::Binary {
+                    lhs: lhs.clone(),
+                    rhs: rhs.clone(),
+                    op: ArithmeticOperator::Sub,
+                }))
+            }
+        }
+    }
+}
+
+fn add_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
+    match (lhs, rhs) {
+        (LuaValue::Int(lhs), LuaValue::Int(rhs)) => Ok(LuaValue::Int(lhs + rhs)),
+        (lhs, rhs) => {
+            if let (Some(lhs), Some(rhs)) = (lhs.coerce_to_f64(), rhs.coerce_to_f64()) {
+                Ok(LuaValue::Float(lhs + rhs))
+            } else {
+                Err(TypeError::Arithmetic(ArithmeticError::Binary {
+                    lhs: lhs.clone(),
+                    rhs: rhs.clone(),
+                    op: ArithmeticOperator::Add,
+                }))
+            }
+        }
     }
 }
 
@@ -1095,4 +1118,31 @@ mod test {
             assert_eq!(machine.equality_flag, EqualityFlag::NE);
         }
     );
+
+    // D arithmetic functions are such a pain to spec and write test cases for.
+    // TODO: write arithmetic tests
+
+    // test_instructions_with_locals!(
+    //     d_sub,
+    //     [
+    //         ConstI(228),
+    //         WrapI,
+    //         StrLD(LocalRegisterID(0)),
+    //         ConstI(-27),
+    //         WrapI,
+    //         StrRD(ArgumentRegisterID(0)),
+    //         ConstI(186),
+    //         WrapI,
+    //         DSubL(LocalRegisterID(0)),
+    //         DSubR(ArgumentRegisterID(0)),
+    //         Ret
+    //     ],
+    //     LocalRegCount {
+    //         d: 1,
+    //         ..Default::default()
+    //     },
+    //     |machine: Machine| {
+    //         assert_eq!(machine.accumulators.d, LuaValue::Int(69));
+    //     }
+    // );
 }

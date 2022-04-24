@@ -62,12 +62,15 @@ fn compile_binary_op(
     use Instruction::*;
 
     compile_expr(lhs, state);
-    let reg = state.reg().alloc_dyn();
-    state.push_instr(StrLD(reg));
+    let lhs_reg = state.reg().alloc_dyn();
+    state.push_instr(StrLD(lhs_reg));
     compile_expr(rhs, state);
+    let rhs_reg = state.reg().alloc_dyn();
+    state.push_instr(StrLD(rhs_reg));
+    state.push_instr(LdaLD(lhs_reg));
 
     if let BinaryOperator::Equals = op {
-        compile_eq_op(state, reg);
+        compile_eq_op(state, rhs_reg);
     } else {
         let instr = match op {
             BinaryOperator::Plus => DAddL,
@@ -78,17 +81,18 @@ fn compile_binary_op(
             _ => todo!(),
         };
 
-        state.push_instr(instr(reg));
+        state.push_instr(instr(rhs_reg));
     }
 
     state.reg().free_dyn();
+    state.reg().free_dyn();
 }
 
-fn compile_eq_op(state: &mut LocalScopeCompilationState, lhs_value: LocalRegisterID) {
+fn compile_eq_op(state: &mut LocalScopeCompilationState, rhs_value: LocalRegisterID) {
     use Instruction::*;
     let true_lbl = state.alloc_label();
     let cont_lbl = state.alloc_label();
-    state.push_instr(EqTestLD(lhs_value));
+    state.push_instr(EqTestLD(rhs_value));
     state.push_instr(JmpEQ(true_lbl));
     state.push_instr(ConstN);
     state.push_instr(Jmp(cont_lbl));

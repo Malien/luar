@@ -106,3 +106,9 @@ fn not_equals_is_the_negation_of_equality(lhs: LuaValue, rhs: LuaValue) -> Resul
     assert_eq!(LuaValue::true_value(), res);
     Ok(())
 }
+
+#[test]
+fn simple_subtraction() {
+    let res: LuaValue = eval_str("return 1 - 2", &mut Machine::new()).unwrap();
+    assert_eq!(res, LuaValue::Int(-1));
+}

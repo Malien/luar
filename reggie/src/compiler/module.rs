@@ -29,52 +29,6 @@ impl std::fmt::Display for CompiledModule {
     }
 }
 
-impl std::fmt::Display for CodeBlock {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{} -> {}", self.meta.arg_count, self.meta.return_count)?;
-        let lc = &self.meta.local_count;
-        if lc.d != 0 || lc.i != 0 || lc.f != 0 || lc.s != 0 || lc.c != 0 {
-            writeln!(f, "locals {{")?;
-            if self.meta.local_count.d != 0 {
-                writeln!(f, "\tD: {}", self.meta.local_count.d)?;
-            }
-            if self.meta.local_count.i != 0 {
-                writeln!(f, "\tI: {}", self.meta.local_count.i)?;
-            }
-            if self.meta.local_count.f != 0 {
-                writeln!(f, "\tF: {}", self.meta.local_count.f)?;
-            }
-            if self.meta.local_count.s != 0 {
-                writeln!(f, "\tS: {}", self.meta.local_count.s)?;
-            }
-            if self.meta.local_count.c != 0 {
-                writeln!(f, "\tC: {}", self.meta.local_count.c)?;
-            }
-            writeln!(f, "}}")?;
-        }
-        if !self.meta.const_strings.is_empty() {
-            writeln!(f, "strings {{")?;
-            for (string_id, string) in &self.meta.const_strings {
-                writeln!(f, "\t{} -> {}", string_id.0, string)?;
-            }
-            writeln!(f, "}}")?;
-        }
-        if !self.meta.label_mappings.is_empty() {
-            writeln!(f, "labels {{")?;
-            for (lbl, position) in &self.meta.label_mappings {
-                writeln!(f, "\t{} -> {}", lbl.0, position)?;
-            }
-            writeln!(f, "}}")?;
-        }
-        writeln!(f, "{{")?;
-        for instr in &self.instructions {
-            writeln!(f, "\t{}", instr)?;
-        }
-        writeln!(f, "}}")?;
-        Ok(())
-    }
-}
-
 pub fn compile_module(
     module: &luar_syn::Module,
     global_values: &mut GlobalValues,
@@ -112,6 +66,7 @@ pub fn compile_module(
                     .unwrap_or(ReturnCount::Constant(0)),
                 label_mappings: state.label_alloc.into_mappings(),
                 const_strings: state.strings,
+                debug_name: Some("<module root>".to_owned())
             },
         },
     }
@@ -147,8 +102,14 @@ fn compile_function_declaration(
 fn wrap_function(func: CodeBlock, blocks: &mut KeyedVec<LocalBlockID, CodeBlock>) -> CodeBlock {
     let return_count = func.meta.return_count;
     let arg_count = func.meta.arg_count;
-    let func_id = blocks.push(func);
-    compile_dyn_wrapper(arg_count, return_count, func_id)
+    let func_id = blocks.next_key();
+    let debug_name = if let Some(ref wrapee_name) = func.meta.debug_name {
+        format!("<dyn wrapper for function {}>", wrapee_name)
+    } else {
+        format!("<dyn wrapper for local block {}>", func_id.0)
+    };
+    blocks.push(func);
+    compile_dyn_wrapper(arg_count, return_count, func_id, debug_name)
 }
 
 fn needs_wrapper(meta: &CodeMeta) -> bool {

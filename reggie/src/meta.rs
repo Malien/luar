@@ -125,5 +125,6 @@ pub struct CodeMeta {
     pub return_count: ReturnCount,
     pub label_mappings: KeyedVec<JmpLabel, u32>,
     pub const_strings: KeyedVec<StringID, String>,
+    pub debug_name: Option<String>,
     // pub global_deps:
 }

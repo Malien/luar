@@ -36,6 +36,8 @@ pub fn compile_ret(ret: &Return, state: &mut LocalScopeCompilationState) {
             expr => {
                 compile_expr(expr, state);
                 state.push_instr(StrRD(ArgumentRegisterID(head_count)));
+                state.push_instr(ConstI(head_count as i32 + 1));
+                state.push_instr(StrVC);
                 state.return_count().update_known(head_count + 1);
             }
         }
@@ -45,6 +47,8 @@ pub fn compile_ret(ret: &Return, state: &mut LocalScopeCompilationState) {
         }
         state.reg().free_dyn_count(intermediates.count);
     } else {
+        state.push_instr(ConstI(0));
+        state.push_instr(StrVC);
         state.return_count().update_known(0);
     }
 
