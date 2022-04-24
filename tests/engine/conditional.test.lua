@@ -3,7 +3,7 @@
 --   - local declaration
 --   - assert
 --   - equality operator
---   - negation operator
+--   - not operator
 --   - assignment
 --   - number literals
 --   - string literals
@@ -58,7 +58,7 @@ function if_with_truthy_condition_does_not_evaluate_elseif_branch()
 
     if 1 then
         result = 'if branch'
-    elseif side_effect() then
+    elseif _side_effect() then
         result = 'elseif branch'
     else
         result = 'else branch'

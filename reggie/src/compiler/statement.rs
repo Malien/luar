@@ -37,8 +37,27 @@ pub fn compile_conditional(conditional: &Conditional, state: &mut LocalScopeComp
             state.push_instr(Instruction::JmpEQ(cont_lbl));
             compile_block(&conditional.body, state);
             state.push_label(cont_lbl);
+        },
+        ConditionalTail::Else(ref block) => {
+            let else_lbl = state.alloc_label();
+            let cont_lbl = state.alloc_label();
+            state.push_instr(Instruction::JmpEQ(else_lbl));
+            compile_block(&conditional.body, state);
+            state.push_instr(Instruction::Jmp(cont_lbl));
+            state.push_label(else_lbl);
+            compile_block(block, state);
+            state.push_label(cont_lbl);
         }
-        _ => todo!("Cannot compile else and elseif clauses yet"),
+        ConditionalTail::ElseIf(ref elseif) => {
+            let else_lbl = state.alloc_label();
+            let cont_lbl = state.alloc_label();
+            state.push_instr(Instruction::JmpEQ(else_lbl));
+            compile_block(&conditional.body, state);
+            state.push_instr(Instruction::Jmp(cont_lbl));
+            state.push_label(else_lbl);
+            compile_conditional(elseif.as_ref(), state);
+            state.push_label(cont_lbl);
+        },
     };
 }
 

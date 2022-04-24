@@ -6,9 +6,10 @@ use crate::{
         compile_statement, ret::compile_ret, FunctionCompilationState, LocalScopeCompilationState,
     },
     ids::{ArgumentRegisterID, LocalBlockID},
-    machine::{CodeBlock, GlobalValues},
+    machine::CodeBlock,
     meta::{ArgumentCount, CodeMeta, ReturnCount},
     ops::Instruction,
+    GlobalValues,
 };
 
 pub struct CompiledFunction {

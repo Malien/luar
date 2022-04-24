@@ -1,9 +1,10 @@
 use luar_syn::{Chunk, FunctionName, Var};
 
 use crate::{
+    global_values::GlobalValues,
     ids::LocalBlockID,
     keyed_vec::KeyedVec,
-    machine::{CodeBlock, GlobalValues},
+    machine::CodeBlock,
     meta::{ArgumentCount, CodeMeta, ReturnCount},
     ops::Instruction,
 };
@@ -17,6 +18,61 @@ use super::{
 pub struct CompiledModule {
     pub blocks: KeyedVec<LocalBlockID, CodeBlock>,
     pub top_level: CodeBlock,
+}
+
+impl std::fmt::Display for CompiledModule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (local_block_id, block) in &self.blocks {
+            writeln!(f, "local block {} {}", local_block_id.0, block)?;
+        }
+        writeln!(f, "root block {}", self.top_level)
+    }
+}
+
+impl std::fmt::Display for CodeBlock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{} -> {}", self.meta.arg_count, self.meta.return_count)?;
+        let lc = &self.meta.local_count;
+        if lc.d != 0 || lc.i != 0 || lc.f != 0 || lc.s != 0 || lc.c != 0 {
+            writeln!(f, "locals {{")?;
+            if self.meta.local_count.d != 0 {
+                writeln!(f, "\tD: {}", self.meta.local_count.d)?;
+            }
+            if self.meta.local_count.i != 0 {
+                writeln!(f, "\tI: {}", self.meta.local_count.i)?;
+            }
+            if self.meta.local_count.f != 0 {
+                writeln!(f, "\tF: {}", self.meta.local_count.f)?;
+            }
+            if self.meta.local_count.s != 0 {
+                writeln!(f, "\tS: {}", self.meta.local_count.s)?;
+            }
+            if self.meta.local_count.c != 0 {
+                writeln!(f, "\tC: {}", self.meta.local_count.c)?;
+            }
+            writeln!(f, "}}")?;
+        }
+        if !self.meta.const_strings.is_empty() {
+            writeln!(f, "strings {{")?;
+            for (string_id, string) in &self.meta.const_strings {
+                writeln!(f, "\t{} -> {}", string_id.0, string)?;
+            }
+            writeln!(f, "}}")?;
+        }
+        if !self.meta.label_mappings.is_empty() {
+            writeln!(f, "labels {{")?;
+            for (lbl, position) in &self.meta.label_mappings {
+                writeln!(f, "\t{} -> {}", lbl.0, position)?;
+            }
+            writeln!(f, "}}")?;
+        }
+        writeln!(f, "{{")?;
+        for instr in &self.instructions {
+            writeln!(f, "\t{}", instr)?;
+        }
+        writeln!(f, "}}")?;
+        Ok(())
+    }
 }
 
 pub fn compile_module(
@@ -111,10 +167,10 @@ mod test {
         compiler::compile_function,
         ids::{ArgumentRegisterID, JmpLabel, LocalBlockID, LocalRegisterID, StringID},
         keyed_vec::keyed_vec,
-        machine::{CodeBlock, GlobalValues},
+        machine::CodeBlock,
         meta::{ArgumentCount, CodeMeta, LocalRegCount, ReturnCount},
         ops::Instruction,
-        LuaError,
+        GlobalValues, LuaError,
     };
 
     use luar_syn::lua_parser;

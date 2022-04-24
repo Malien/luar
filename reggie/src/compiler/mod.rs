@@ -1,8 +1,8 @@
 use super::{
     ids::{GlobalCellID, JmpLabel, LocalRegisterID, StringID},
-    machine::GlobalValues,
     meta::LocalRegCount,
     ops::Instruction,
+    GlobalValues,
 };
 use crate::{ids::ArgumentRegisterID, keyed_vec::KeyedVec, meta};
 use std::{collections::HashMap, num::NonZeroU16};

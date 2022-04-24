@@ -1,4 +1,5 @@
 use std::{
+    iter::Enumerate,
     marker::PhantomData,
     ops::{Index, IndexMut},
 };
@@ -46,6 +47,10 @@ impl<K, V> KeyedVec<K, V> {
     pub fn slice(&self) -> &[V] {
         &self.vec
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.vec.is_empty()
+    }
 }
 
 impl<K, V> KeyedVec<K, V>
@@ -73,9 +78,9 @@ where
         let amount_missing = (key.into() + 1).checked_sub(self.vec.len());
         match amount_missing {
             Some(0) | None => {}
-            Some(amount_missing) => {
-                self.vec.extend(std::iter::repeat(value).take(amount_missing))
-            }
+            Some(amount_missing) => self
+                .vec
+                .extend(std::iter::repeat(value).take(amount_missing)),
         }
     }
 }
@@ -89,7 +94,10 @@ impl<K, V> Default for KeyedVec<K, V> {
     }
 }
 
-impl<K, V> std::fmt::Debug for KeyedVec<K, V> where V: std::fmt::Debug {
+impl<K, V> std::fmt::Debug for KeyedVec<K, V>
+where
+    V: std::fmt::Debug,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_list().entries(&self.vec).finish()
     }
@@ -112,6 +120,40 @@ where
 {
     fn index_mut(&mut self, index: K) -> &mut Self::Output {
         &mut self.vec[index.into()]
+    }
+}
+
+pub struct Iter<'a, K, V> {
+    vec: Enumerate<std::slice::Iter<'a, V>>,
+    _key: PhantomData<K>,
+}
+
+impl<'a, K, V> IntoIterator for &'a KeyedVec<K, V>
+where
+    K: TryFrom<usize>,
+    K::Error: std::fmt::Debug,
+{
+    type Item = (K, &'a V);
+
+    type IntoIter = Iter<'a, K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Iter {
+            vec: self.vec.iter().enumerate(),
+            _key: PhantomData,
+        }
+    }
+}
+
+impl<'a, K, V> Iterator for Iter<'a, K, V>
+where
+    K: TryFrom<usize>,
+    K::Error: std::fmt::Debug,
+{
+    type Item = (K, &'a V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.vec.next().map(|(idx, value)| (idx.try_into().unwrap(), value))
     }
 }
 

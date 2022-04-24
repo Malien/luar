@@ -7,6 +7,10 @@ edition = "2021"
 [features]
 quickcheck = ["dep:quickcheck", "dep:test_util"]
 
+[[bin]]
+name = "reggiec"
+path = "src/reggiec.rs"
+
 [dependencies]
 luar_syn = { path = "../syn" }
 luar_lex = { path = "../lex" }

@@ -3,7 +3,7 @@
 #[macro_use]
 extern crate quickcheck_macros;
 
-pub(crate) mod compiler;
+pub mod compiler;
 pub(crate) mod eq_with_nan;
 pub(crate) mod ids;
 pub(crate) mod machine;
@@ -13,11 +13,12 @@ pub(crate) mod runtime;
 pub mod stdlib;
 pub mod value;
 pub(crate) mod keyed_vec;
+pub mod global_values;
 
 use compiler::CompiledModule;
 use ids::BlockID;
 pub use machine::Machine;
-pub use machine::GlobalValues;
+pub use global_values::GlobalValues;
 use machine::ProgramCounter;
 use machine::StackFrame;
 use meta::ReturnCount;
