@@ -1,8 +1,8 @@
 use luar_syn::{BinaryOperator, Expression, UnaryOperator};
 
 use crate::{
-    compiler::{compile_var_lookup, LocalScopeCompilationState, compile_fn_call},
-    ids::{LocalRegisterID, ArgumentRegisterID},
+    compiler::{compile_fn_call, compile_var_lookup, LocalScopeCompilationState},
+    ids::{ArgumentRegisterID, LocalRegisterID},
     ops::Instruction,
 };
 
@@ -36,7 +36,10 @@ pub fn compile_expr(expr: &Expression, state: &mut LocalScopeCompilationState) {
             compile_fn_call(fn_call, state);
             state.push_instr(LdaProt(ArgumentRegisterID(0)));
         }
-        Expression::UnaryOperator { op: UnaryOperator::Not, exp } => {
+        Expression::UnaryOperator {
+            op: UnaryOperator::Not,
+            exp,
+        } => {
             compile_expr(exp, state);
             let true_label = state.alloc_label();
             let cont_label = state.alloc_label();
@@ -70,7 +73,9 @@ fn compile_binary_op(
     state.push_instr(LdaLD(lhs_reg));
 
     if let BinaryOperator::Equals = op {
-        compile_eq_op(state, rhs_reg);
+        compile_eq_op(state, rhs_reg, false);
+    } else if let BinaryOperator::NotEquals = op {
+        compile_eq_op(state, rhs_reg, true);
     } else {
         let instr = match op {
             BinaryOperator::Plus => DAddL,
@@ -88,12 +93,13 @@ fn compile_binary_op(
     state.reg().free_dyn();
 }
 
-fn compile_eq_op(state: &mut LocalScopeCompilationState, rhs_value: LocalRegisterID) {
+fn compile_eq_op(state: &mut LocalScopeCompilationState, rhs_value: LocalRegisterID, negated: bool) {
     use Instruction::*;
     let true_lbl = state.alloc_label();
     let cont_lbl = state.alloc_label();
     state.push_instr(EqTestLD(rhs_value));
-    state.push_instr(JmpEQ(true_lbl));
+    let jmp_instr = if negated { JmpNE } else { JmpEQ };
+    state.push_instr(jmp_instr(true_lbl));
     state.push_instr(ConstN);
     state.push_instr(Jmp(cont_lbl));
     state.push_label(true_lbl);

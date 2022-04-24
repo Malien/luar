@@ -29,7 +29,7 @@ function while_loop_executes_until_condition_is_true()
     -- should be a hyper parameter
     local times = 10
 
-    local count_executed = 0
+    local i, count_executed = times, 0
     while i ~= 0 do
         count_executed = count_executed + 1
         i = i - 1

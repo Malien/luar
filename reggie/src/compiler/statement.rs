@@ -1,5 +1,5 @@
 use luar_syn::{
-    Assignment, Block, Conditional, ConditionalTail, Declaration, Expression, Statement, Var,
+    Assignment, Block, Conditional, ConditionalTail, Declaration, Expression, Statement, Var, WhileLoop,
 };
 
 use crate::{ids::ArgumentRegisterID, ops::Instruction};
@@ -22,6 +22,9 @@ pub fn compile_statement(statement: &Statement, state: &mut LocalScopeCompilatio
         }
         Statement::LocalDeclaration(decl) => {
             compile_local_decl(decl, state);
+        }
+        Statement::While(while_loop) => {
+            compile_while_loop(while_loop, state);
         }
         _ => todo!("Compiling statement \"{}\" is not implemented", statement),
     };
@@ -181,4 +184,17 @@ pub fn compile_local_decl(decl: &Declaration, state: &mut LocalScopeCompilationS
             state.define_local(ident.to_string(), local_reg);
         }
     };
+}
+
+pub fn compile_while_loop(while_loop: &WhileLoop, state: &mut LocalScopeCompilationState) {
+    let loop_entry_lbl = state.alloc_label();
+    let cont_lbl = state.alloc_label();
+
+    state.push_label(loop_entry_lbl);
+    compile_expr(&while_loop.condition, state);
+    state.push_instr(Instruction::NilTest);
+    state.push_instr(Instruction::JmpEQ(cont_lbl));
+    compile_block(&while_loop.body, state);
+    state.push_instr(Instruction::Jmp(loop_entry_lbl));
+    state.push_label(cont_lbl);
 }
