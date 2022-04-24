@@ -40,15 +40,14 @@ fn multiple_assignment<'a>(
 #[cfg(test)]
 mod test {
     use crate::{
-        assert_type_error,
         ast_vm::{self, vec_of_idents},
-        error::LuaError,
         lang::{
-            EvalError, GlobalContext, LuaFunction, LuaKey, LuaValue, NaNLessTable, ReturnValue,
-            TableRef, TableValue, TypeError,
-        },
+            GlobalContext, LuaFunction, LuaKey, LuaValue, NaNLessTable, ReturnValue, TableRef,
+            TableValue,
+        }, LuaError, TypeError,
     };
     use itertools::Itertools;
+    use luar_error::assert_type_error;
     use luar_lex::{Ident, Token};
     use luar_syn::{lua_parser, unspanned_lua_token_parser, Module, RawParseError};
     use non_empty::NonEmptyVec;
@@ -138,7 +137,7 @@ mod test {
         }
         // Make iteration order deterministic
         let idents: Vec<_> = idents.into_iter().collect();
-        let value_idents = vec_of_idents(values.len(), "value");
+        let value_idents = vec_of_idents(values.len().get(), "value");
 
         let tokens: Vec<_> =
             multiple_assignment_tokens(idents.iter().cloned(), value_idents.iter().cloned())
@@ -250,7 +249,7 @@ mod test {
         // Make iteration order deterministic
         let idents: Vec<_> = idents.into_iter().collect();
         let left_idents = vec_of_idents(left_values.len(), "left_value");
-        let right_idents = vec_of_idents(right_values.len(), "right_value");
+        let right_idents = vec_of_idents(right_values.len().get(), "right_value");
 
         let module = multiple_expanded_assignment_in_the_middle_module(
             idents.iter().cloned(),

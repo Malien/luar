@@ -42,8 +42,8 @@ fn declare_arguments(scope: &mut LocalScope<impl ScopeHolder>, names: &[Ident], 
 mod test {
     use crate::{
         ast_vm,
-        error::LuaError,
         lang::{GlobalContext, LuaValue, ReturnValue},
+        LuaError,
     };
     use itertools::Itertools;
     use luar_lex::Ident;
@@ -119,7 +119,7 @@ mod test {
 
     #[quickcheck]
     fn function_multiple_returns(values: NonEmptyVec<LuaValue>) -> Result<(), LuaError> {
-        let idents: Vec<_> = (0..values.len())
+        let idents: Vec<_> = (0..values.len().get())
             .into_iter()
             .map(|i| format!("value{}", i))
             .map(Ident::new)
@@ -137,7 +137,7 @@ mod test {
             context.set(ident, value.clone());
         }
         let res = ast_vm::eval_module(&module, &mut context)?;
-        if values.len() == 1 {
+        if values.len().get() == 1 {
             assert!(res.first_value().total_eq(values.first()));
         } else {
             assert!(res.total_eq(&ReturnValue::MultiValue(values)));

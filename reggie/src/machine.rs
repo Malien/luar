@@ -123,7 +123,7 @@ pub struct ModuleAssociatedBlock {
 }
 
 struct ModuleBlocks {
-    top_level: BlockID,
+    // top_level: BlockID,
     blocks: KeyedVec<LocalBlockID, BlockID>,
 }
 
@@ -170,7 +170,7 @@ impl CodeBlocks {
         }
 
         self.modules.push(ModuleBlocks {
-            top_level: top_level_block_id,
+            // top_level: top_level_block_id,
             blocks: module_blocks,
         });
 
@@ -181,7 +181,7 @@ impl CodeBlocks {
         let module_id = self.modules.next_key();
         let block_id = self.add_block(code_block, module_id);
         self.modules.push(ModuleBlocks {
-            top_level: block_id,
+            // top_level: block_id,
             blocks: keyed_vec![],
         });
         block_id

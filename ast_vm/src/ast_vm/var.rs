@@ -236,7 +236,7 @@ mod test {
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.is_multiple_return());
         let values = res.unwrap_multiple_return();
-        assert_eq!(values.len(), 2);
+        assert_eq!(values.len().get(), 2);
         assert!(values[0].total_eq(&values[1]));
         Ok(())
     }

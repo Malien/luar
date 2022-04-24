@@ -30,8 +30,8 @@ pub(crate) fn eval_ret(
 mod test {
     use crate::{
         ast_vm,
-        error::LuaError,
         lang::{GlobalContext, LuaFunction, LuaValue, ReturnValue},
+        LuaError,
     };
     use luar_lex::Ident;
     use luar_syn::{Expression, FunctionCall, FunctionCallArgs, Module, Return, Var};
@@ -39,7 +39,7 @@ mod test {
 
     #[quickcheck]
     fn eval_multiple_return(values: NonEmptyVec<LuaValue>) -> Result<(), LuaError> {
-        let idents: Vec<_> = (0..values.len())
+        let idents: Vec<_> = (0..values.len().get())
             .into_iter()
             .map(|i| format!("value{}", i))
             .map(Ident::new)
@@ -60,7 +60,7 @@ mod test {
             context.set(ident, val.clone());
         }
         let res = ast_vm::eval_module(&module, &mut context)?;
-        if values.len() == 1 {
+        if values.len().get() == 1 {
             assert!(res.total_eq(&values.move_first().into()));
         } else {
             assert!(res.total_eq(&ReturnValue::MultiValue(values)));
@@ -73,7 +73,7 @@ mod test {
         v1: NonEmptyVec<LuaValue>,
         v2: NonEmptyVec<LuaValue>,
     ) -> Result<(), LuaError> {
-        let idents: Vec<_> = (0..v1.len())
+        let idents: Vec<_> = (0..v1.len().get())
             .into_iter()
             .map(|i| format!("value{}", i))
             .map(Ident::new)

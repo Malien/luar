@@ -1,4 +1,7 @@
-use crate::{lang::{GlobalContext, LocalScope, LuaValue, ReturnValue, ScopeHolder, TableRef}, EvalError, TypeError};
+use crate::{
+    lang::{GlobalContext, LocalScope, LuaValue, ReturnValue, ScopeHolder, TableRef},
+    EvalError, TypeError,
+};
 use luar_syn::{FunctionCall, FunctionCallArgs};
 
 use super::{eval_expr, eval_tbl_constructor, eval_var};
@@ -48,10 +51,11 @@ fn eval_fn_args(
 #[cfg(test)]
 mod test {
     use crate::{
-        assert_type_error, ast_vm,
-        error::LuaError,
-        lang::{EvalError, GlobalContext, LuaFunction, LuaValue, ReturnValue, TypeError},
+        ast_vm,
+        lang::{GlobalContext, LuaFunction, LuaValue, ReturnValue},
+        LuaError, TypeError,
     };
+    use luar_error::assert_type_error;
     use luar_syn::lua_parser;
     use non_empty::NonEmptyVec;
     use quickcheck::TestResult;

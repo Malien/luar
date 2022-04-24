@@ -1,5 +1,8 @@
 use super::eval_expr;
-use crate::{lang::{LocalScope, LuaValue, ScopeHolder}, EvalError, TypeError, ArithmeticError};
+use crate::{
+    lang::{LocalScope, LuaValue, ScopeHolder},
+    ArithmeticError, EvalError, TypeError,
+};
 use luar_syn::{Expression, UnaryOperator};
 
 pub(crate) fn eval_unary_op_expr(
@@ -32,18 +35,17 @@ fn unary_minus_eval(value: LuaValue) -> Result<LuaValue, ArithmeticError> {
 #[cfg(test)]
 mod test {
     mod expressions {
+        use luar_error::assert_type_error;
         use luar_lex::{NumberLiteral, StringLiteral};
         use luar_syn::{lua_parser, Expression, UnaryOperator};
         use quickcheck::Arbitrary;
         use test_util::Finite;
 
         use crate::{
-            assert_type_error, ast_vm,
-            lang::{
-                ArithmeticError, EvalError, GlobalContext, ReturnValue, ScopeHolder, TypeError,
-            },
+            ast_vm,
+            lang::{GlobalContext, ReturnValue, ScopeHolder},
             util::eq_with_nan,
-            LuaError,
+            ArithmeticError, EvalError, LuaError, TypeError,
         };
 
         fn negation_expr(num: f64) -> Expression {

@@ -31,8 +31,8 @@ fn multiple_local_assignment(
 mod test {
     use crate::{
         ast_vm,
-        error::LuaError,
         lang::{GlobalContext, LuaValue, ReturnValue},
+        LuaError,
     };
     use luar_lex::Ident;
     use luar_syn::lua_parser;
