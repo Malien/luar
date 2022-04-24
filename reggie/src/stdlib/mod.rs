@@ -4,7 +4,7 @@ fn assert_none() -> Result<(), EvalError> {
     Err(EvalError::AssertionError)
 }
 
-fn assert_some(value: LuaValue) -> Result<(), EvalError> {
+pub fn assert(value: LuaValue) -> Result<(), EvalError> {
     if value.is_truthy() {
         Ok(())
     } else {
@@ -12,9 +12,9 @@ fn assert_some(value: LuaValue) -> Result<(), EvalError> {
     }
 }
 
-pub fn assert() -> OverloadSet {
+pub fn assert_overload_set() -> OverloadSet {
     OverloadSet::new(vec![
         OverloadRule::from(assert_none as fn() -> Result<(), EvalError>),
-        OverloadRule::from(assert_some as fn(LuaValue) -> Result<(), EvalError>),
+        OverloadRule::from(assert as fn(LuaValue) -> Result<(), EvalError>),
     ])
 }

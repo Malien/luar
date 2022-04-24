@@ -37,7 +37,6 @@ end
 
 
 function local_scopes_are_different()
-    assert(not _foo_five())
     if 1 then
         local foo = 42
     end

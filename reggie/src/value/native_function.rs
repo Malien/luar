@@ -63,6 +63,14 @@ pub struct OverloadSet {
     pub(crate) rules: Vec<OverloadRule>,
 }
 
+impl OverloadSet {
+    // pub fn lookup_rule(&self, args: &[ArgumentType]) -> Option<OverloadRule> {
+    //     for rule in self.rules {
+    //         rule.arguments
+    //     }
+    // }
+}
+
 #[derive(Debug)]
 pub struct OverloadRule {
     pub(crate) arguments: FunctionSignatureList,

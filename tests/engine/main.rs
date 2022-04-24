@@ -11,6 +11,15 @@ macro_rules! lua_test {
             );
         }
     };
+    ($test_fn: tt !, $name: ident) => {
+        #[test]
+        fn $name() {
+            $test_fn!(
+                stringify!($name),
+                include_str!(concat!("./", stringify!($name), ".test.lua"))
+            );
+        }
+    };
 }
 
 macro_rules! run_tests {
@@ -19,13 +28,18 @@ macro_rules! run_tests {
         lua_test!($test_fn, assignment);
         lua_test!($test_fn, local_decl);
     };
+    ($test_fn: path as macro) => {
+        lua_test!($test_fn!, conditional);
+        lua_test!($test_fn!, assignment);
+        lua_test!($test_fn!, local_decl);
+    };
 }
 
 
 mod ast_vm {
-    run_tests!(crate::ast_vm_test_harness::run_lua_test);
+    run_tests!(crate::ast_vm_test_harness::run_lua_test as macro);
 }
 
 mod reggie {
-    run_tests!(crate::reggie_test_harness::run_lua_test);
+    run_tests!(crate::reggie_test_harness::run_lua_test as macro);
 }

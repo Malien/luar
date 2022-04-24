@@ -3,12 +3,20 @@ use std::panic::{catch_unwind, resume_unwind};
 use luar_syn::lua_parser;
 use reggie::{eval_module, stdlib, LuaValue, Machine, NativeFunction, call_block};
 
-pub fn run_lua_test(group_name: &str, module_str: &str) {
+macro_rules! run_lua_test {
+    ($group_name: expr, $module_str: expr) => {
+        $crate::reggie_test_harness::run_lua_test_impl(module_path!(), $group_name, $module_str);
+    };
+}
+
+pub(crate) use run_lua_test;
+
+pub fn run_lua_test_impl(module_path: &str, group_name: &str, module_str: &str) {
     let res = catch_unwind(|| {
         let mut machine = Machine::new();
         machine.global_values.set(
             "assert",
-            LuaValue::NativeFunction(NativeFunction::from(stdlib::assert())),
+            LuaValue::NativeFunction(NativeFunction::new(stdlib::assert)),
         );
         let module = lua_parser::module(module_str).unwrap();
         let res = eval_module::<()>(&module, &mut machine);
@@ -28,10 +36,10 @@ pub fn run_lua_test(group_name: &str, module_str: &str) {
         for (name, func) in test_cases {
             let res = call_block::<()>(&mut machine, func);
             match res {
-                Ok(_) => println!("✅ {}::{}", group_name, name),
+                Ok(_) => println!("✅ {}::{}::{}", module_path, group_name, name),
                 Err(err) => {
                     error_occurred = true;
-                    eprintln!("❌ {}::{}\n\t{}", group_name, name, err);
+                    eprintln!("❌ {}::{}::{}\n\t{}", module_path, group_name, name, err);
                 }
             }
         }

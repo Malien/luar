@@ -5,7 +5,15 @@ use ast_vm::{
 };
 use luar_syn::lua_parser;
 
-pub fn run_lua_test(group_name: &str, module_str: &str) {
+macro_rules! run_lua_test {
+    ($group_name: expr, $module_str: expr) => {
+        $crate::ast_vm_test_harness::run_lua_test_impl(module_path!(), $group_name, $module_str);
+    };
+}
+
+pub(crate) use run_lua_test;
+
+pub fn run_lua_test_impl(module_path: &str, group_name: &str, module_str: &str) {
     let mut context = GlobalContext::new();
     context.set(
         "assert",
@@ -25,10 +33,10 @@ pub fn run_lua_test(group_name: &str, module_str: &str) {
     for (name, func) in test_cases {
         let res = func.call(&mut context, &[]);
         match res {
-            Ok(_) => println!("✅ {}::{}", group_name, name),
+            Ok(_) => println!("✅ {}::{}::{}", module_path, group_name, name),
             Err(err) => {
                 error_occurred = true;
-                println!("❌ {}::{}\n\t{}", group_name, name, err);
+                println!("❌ {}::{}::{}\n\t{}", module_path, group_name, name, err);
             }
         }
     }
