@@ -6,10 +6,10 @@ use super::eval_expr;
 pub(crate) fn eval_tbl_constructor(
     tbl: &TableConstructor,
     scope: &mut LocalScope<impl ScopeHolder>,
-) -> Result<TableValue, crate::lang::EvalError> {
+) -> Result<TableValue, crate::EvalError> {
     let TableConstructor { lfield, ffield } = tbl;
     let mut table = TableValue::new();
-    for (value, idx) in lfield.into_iter().zip(1..) {
+    for (value, idx) in lfield.into_iter().zip(1usize..) {
         let key = LuaKey::number(idx);
         let value = eval_expr(value, scope)?.first_value();
         table.set(key, value);

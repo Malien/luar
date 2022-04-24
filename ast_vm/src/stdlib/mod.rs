@@ -1,4 +1,7 @@
-use crate::lang::{EvalError, GlobalContext, LuaFunction, LuaValue, ReturnValue};
+use crate::{
+    lang::{GlobalContext, LuaFunction, LuaValue, ReturnValue},
+    EvalError,
+};
 
 pub mod fns;
 
@@ -42,9 +45,8 @@ fn define_total_fn(
 
 #[cfg(test)]
 mod test {
+    use crate::LuaError;
     use test_util::run_lua_test;
-
-    use crate::error::LuaError;
 
     use super::std_context;
 

@@ -7,7 +7,7 @@ use luar_syn::WhileLoop;
 pub(crate) fn eval_while_loop(
     while_loop: &WhileLoop,
     scope: &mut LocalScope<impl ScopeHolder>,
-) -> Result<ControlFlow, crate::lang::EvalError> {
+) -> Result<ControlFlow, crate::EvalError> {
     let WhileLoop { condition, body } = while_loop;
     while eval_expr(condition, scope)?.first_value().is_truthy() {
         if let ControlFlow::Return(ret_value) = eval_block(body, &mut scope.child_scope())? {
@@ -21,8 +21,8 @@ pub(crate) fn eval_while_loop(
 mod test {
     use crate::{
         ast_vm,
-        error::LuaError,
         lang::{GlobalContext, LuaValue, ReturnValue},
+        LuaError,
     };
     use luar_syn::lua_parser;
     use non_empty::ne_vec;

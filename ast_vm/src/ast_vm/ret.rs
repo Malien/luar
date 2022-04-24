@@ -1,4 +1,4 @@
-use crate::lang::{EvalError, LocalScope, ReturnValue, ScopeHolder};
+use crate::{lang::{LocalScope, ReturnValue, ScopeHolder}, EvalError};
 use luar_syn::Return;
 use non_empty::NonEmptyVec;
 

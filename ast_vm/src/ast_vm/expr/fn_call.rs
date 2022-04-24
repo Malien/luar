@@ -1,6 +1,4 @@
-use crate::lang::{
-    EvalError, GlobalContext, LocalScope, LuaValue, ReturnValue, ScopeHolder, TableRef, TypeError,
-};
+use crate::{lang::{GlobalContext, LocalScope, LuaValue, ReturnValue, ScopeHolder, TableRef}, EvalError, TypeError};
 use luar_syn::{FunctionCall, FunctionCallArgs};
 
 use super::{eval_expr, eval_tbl_constructor, eval_var};

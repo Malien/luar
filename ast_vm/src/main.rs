@@ -1,7 +1,4 @@
-use ast_vm::{
-    lang::{EvalError, LuaValue, TypeError},
-    stdlib, LuaError,
-};
+use ast_vm::{lang::LuaValue, stdlib, LuaError, EvalError, TypeError};
 use luar_syn::{lua_parser, ParseError, ParseErrorWithSourcePosition, RawParseError};
 use std::{collections::HashSet, error::Error, mem::size_of};
 

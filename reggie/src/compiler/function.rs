@@ -12,11 +12,6 @@ use crate::{
     GlobalValues,
 };
 
-pub struct CompiledFunction {
-    wrapper: CodeBlock,
-    optimized: Option<CodeBlock>,
-}
-
 pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalValues) -> CodeBlock {
     use Instruction::*;
     let mut state = FunctionCompilationState::with_args(decl.args.iter().cloned(), global_values);

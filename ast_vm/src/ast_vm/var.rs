@@ -1,4 +1,7 @@
-use crate::lang::{EvalError, LocalScope, LuaKey, LuaValue, ScopeHolder, TypeError};
+use crate::{
+    lang::{LocalScope, LuaKey, LuaValue, ScopeHolder},
+    EvalError, TypeError,
+};
 use luar_lex::Ident;
 use luar_syn::Var;
 
@@ -97,10 +100,10 @@ fn assign_to_value_property(
 #[cfg(test)]
 mod test {
     use crate::{
-        assert_type_error, ast_vm,
-        error::LuaError,
-        lang::{EvalError, GlobalContext, LuaKey, LuaValue, ReturnValue, TableValue, TypeError},
+        ast_vm,
+        lang::{GlobalContext, LuaKey, LuaValue, ReturnValue, TableValue}, LuaError, TypeError,
     };
+    use luar_error::assert_type_error;
     use luar_lex::Ident;
     use luar_syn::lua_parser;
     use quickcheck::TestResult;

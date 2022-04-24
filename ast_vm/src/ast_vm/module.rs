@@ -1,5 +1,5 @@
 use super::{eval_fn_decl, eval_ret, eval_stmnt, ControlFlow};
-use crate::lang::{EvalError, GlobalContext, LocalScope, ReturnValue, ScopeHolder};
+use crate::{lang::{GlobalContext, LocalScope, ReturnValue, ScopeHolder}, EvalError};
 use luar_syn::{Chunk, Module};
 
 pub fn eval_module(module: &Module, context: &mut GlobalContext) -> Result<ReturnValue, EvalError> {

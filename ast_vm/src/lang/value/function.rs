@@ -1,6 +1,6 @@
 use std::{fmt, hash::Hash, rc::Rc};
 
-use crate::lang::{EvalError, GlobalContext, LuaValue, ReturnValue};
+use crate::{lang::{GlobalContext, LuaValue, ReturnValue}, EvalError};
 
 pub type InnerFn = dyn Fn(&mut GlobalContext, &[LuaValue]) -> Result<ReturnValue, EvalError>;
 

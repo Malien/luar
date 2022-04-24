@@ -15,8 +15,14 @@ macro_rules! test_case {
 
             #[test]
             fn reggie() -> Result<(), reggie::LuaError> {
-                let mut machine = reggie::Machine::new();
-                reggie::eval_str(TEST_CODE, &mut machine)?;
+                use reggie::{Machine, eval_str, LuaValue, NativeFunction, stdlib};
+
+                let mut machine = Machine::new();
+                machine.global_values.set(
+                    "assert",
+                    LuaValue::NativeFunction(NativeFunction::new(stdlib::assert))
+                );
+                eval_str(TEST_CODE, &mut machine)?;
                 Ok(())
             }
         }

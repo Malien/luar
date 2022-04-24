@@ -1,6 +1,8 @@
 use std::io::Write;
 
-use crate::lang::{EvalError, LuaType, LuaValue, TypeError};
+use luar_error::ExpectedType;
+
+use crate::{lang::LuaValue, EvalError, TypeError};
 
 pub fn tonumber(args: &[LuaValue]) -> LuaValue {
     if let Some(arg) = args.first() {
@@ -49,15 +51,15 @@ pub fn floor(args: &[LuaValue]) -> Result<LuaValue, EvalError> {
         } else {
             Err(TypeError::ArgumentType {
                 position: 0,
-                expected: LuaType::Number,
-                got: arg.type_of(),
+                expected: ExpectedType::Number,
+                got: arg.clone(),
             })
         }
     } else {
         Err(TypeError::ArgumentType {
             position: 0,
-            expected: LuaType::Number,
-            got: LuaType::Nil,
+            expected: ExpectedType::Number,
+            got: LuaValue::Nil,
         })
     }
     .map_err(EvalError::from)
@@ -78,8 +80,9 @@ mod test {
 
     use super::{assert, floor, print, random, tonumber};
     use crate::{
-        lang::{EvalError, LuaFunction, LuaNumber, LuaValue, ReturnValue, TableValue},
+        lang::{LuaFunction, LuaNumber, LuaValue, ReturnValue, TableValue},
         util::{close_relative_eq, eq_with_nan},
+        EvalError,
     };
 
     #[test]

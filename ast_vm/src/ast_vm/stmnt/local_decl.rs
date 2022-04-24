@@ -7,7 +7,7 @@ use super::assignment::assignment_values;
 pub(crate) fn eval_decl(
     decl: &Declaration,
     scope: &mut LocalScope<impl ScopeHolder>,
-) -> Result<(), crate::lang::EvalError> {
+) -> Result<(), crate::EvalError> {
     let Declaration {
         names,
         initial_values,

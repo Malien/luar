@@ -1,6 +1,9 @@
 use std::fmt;
 
-use crate::lang::{EvalError, GlobalContext, LuaFunction, LuaNumber, LuaType};
+use crate::{
+    lang::{GlobalContext, LuaFunction, LuaNumber, LuaType},
+    EvalError,
+};
 
 #[cfg(test)]
 use test_util::{with_thread_gen, GenExt};

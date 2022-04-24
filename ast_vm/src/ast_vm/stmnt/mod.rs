@@ -1,5 +1,5 @@
 use super::{eval_fn_call, ControlFlow};
-use crate::lang::{EvalError, LocalScope, ScopeHolder};
+use crate::{lang::{LocalScope, ScopeHolder}, EvalError};
 use luar_syn::Statement;
 
 mod assignment;

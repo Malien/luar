@@ -2,7 +2,8 @@ use luar_syn::{Assignment, Expression, Var};
 
 use crate::{
     ast_vm::{assign_to_var, eval_expr, tail_values},
-    lang::{EvalError, LocalScope, LuaValue, ScopeHolder},
+    lang::{LocalScope, LuaValue, ScopeHolder},
+    EvalError,
 };
 
 pub(crate) fn eval_assignment(
@@ -39,7 +40,8 @@ fn multiple_assignment<'a>(
 #[cfg(test)]
 mod test {
     use crate::{
-        assert_type_error, ast_vm::{self, vec_of_idents},
+        assert_type_error,
+        ast_vm::{self, vec_of_idents},
         error::LuaError,
         lang::{
             EvalError, GlobalContext, LuaFunction, LuaKey, LuaValue, NaNLessTable, ReturnValue,

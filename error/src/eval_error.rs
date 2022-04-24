@@ -27,7 +27,7 @@ pub enum TypeError<V> {
     IsNotCallable(V),
     ArgumentType {
         position: usize,
-        expected: V,
+        expected: ExpectedType,
         got: V,
     },
     NilLookup,
@@ -45,6 +45,11 @@ pub enum TypeError<V> {
         rhs: V,
         op: OrderingOperator,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExpectedType {
+    Number,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -71,6 +76,15 @@ pub enum ArithmeticOperator {
     Sub,
     Mul,
     Div,
+}
+
+impl fmt::Display for ExpectedType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ExpectedType::Number => "number",
+        }
+        .fmt(f)
+    }
 }
 
 impl fmt::Display for OrderingOperator {

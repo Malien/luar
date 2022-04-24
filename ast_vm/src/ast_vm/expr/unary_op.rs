@@ -1,5 +1,5 @@
 use super::eval_expr;
-use crate::lang::{ArithmeticError, EvalError, LocalScope, LuaValue, ScopeHolder, TypeError};
+use crate::{lang::{LocalScope, LuaValue, ScopeHolder}, EvalError, TypeError, ArithmeticError};
 use luar_syn::{Expression, UnaryOperator};
 
 pub(crate) fn eval_unary_op_expr(
@@ -39,11 +39,11 @@ mod test {
 
         use crate::{
             assert_type_error, ast_vm,
-            LuaError,
             lang::{
                 ArithmeticError, EvalError, GlobalContext, ReturnValue, ScopeHolder, TypeError,
             },
             util::eq_with_nan,
+            LuaError,
         };
 
         fn negation_expr(num: f64) -> Expression {

@@ -1,13 +1,9 @@
 use super::{
-    compiler::CompiledModule,
-    ids::{ArgumentRegisterID, BlockID, LocalRegisterID},
+    ids::{ArgumentRegisterID, LocalRegisterID},
     machine::{EqualityFlag, Machine, OrderingFlag, ProgramCounter, StackFrame},
     ops::Instruction,
 };
-use crate::{
-    meta::ReturnCount, value::FromReturn, ArithmeticError, EvalError, LuaValue, NativeFunction,
-    NativeFunctionKind, TypeError,
-};
+use crate::{ArithmeticError, EvalError, LuaValue, NativeFunction, NativeFunctionKind, TypeError};
 use luar_error::ArithmeticOperator;
 use std::borrow::Borrow;
 
@@ -282,9 +278,10 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 *position += 1;
             }
             Instruction::NilTest => {
-                machine.equality_flag = EqualityFlag::from_bool(machine.accumulators.d == LuaValue::Nil);
+                machine.equality_flag =
+                    EqualityFlag::from_bool(machine.accumulators.d == LuaValue::Nil);
                 *position += 1;
-            },
+            }
 
             Instruction::LdaRF(_) => todo!(),
             Instruction::LdaRS(_) => todo!(),

@@ -1,4 +1,7 @@
-use crate::lang::{EvalError, LocalScope, ScopeHolder};
+use crate::{
+    lang::{LocalScope, ScopeHolder},
+    EvalError,
+};
 use luar_syn::Block;
 
 use super::{eval_ret, eval_stmnt, ControlFlow};
@@ -21,7 +24,7 @@ pub(crate) fn eval_block(
 
 #[cfg(test)]
 mod test {
-    use crate::{ast_vm, error::LuaError, lang::GlobalContext};
+    use crate::{ast_vm, lang::GlobalContext, LuaError};
     use luar_syn::lua_parser;
 
     #[test]

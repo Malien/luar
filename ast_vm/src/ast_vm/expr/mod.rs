@@ -1,4 +1,7 @@
-use crate::lang::{EvalError, LocalScope, ReturnValue, ScopeHolder, TableRef};
+use crate::{
+    lang::{LocalScope, ReturnValue, ScopeHolder, TableRef},
+    EvalError,
+};
 use luar_lex::{NumberLiteral, StringLiteral};
 use luar_syn::Expression;
 
@@ -42,8 +45,8 @@ pub(crate) fn eval_expr(
 mod test {
     use crate::{
         ast_vm,
-        error::LuaError,
         lang::{GlobalContext, ReturnValue},
+        LuaError,
     };
     use luar_lex::{NumberLiteral, StringLiteral, Token};
     use luar_syn::{lua_parser, unspanned_lua_token_parser};

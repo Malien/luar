@@ -7,7 +7,7 @@ use super::{assign_to_var, eval_block, ControlFlow};
 pub(crate) fn eval_fn_decl(
     decl: &FunctionDeclaration,
     scope: &mut LocalScope<GlobalContext>,
-) -> Result<(), crate::lang::EvalError> {
+) -> Result<(), crate::EvalError> {
     match &decl.name {
         FunctionName::Plain(var) => {
             let function = LuaFunction::new({

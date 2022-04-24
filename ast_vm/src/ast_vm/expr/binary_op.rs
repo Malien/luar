@@ -1,10 +1,8 @@
 use crate::{
     ast_vm::eval_expr,
-    lang::{
-        ArithmeticError, ArithmeticOperator, EvalError, LocalScope, LuaValue, OrderingOperator,
-        ScopeHolder, TypeError,
-    },
+    lang::{LocalScope, LuaValue, ScopeHolder}, EvalError, TypeError, ArithmeticError,
 };
+use luar_error::{ArithmeticOperator, OrderingOperator};
 use luar_syn::{BinaryOperator, Expression};
 
 pub(crate) fn binary_op_eval(
@@ -94,8 +92,7 @@ ord_op!(greater_or_equals, >=, OrderingOperator::GreaterOrEquals);
 mod test {
     use crate::{
         ast_vm,
-        error::LuaError,
-        lang::{GlobalContext, LuaFunction, LuaNumber, LuaValue, ReturnValue},
+        lang::{GlobalContext, LuaFunction, LuaNumber, LuaValue, ReturnValue}, LuaError,
     };
     use luar_syn::lua_parser;
     use non_empty::{ne_vec, NonEmptyVec};
