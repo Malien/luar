@@ -464,7 +464,7 @@ mod test {
                     meta: $meta,
                     instructions: vec![$($instr,)*],
                 });
-                call_block::<()>(&mut machine, block_id).unwrap();
+                call_block::<()>(block_id, &mut machine).unwrap();
 
                 ($post_condition)(machine);
             }
@@ -643,7 +643,7 @@ mod test {
             },
             instructions: vec![LdaDGl(cell_id), Ret],
         });
-        call_block::<Strict<()>>(&mut machine, block_id).unwrap();
+        call_block::<Strict<()>>(block_id, &mut machine).unwrap();
         assert!(machine.accumulators.d.total_eq(&value));
     }
 
@@ -667,7 +667,7 @@ mod test {
                 Ret,
             ],
         });
-        call_block::<Strict<()>>(&mut machine, block_id).unwrap();
+        call_block::<Strict<()>>(block_id, &mut machine).unwrap();
         assert_eq!(machine.equality_flag, expected);
     }
 
@@ -715,7 +715,7 @@ mod test {
                 });
                 machine.equality_flag = eq_flag;
                 machine.ordering_flag = ord_flag;
-                call_block::<Strict<()>>(&mut machine, block_id).unwrap();
+                call_block::<Strict<()>>(block_id, &mut machine).unwrap();
                 let eq_flag_matches = triggered_eq_flag
                     .map(|flag| flag == eq_flag)
                     .unwrap_or(true);
@@ -748,7 +748,7 @@ mod test {
             },
             instructions: vec![ConstI(42), WrapI, StrDGl(cell), Ret],
         });
-        call_block::<()>(&mut machine, block_id).unwrap();
+        call_block::<()>(block_id, &mut machine).unwrap();
 
         assert_eq!(
             machine.global_values.value_of_cell(cell),
@@ -783,7 +783,7 @@ mod test {
             },
             instructions: vec![LdaDGl(value_cell), DCall, Ret],
         });
-        let res = call_block::<()>(&mut machine, block_id);
+        let res = call_block::<()>(block_id, &mut machine);
 
         luar_error::assert_type_error!(luar_error::TypeError::IsNotCallable(_), res);
         quickcheck::TestResult::passed()
@@ -818,7 +818,7 @@ mod test {
                 Ret,
             ],
         });
-        let res = call_block::<LuaValue>(&mut machine, block_id).unwrap();
+        let res = call_block::<LuaValue>(block_id, &mut machine).unwrap();
         assert_eq!(res, LuaValue::Int(69));
     }
 
@@ -840,7 +840,7 @@ mod test {
             },
             instructions: vec![LdaDGl(value_cell), ConstI(1), StrVC, DCall, Ret],
         });
-        let res = call_block::<()>(&mut machine, block_id);
+        let res = call_block::<()>(block_id, &mut machine);
         assert!(matches!(res, Err(EvalError::AssertionError)));
     }
 
@@ -885,7 +885,7 @@ mod test {
 
         let top_level_block = machine.code_blocks.add_module(module);
 
-        let res = call_block::<LuaValue>(&mut machine, top_level_block).unwrap();
+        let res = call_block::<LuaValue>(top_level_block, &mut machine).unwrap();
         assert_eq!(res, LuaValue::Float(69.0));
     }
 
@@ -920,7 +920,7 @@ mod test {
             },
         };
         let top_level_block = machine.code_blocks.add_module(module);
-        call_block::<()>(&mut machine, top_level_block).unwrap();
+        call_block::<()>(top_level_block, &mut machine).unwrap();
 
         let block1_id = machine.accumulators.d.unwrap_lua_function();
         let block2_id = machine.accumulators.c;
@@ -998,7 +998,7 @@ mod test {
 
         let top_level_block = machine.code_blocks.add_module(module);
 
-        let res = call_block::<LuaValue>(&mut machine, top_level_block).unwrap();
+        let res = call_block::<LuaValue>(top_level_block, &mut machine).unwrap();
         assert_eq!(res, LuaValue::Float(69.0));
     }
 

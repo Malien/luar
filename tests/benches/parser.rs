@@ -7,7 +7,7 @@ macro_rules! parser_bench {
 
         group.bench_function(concat!($name, ".lua"), |b| {
             b.iter(|| {
-                criterion::black_box(::luar::syn::lua_parser::module(BENCH_FILE).unwrap());
+                criterion::black_box(::luar_syn::lua_parser::module(BENCH_FILE).unwrap());
             })
         });
     }};

@@ -1,10 +1,9 @@
-use criterion::Criterion;
-use luar::{
-    ast_vm,
+use ast_vm::{
     lang::{LuaKey, LuaValue, TableValue},
     stdlib::std_context,
-    syn::lua_parser,
 };
+use criterion::Criterion;
+use luar_syn::lua_parser;
 
 static BENCH_FILE: &'static str = include_str!(concat!("../lua_benches/heapsort.lua"));
 

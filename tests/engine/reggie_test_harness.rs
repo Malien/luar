@@ -34,7 +34,7 @@ pub fn run_lua_test_impl(module_path: &str, group_name: &str, module_str: &str) 
         let mut error_occurred = false;
 
         for (name, func) in test_cases {
-            let res = call_block::<()>(&mut machine, func);
+            let res = call_block::<()>(func, &mut machine);
             match res {
                 Ok(_) => println!("✅ {}::{}::{}", module_path, group_name, name),
                 Err(err) => {

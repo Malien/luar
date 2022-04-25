@@ -5,20 +5,20 @@ extern crate quickcheck_macros;
 
 pub mod compiler;
 pub(crate) mod eq_with_nan;
+pub mod global_values;
 pub(crate) mod ids;
+pub(crate) mod keyed_vec;
 pub(crate) mod machine;
 pub(crate) mod meta;
 pub(crate) mod ops;
 pub(crate) mod runtime;
 pub mod stdlib;
 pub mod value;
-pub(crate) mod keyed_vec;
-pub mod global_values;
 
 use compiler::CompiledModule;
+pub use global_values::GlobalValues;
 use ids::BlockID;
 pub use machine::Machine;
-pub use global_values::GlobalValues;
 use machine::ProgramCounter;
 use machine::StackFrame;
 use meta::ReturnCount;
@@ -45,20 +45,20 @@ pub fn eval_module<'a, T: FromReturn<'a>>(
     machine: &'a mut Machine,
 ) -> Result<T, EvalError> {
     let compiled_module = compiler::compile_module(&module, &mut machine.global_values);
-    call_module(compiled_module, machine)
+    eval_compiled_module(compiled_module, machine)
 }
 
-pub fn call_module<'a, T: FromReturn<'a>>(
+pub fn eval_compiled_module<'a, T: FromReturn<'a>>(
     module: CompiledModule,
     machine: &'a mut Machine,
 ) -> Result<T, EvalError> {
     let top_level_block = machine.code_blocks.add_module(module);
-    call_block(machine, top_level_block)
+    call_block(top_level_block, machine)
 }
 
 pub fn call_block<'a, T: FromReturn<'a>>(
-    machine: &'a mut Machine,
     block_id: BlockID,
+    machine: &'a mut Machine,
 ) -> Result<T, EvalError> {
     let block = &machine.code_blocks[block_id];
     let return_count = block.meta.return_count;
@@ -81,4 +81,3 @@ pub fn call_block<'a, T: FromReturn<'a>>(
     };
     Ok(T::from_machine_state(machine, return_count))
 }
-

@@ -230,7 +230,7 @@ fn multiple_return_is_propagated() -> Result<(), LuaError> {
     ];
     for (func, expected) in expectations {
         let block_id = machine.global_values.get(func).unwrap_lua_function();
-        let res = call_block::<&[LuaValue]>(&mut machine, block_id)?;
+        let res = call_block::<&[LuaValue]>(block_id, &mut machine)?;
         assert!(res
             .into_iter()
             .map(LuaValue::unwrap_int)

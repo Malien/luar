@@ -12,16 +12,28 @@ macro_rules! fib_bench {
                 let mut group = c.benchmark_group(concat!(stringify!($name), ".lua"));
 
                 group.bench_function("ast interpretation", |b| {
-                    let module = ::luar::syn::lua_parser::module(BENCH_FILE).unwrap();
-                    let mut context = ::luar::lang::GlobalContext::new();
-                    ::luar::lang::GlobalContext::set(
+                    let module = ::luar_syn::lua_parser::module(BENCH_FILE).unwrap();
+                    let mut context = ::ast_vm::lang::GlobalContext::new();
+                    ::ast_vm::lang::GlobalContext::set(
                         &mut context,
                         "N",
-                        ::luar::lang::LuaValue::number(20),
+                        ::ast_vm::lang::LuaValue::number(20i32),
                     );
 
                     b.iter(|| {
-                        ::luar::ast_vm::eval_module(&module, &mut context).unwrap();
+                        ::ast_vm::ast_vm::eval_module(&module, &mut context).unwrap();
+                    });
+                });
+
+                group.bench_function("reggie baseline", |b| {
+                    let module = ::luar_syn::lua_parser::module(BENCH_FILE).unwrap();
+                    let mut machine = ::reggie::Machine::new();
+                    let compiled_module = ::reggie::compiler::compile_module(&module, &mut machine.global_values);
+                    let top_level_block = machine.code_blocks.add_module(compiled_module);
+                    machine.global_values.set("N", ::reggie::LuaValue::Int(20));
+
+                    b.iter(|| {
+                        ::reggie::call_block::<()>(top_level_block, &mut machine).unwrap();
                     });
                 });
 

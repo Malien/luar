@@ -7,7 +7,5 @@ members = ["non_empty", "lex", "test_util", "syn", "error", "reggie", "tests", "
 # [dependencies]
 
 # [dev-dependencies]
-# criterion = "0.3.5"
-# mlua = { version = "0.7", features = ["lua54", "vendored"] }
 # lazy_static = "1.4.0"
 # indoc = "1.0"
