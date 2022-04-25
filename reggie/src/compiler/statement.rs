@@ -1,8 +1,9 @@
 use luar_syn::{
-    Assignment, Block, Conditional, ConditionalTail, Declaration, Expression, Statement, Var, WhileLoop,
+    Assignment, Block, Conditional, ConditionalTail, Declaration, Expression, Statement, Var,
+    WhileLoop,
 };
 
-use crate::{ids::ArgumentRegisterID, ops::Instruction};
+use crate::{ids::ArgumentRegisterID, machine::DataType, ops::Instruction};
 
 use super::{
     compile_expr, compile_fn_call, ret::compile_ret, LocalRegisterSpan, LocalScopeCompilationState,
@@ -40,7 +41,7 @@ pub fn compile_conditional(conditional: &Conditional, state: &mut LocalScopeComp
             state.push_instr(Instruction::JmpEQ(cont_lbl));
             compile_block(&conditional.body, state);
             state.push_label(cont_lbl);
-        },
+        }
         ConditionalTail::Else(ref block) => {
             let else_lbl = state.alloc_label();
             let cont_lbl = state.alloc_label();
@@ -60,7 +61,7 @@ pub fn compile_conditional(conditional: &Conditional, state: &mut LocalScopeComp
             state.push_label(else_lbl);
             compile_conditional(elseif.as_ref(), state);
             state.push_label(cont_lbl);
-        },
+        }
     };
 }
 
@@ -91,8 +92,8 @@ pub fn compile_assignment(assignment: &Assignment, state: &mut LocalScopeCompila
         compile_store(var, state);
     }
 
-    state.reg().free_dyn_count(head_regs.count);
-    state.reg().free_dyn_count(tail_regs.count);
+    state.reg().free_count(DataType::Dynamic, head_regs.count);
+    state.reg().free_count(DataType::Dynamic, tail_regs.count);
 }
 
 fn alloc_assignment_locals(
@@ -101,13 +102,13 @@ fn alloc_assignment_locals(
     head_count: usize,
 ) -> (LocalRegisterSpan, LocalRegisterSpan) {
     let head_reg_count = head_count.try_into().unwrap();
-    let head_regs = reg_alloc.alloc_dyn_count(head_reg_count);
+    let head_regs = reg_alloc.alloc_count(DataType::Dynamic, head_reg_count);
     let tail_reg_count: u16 = total_count
         .checked_sub(head_count)
         .map(TryInto::try_into)
         .map(Result::unwrap)
         .unwrap_or(0);
-    let tail_regs = reg_alloc.alloc_dyn_count(tail_reg_count);
+    let tail_regs = reg_alloc.alloc_count(DataType::Dynamic, tail_reg_count);
     (head_regs, tail_regs)
 }
 
@@ -179,7 +180,7 @@ pub fn compile_local_decl(decl: &Declaration, state: &mut LocalScopeCompilationS
         }
     } else {
         let locals_count = decl.names.len().try_into().unwrap();
-        let locals = state.reg().alloc_dyn_nonzero(locals_count);
+        let locals = state.reg().alloc_nonzero(DataType::Dynamic, locals_count);
         for (ident, local_reg) in decl.names.iter().zip(&locals) {
             state.define_local(ident.to_string(), local_reg);
         }

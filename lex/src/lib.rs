@@ -28,3 +28,11 @@ pub use ident::Ident;
 pub use number_literal::NumberLiteral;
 pub use string_literal::StringLiteral;
 pub use token::Token;
+
+pub fn vec_of_idents(len: usize, prefix: &str) -> Vec<Ident> {
+    (0..len)
+        .into_iter()
+        .map(|i| format!("{}{}", prefix, i))
+        .map(Ident::new)
+        .collect()
+}

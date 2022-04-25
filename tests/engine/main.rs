@@ -19,6 +19,8 @@ macro_rules! run_tests {
         lua_test!($test_fn!, assignment);
         lua_test!($test_fn!, local_decl);
         lua_test!($test_fn!, while_loop);
+        lua_test!($test_fn!, tables);
+        lua_test!($test_fn!, arithmetic);
     };
 }
 

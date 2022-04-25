@@ -1,20 +1,23 @@
 use luar_lex::Ident;
-use luar_syn::{FunctionDeclaration, Var};
+use luar_syn::{FunctionDeclaration, Return, Var};
 
 use crate::{
     compiler::{
         compile_statement, ret::compile_ret, FunctionCompilationState, LocalScopeCompilationState,
     },
     ids::{ArgumentRegisterID, LocalBlockID},
-    machine::CodeBlock,
+    machine::{CodeBlock, DataType},
     meta::{ArgumentCount, CodeMeta, ReturnCount},
     ops::Instruction,
     GlobalValues,
 };
 
+use super::return_traversal::return_traverse_function;
+
 pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalValues) -> CodeBlock {
-    use Instruction::*;
-    let mut state = FunctionCompilationState::with_args(decl.args.iter().cloned(), global_values);
+    let return_count = return_traverse_function(decl);
+    let mut state =
+        FunctionCompilationState::with_args(decl.args.iter().cloned(), global_values, return_count);
     let mut root_scope = LocalScopeCompilationState::new(&mut state);
 
     alias_arguments(&decl.args, &mut root_scope);
@@ -23,11 +26,9 @@ pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalVa
         compile_statement(statement, &mut root_scope);
     }
 
-    if let Some(ret) = &decl.body.ret {
-        compile_ret(ret, &mut root_scope);
-    } else {
-        root_scope.push_instr(Ret);
-    }
+    let empty_ret = Return(vec![]);
+    let ret = decl.body.ret.as_ref().unwrap_or(&empty_ret);
+    compile_ret(ret, &mut root_scope);
 
     let debug_name = match decl.name {
         luar_syn::FunctionName::Plain(ref var) => last_ident(var).map(ToString::to_string),
@@ -38,10 +39,7 @@ pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalVa
         arg_count: ArgumentCount::Known(decl.args.len().try_into().unwrap()),
         const_strings: state.strings,
         label_mappings: state.label_alloc.into_mappings(),
-        return_count: state
-            .return_count
-            .into_return_count()
-            .unwrap_or(ReturnCount::Constant(0)),
+        return_count,
         local_count: state.reg_alloc.into_used_register_count(),
         debug_name,
     };
@@ -103,7 +101,7 @@ fn alias_arguments(args: &Vec<Ident>, state: &mut LocalScopeCompilationState) {
     use Instruction::*;
 
     let arg_count = args.len().try_into().unwrap();
-    let locals = state.reg().alloc_dyn_count(arg_count);
+    let locals = state.reg().alloc_count(DataType::Dynamic, arg_count);
     for (ident, i) in args.iter().cloned().zip(0..) {
         state.push_instr(LdaRD(ArgumentRegisterID(i)));
         state.push_instr(StrLD(locals.at(i)));
@@ -117,7 +115,7 @@ mod test {
         ids::{ArgumentRegisterID, LocalRegisterID, StringID},
         keyed_vec::keyed_vec,
         machine::CodeBlock,
-        meta::{CodeMeta, LocalRegCount},
+        meta::{reg_count, CodeMeta},
         ops::Instruction,
         GlobalValues, LuaError,
     };
@@ -127,7 +125,7 @@ mod test {
     use Instruction::*;
 
     macro_rules! test_instruction_output {
-        ($name: ident, $code: expr, $instr: expr) => {
+        ($name: ident, $code: expr, $fn_name: ident, $instr: expr) => {
             #[test]
             fn $name() -> Result<(), LuaError> {
                 let function = luar_syn::lua_parser::function_declaration($code)?;
@@ -139,6 +137,7 @@ mod test {
                     CodeMeta {
                         arg_count: 0.into(),
                         return_count: 1.into(),
+                        debug_name: Some(stringify!($fn_name).to_string()),
                         ..Default::default()
                     }
                 );
@@ -155,6 +154,7 @@ mod test {
         "function foo()
             return nil
         end",
+        foo,
         vec![ConstN, StrRD(ArgumentRegisterID(0)), Ret]
     );
 
@@ -163,6 +163,7 @@ mod test {
         "function foo()
             return 42
         end",
+        foo,
         vec![ConstI(42), WrapI, StrRD(ArgumentRegisterID(0)), Ret]
     );
 
@@ -171,6 +172,7 @@ mod test {
         "function foo()
             return 42.2
         end",
+        foo,
         vec![ConstF(42.2), WrapF, StrRD(ArgumentRegisterID(0)), Ret]
     );
 
@@ -190,6 +192,7 @@ mod test {
                 arg_count: 0.into(),
                 const_strings: keyed_vec!["hello".to_string()],
                 return_count: 1.into(),
+                debug_name: Some("foo".to_owned()),
                 ..Default::default()
             }
         );
@@ -219,6 +222,7 @@ mod test {
             CodeMeta {
                 arg_count: 0.into(),
                 return_count: 0.into(),
+                debug_name: Some("foo".to_owned()),
                 ..Default::default()
             }
         );
@@ -240,6 +244,7 @@ mod test {
             CodeMeta {
                 arg_count: 0.into(),
                 return_count: 0.into(),
+                debug_name: Some("foo".to_owned()),
                 ..Default::default()
             }
         );
@@ -250,137 +255,19 @@ mod test {
         Ok(())
     }
 
-    macro_rules! test_compilation {
-        ($name: ident, $fn:expr, $meta:expr, $instr:expr) => {
-            #[test]
-            fn $name() -> Result<(), LuaError> {
-                let function = luar_syn::lua_parser::function_declaration($fn)?;
-                let CodeBlock { meta, instructions } =
-                    compile_function(&function, &mut GlobalValues::default());
-                assert_eq!(meta, $meta);
-                assert_eq!(instructions, $instr);
-                Ok(())
-            }
-        };
-    }
-
-    #[test]
-    fn compile_add_two_constants_fn() -> Result<(), LuaError> {
-        let function = luar_syn::lua_parser::function_declaration(
-            "function foo()
-                return 1 + 2
-            end",
-        )?;
-        let CodeBlock { meta, instructions } =
-            compile_function(&function, &mut GlobalValues::default());
-        assert_eq!(
-            meta,
-            CodeMeta {
-                arg_count: 0.into(),
-                return_count: 1.into(),
-                local_count: LocalRegCount {
-                    d: 1,
-                    ..Default::default()
-                },
-                ..Default::default()
-            }
-        );
-
-        use Instruction::*;
-        assert_eq!(
-            instructions,
-            vec![
-                ConstI(1),
-                WrapI,
-                StrLD(LocalRegisterID(0)),
-                ConstI(2),
-                WrapI,
-                DAddL(LocalRegisterID(0)),
-                StrRD(ArgumentRegisterID(0)),
-                Ret
-            ]
-        );
-
-        Ok(())
-    }
-
-    test_compilation!(
-        compile_sub_two_constants_fn,
-        "function foo()
-            return 1 - 2
-        end",
-        CodeMeta {
-            arg_count: 0.into(),
-            return_count: 1.into(),
-            local_count: LocalRegCount {
-                d: 1,
-                ..Default::default()
-            },
-            ..Default::default()
-        },
-        [
-            ConstI(1),
-            WrapI,
-            StrLD(LocalRegisterID(0)),
-            ConstI(2),
-            WrapI,
-            DSubL(LocalRegisterID(0)),
-            StrRD(ArgumentRegisterID(0)),
-            Ret
-        ]
-    );
-
-    test_compilation!(
-        compile_mul_two_constants_fn,
-        "function foo()
-            return 1 * 2
-        end",
-        CodeMeta {
-            arg_count: 0.into(),
-            return_count: 1.into(),
-            local_count: LocalRegCount {
-                d: 1,
-                ..Default::default()
-            },
-            ..Default::default()
-        },
-        [
-            ConstI(1),
-            WrapI,
-            StrLD(LocalRegisterID(0)),
-            ConstI(2),
-            WrapI,
-            DMulL(LocalRegisterID(0)),
-            StrRD(ArgumentRegisterID(0)),
-            Ret
-        ]
-    );
-
-    test_compilation!(
-        compile_div_two_constants_fn,
-        "function foo()
-            return 1 / 2
-        end",
-        CodeMeta {
-            arg_count: 0.into(),
-            return_count: 1.into(),
-            local_count: LocalRegCount {
-                d: 1,
-                ..Default::default()
-            },
-            ..Default::default()
-        },
-        [
-            ConstI(1),
-            WrapI,
-            StrLD(LocalRegisterID(0)),
-            ConstI(2),
-            WrapI,
-            DDivL(LocalRegisterID(0)),
-            StrRD(ArgumentRegisterID(0)),
-            Ret
-        ]
-    );
+    // macro_rules! test_compilation {
+    //     ($name: ident, $fn:expr, $meta:expr, $instr:expr) => {
+    //         #[test]
+    //         fn $name() -> Result<(), LuaError> {
+    //             let function = luar_syn::lua_parser::function_declaration($fn)?;
+    //             let CodeBlock { meta, instructions } =
+    //                 compile_function(&function, &mut GlobalValues::default());
+    //             assert_eq!(meta, $meta);
+    //             assert_eq!(instructions, $instr);
+    //             Ok(())
+    //         }
+    //     };
+    // }
 
     #[test]
     fn compile_simple_function() -> Result<(), LuaError> {
@@ -397,10 +284,8 @@ mod test {
             CodeMeta {
                 arg_count: 2.into(),
                 return_count: 1.into(),
-                local_count: LocalRegCount {
-                    d: 3,
-                    ..Default::default()
-                },
+                local_count: reg_count! { D: 4 },
+                debug_name: Some("foo".to_owned()),
                 ..Default::default()
             }
         );
@@ -413,12 +298,17 @@ mod test {
                 StrLD(LocalRegisterID(0)),
                 LdaRD(ArgumentRegisterID(1)),
                 StrLD(LocalRegisterID(1)),
+
                 LdaLD(LocalRegisterID(0)),
                 StrLD(LocalRegisterID(2)),
+
                 LdaLD(LocalRegisterID(1)),
-                DAddL(LocalRegisterID(2)),
+                StrLD(LocalRegisterID(3)),
+
+                LdaLD(LocalRegisterID(2)),
+                DAddL(LocalRegisterID(3)),
                 StrRD(ArgumentRegisterID(0)),
-                Ret,
+                Ret
             ]
         );
 

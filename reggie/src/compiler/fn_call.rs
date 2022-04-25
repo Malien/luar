@@ -1,8 +1,8 @@
 use luar_syn::FunctionCall;
 
-use crate::{ops::Instruction, ids::ArgumentRegisterID};
+use crate::{ids::ArgumentRegisterID, machine::DataType, ops::Instruction};
 
-use super::{LocalScopeCompilationState, compile_expr, compile_var_lookup};
+use super::{compile_expr, compile_var_lookup, LocalScopeCompilationState};
 
 pub fn compile_fn_call(call: &FunctionCall, state: &mut LocalScopeCompilationState) {
     use Instruction::*;
@@ -10,7 +10,9 @@ pub fn compile_fn_call(call: &FunctionCall, state: &mut LocalScopeCompilationSta
     match call {
         FunctionCall::Function { func, args } => match args {
             luar_syn::FunctionCallArgs::Arglist(args) => {
-                let locals = state.reg().alloc_dyn_count(args.len().try_into().unwrap());
+                let locals = state
+                    .reg()
+                    .alloc_count(DataType::Dynamic, args.len().try_into().unwrap());
                 for (expr, idx) in args.iter().zip(0..) {
                     compile_expr(expr, state);
                     state.push_instr(StrLD(locals.at(idx)));
@@ -23,8 +25,8 @@ pub fn compile_fn_call(call: &FunctionCall, state: &mut LocalScopeCompilationSta
                 state.push_instr(StrVC);
                 compile_var_lookup(func, state);
                 state.push_instr(DCall);
-                state.reg().free_dyn_count(locals.count);
-            },
+                state.reg().free_count(DataType::Dynamic, locals.count);
+            }
             luar_syn::FunctionCallArgs::Table(table) => todo!(
                 "Cannot compile function calls with tables \"{} {}\" as arguments yet",
                 func,

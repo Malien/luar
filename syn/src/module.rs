@@ -14,6 +14,21 @@ pub enum Chunk {
     Statement(Statement),
 }
 
+impl Chunk {
+    pub fn as_statement(self) -> Option<Statement> {
+        match self {
+            Chunk::FnDecl(_) => None,
+            Chunk::Statement(statement) => Some(statement)
+        }
+    }
+    pub fn as_statement_ref(&self) -> Option<&Statement> {
+        match self {
+            Chunk::FnDecl(_) => None,
+            Chunk::Statement(statement) => Some(statement)
+        }
+    }
+}
+
 impl ToTokenStream for Chunk {
     type Tokens = DynTokens;
 

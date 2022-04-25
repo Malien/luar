@@ -1,6 +1,6 @@
 macro_rules! wrap {
     ($name: ident, $type: ty) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub struct $name(pub $type);
 
         impl TryFrom<usize> for $name {

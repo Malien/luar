@@ -136,6 +136,17 @@ pub enum Instruction {
     FToS,
     // D_to_s
     DToS,
+
+    // assoc_XDZ
+    AssocRD(ArgumentRegisterID),
+    AssocLD(LocalRegisterID),
+
+    // lda_assoc
+    LdaAssoc,
+
+    // push_D
+    PushD,
+
     // str_vc
     StrVC,
     // lda_vc
@@ -199,6 +210,9 @@ pub enum Instruction {
     ConstS(StringID),
     // const_C
     ConstC(LocalBlockID),
+
+    // new_T
+    NewT,
 
     // wrap_X
     WrapF,
@@ -402,6 +416,11 @@ impl std::fmt::Display for Instruction {
             Instruction::JmpC(lbl) => write!(f, "jmp_C {}", lbl.0),
             Instruction::JmpT(lbl) => write!(f, "jmp_T {}", lbl.0),
             Instruction::JmpU(lbl) => write!(f, "jmp_U {}", lbl.0),
+            Instruction::AssocRD(reg) => write!(f, "assoc RD{}", reg.0),
+            Instruction::AssocLD(reg) => write!(f, "assoc LD{}", reg.0),
+            Instruction::LdaAssoc => write!(f, "lda_assoc"),
+            Instruction::NewT => write!(f, "new_T"),
+            Instruction::PushD => write!(f, "push_D"),
         }
     }
 }

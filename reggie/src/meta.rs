@@ -1,16 +1,37 @@
 use std::num::NonZeroU16;
 
-use crate::{keyed_vec::KeyedVec, ids::{StringID, JmpLabel}};
+use enum_map::EnumMap;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct LocalRegCount {
-    pub f: u16,
-    pub i: u16,
-    pub s: u16,
-    pub t: u16,
-    pub c: u16,
-    pub d: u16,
+use crate::{keyed_vec::KeyedVec, ids::{StringID, JmpLabel}, machine::DataType};
+
+pub type LocalRegCount = EnumMap<DataType, u16>;
+
+#[cfg(test)]
+macro_rules! reg_count {
+    ($($short: tt : $count: expr),*$(,)?) => {
+        ::enum_map::enum_map! {
+            $($crate::meta::reg_type!($short) => $count,)*
+            _ => 0
+        }
+    };
 }
+
+#[cfg(test)]
+pub(crate) use reg_count;
+
+#[cfg(test)]
+macro_rules! reg_type {
+    (D) => { $crate::machine::DataType::Dynamic };
+    (I) => { $crate::machine::DataType::Int };
+    (F) => { $crate::machine::DataType::Float };
+    (S) => { $crate::machine::DataType::String };
+    (C) => { $crate::machine::DataType::Function };
+    (A) => { $crate::machine::DataType::NativeFunction };
+    (T) => { $crate::machine::DataType::Table };
+}
+
+#[cfg(test)]
+pub(crate) use reg_type;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FnID(usize);
@@ -58,6 +79,12 @@ pub enum ReturnCount {
     MinBounded(NonZeroU16),
     Bounded { min: u16, max: NonZeroU16 },
     Constant(u16),
+}
+
+impl ReturnCount {
+    pub fn is_varying(self) -> bool {
+        !matches!(self, Self::Constant(_))
+    }
 }
 
 impl Default for ReturnCount {

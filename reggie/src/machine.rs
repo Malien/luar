@@ -1,3 +1,5 @@
+use enum_map::Enum;
+
 use crate::{
     compiler::CompiledModule,
     global_values::GlobalValues,
@@ -5,17 +7,45 @@ use crate::{
     keyed_vec::{keyed_vec, KeyedVec},
     meta::CodeMeta,
     ops::Instruction,
-    LuaValue,
+    LuaValue, TableRef,
 };
 
 // const ARG_REG_COUNT: usize = 16;
 // TODO: Implement ExtR in order to make argument register more likely to be in cache(?)
 const ARG_REG_COUNT: usize = 32;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Enum)]
+pub enum DataType {
+    Dynamic,
+    Int,
+    Float,
+    String,
+    Function,
+    NativeFunction,
+    Table,
+}
+
+impl std::fmt::Display for DataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use DataType::*;
+        match self {
+            Dynamic => "D",
+            Int => "I",
+            Float => "F",
+            String => "S",
+            Function => "C",
+            NativeFunction => "A",
+            Table => "T",
+        }
+        .fmt(f)
+    }
+}
+
 pub struct ArgumentRegisters {
     pub f: [f64; ARG_REG_COUNT],
     pub i: [i32; ARG_REG_COUNT],
     pub s: [Option<String>; ARG_REG_COUNT],
+    pub t: [Option<TableRef>; ARG_REG_COUNT],
     pub d: [LuaValue; ARG_REG_COUNT],
 }
 
@@ -24,6 +54,7 @@ pub struct Accumulators {
     pub i: i32,
     pub s: Option<String>,
     pub c: BlockID,
+    pub t: Option<TableRef>,
     pub d: LuaValue,
 }
 
@@ -74,22 +105,11 @@ impl std::fmt::Display for CodeBlock {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{} -> {}", self.meta.arg_count, self.meta.return_count)?;
         let lc = &self.meta.local_count;
-        if lc.d != 0 || lc.i != 0 || lc.f != 0 || lc.s != 0 || lc.c != 0 {
+        let has_any_locals = lc.values().all(|v| *v == 0);
+        if has_any_locals {
             writeln!(f, "locals {{")?;
-            if self.meta.local_count.d != 0 {
-                writeln!(f, "\tD: {}", self.meta.local_count.d)?;
-            }
-            if self.meta.local_count.i != 0 {
-                writeln!(f, "\tI: {}", self.meta.local_count.i)?;
-            }
-            if self.meta.local_count.f != 0 {
-                writeln!(f, "\tF: {}", self.meta.local_count.f)?;
-            }
-            if self.meta.local_count.s != 0 {
-                writeln!(f, "\tS: {}", self.meta.local_count.s)?;
-            }
-            if self.meta.local_count.c != 0 {
-                writeln!(f, "\tC: {}", self.meta.local_count.c)?;
+            for (reg_type, count) in lc {
+                writeln!(f, "\t{}: {}", reg_type, count)?;
             }
             writeln!(f, "}}")?;
         }
@@ -196,16 +216,18 @@ pub struct LocalValues {
     pub f: Vec<f64>,
     pub i: Vec<i32>,
     pub s: Vec<Option<String>>,
+    pub t: Vec<Option<TableRef>>,
     pub d: Vec<LuaValue>,
 }
 
 impl LocalValues {
     pub fn new(meta: &CodeMeta) -> Self {
         Self {
-            f: vec![0.0; meta.local_count.f as usize],
-            i: vec![0; meta.local_count.i as usize],
-            s: vec![None; meta.local_count.s as usize],
-            d: vec![LuaValue::Nil; meta.local_count.d as usize],
+            f: vec![0.0; meta.local_count[DataType::Float] as usize],
+            i: vec![0; meta.local_count[DataType::Int] as usize],
+            s: vec![None; meta.local_count[DataType::String] as usize],
+            t: vec![None; meta.local_count[DataType::Table] as usize],
+            d: vec![LuaValue::Nil; meta.local_count[DataType::Dynamic] as usize],
         }
     }
 }
@@ -252,6 +274,7 @@ impl Machine {
                 i: 0,
                 s: None,
                 c: dummy_block_id,
+                t: None,
                 d: LuaValue::Nil,
             },
             program_counter: ProgramCounter {
@@ -266,6 +289,7 @@ impl Machine {
                 f: [0.0; ARG_REG_COUNT],
                 i: [0; ARG_REG_COUNT],
                 s: [(); ARG_REG_COUNT].map(|_| None),
+                t: [(); ARG_REG_COUNT].map(|_| None),
                 d: [(); ARG_REG_COUNT].map(|_| LuaValue::Nil),
             },
             global_values: GlobalValues::default(),

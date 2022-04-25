@@ -4,16 +4,17 @@ use super::{
     ops::Instruction,
     GlobalValues,
 };
-use crate::{ids::ArgumentRegisterID, keyed_vec::KeyedVec, meta};
+use crate::{ids::ArgumentRegisterID, keyed_vec::KeyedVec, machine::DataType, meta::{self, ReturnCount}};
 use std::{collections::HashMap, num::NonZeroU16};
 
-pub mod expr;
-pub mod fn_call;
+pub(crate) mod expr;
+pub(crate) mod fn_call;
 pub mod function;
 pub mod module;
-pub mod ret;
-pub mod statement;
-pub mod var;
+pub(crate) mod ret;
+pub(crate) mod return_traversal;
+pub(crate) mod statement;
+pub(crate) mod var;
 
 pub use expr::*;
 pub use fn_call::*;
@@ -44,44 +45,37 @@ impl RegisterAllocator {
         self.total
     }
 
-    pub fn alloc_dyn(&mut self) -> LocalRegisterID {
-        let reg_id = LocalRegisterID(self.in_use.d);
-        self.in_use.d += 1;
-        self.total.d = std::cmp::max(self.total.d, self.in_use.d);
+    pub fn alloc(&mut self, reg_type: DataType) -> LocalRegisterID {
+        let reg_id = LocalRegisterID(self.in_use[reg_type]);
+        self.in_use[reg_type] += 1;
+        self.total[reg_type] = std::cmp::max(self.total[reg_type], self.in_use[reg_type]);
         reg_id
     }
 
-    pub fn free_dyn(&mut self) {
-        self.in_use.d -= 1;
+    pub fn free(&mut self, reg_type: DataType) {
+        self.in_use[reg_type] -= 1;
     }
 
-    pub fn alloc_dyn_count(&mut self, count: u16) -> LocalRegisterSpan {
-        let start = self.in_use.d;
-        self.in_use.d += count;
-        self.total.d = std::cmp::max(self.total.d, self.in_use.d);
+    pub fn alloc_count(&mut self, reg_type: DataType, count: u16) -> LocalRegisterSpan {
+        let start = self.in_use[reg_type];
+        self.in_use[reg_type] += count;
+        self.total[reg_type] = std::cmp::max(self.total[reg_type], self.in_use[reg_type]);
         LocalRegisterSpan { start, count }
     }
 
-    pub fn alloc_dyn_nonzero(&mut self, count: NonZeroU16) -> NonEmptyLocalRegisterSpan {
-        let start = self.in_use.d;
-        self.in_use.d += count.get();
-        self.total.d = std::cmp::max(self.total.d, self.in_use.d);
+    pub fn alloc_nonzero(
+        &mut self,
+        reg_type: DataType,
+        count: NonZeroU16,
+    ) -> NonEmptyLocalRegisterSpan {
+        let start = self.in_use[reg_type];
+        self.in_use[reg_type] += count.get();
+        self.total[reg_type] = std::cmp::max(self.total[reg_type], self.in_use[reg_type]);
         NonEmptyLocalRegisterSpan { start, count }
     }
 
-    pub fn free_dyn_count(&mut self, count: u16) {
-        self.in_use.d -= count;
-    }
-
-    pub fn alloc_int(&mut self) -> LocalRegisterID {
-        let reg_id = LocalRegisterID(self.in_use.i);
-        self.in_use.i += 1;
-        self.total.i = std::cmp::max(self.total.i, self.in_use.i);
-        reg_id
-    }
-
-    pub fn free_int(&mut self) {
-        self.in_use.i -= 1;
+    pub fn free_count(&mut self, reg_type: DataType, count: u16) {
+        self.in_use[reg_type] -= count;
     }
 }
 
@@ -250,6 +244,39 @@ impl ReturnCountState {
             Self::Constant(count) => Some(meta::ReturnCount::Constant(count)),
         }
     }
+
+    pub fn with_known_bounds(self, min_bound: u16, max_bound: NonZeroU16) -> ReturnCountState {
+        use ReturnCountState::*;
+        match self {
+            NotSpecified => Bounded {
+                min: min_bound,
+                max: max_bound,
+            },
+            Unbounded => Unbounded,
+            MinBounded(self_min) => match NonZeroU16::new(min_bound) {
+                Some(other_min) => MinBounded(std::cmp::min(self_min, other_min)),
+                None => Unbounded,
+            },
+            Bounded { min, max } => Bounded {
+                min: std::cmp::min(min, min_bound),
+                max: std::cmp::max(max, max_bound),
+            },
+            Constant(count) => Bounded {
+                min: std::cmp::min(min_bound, count),
+                max: nonzero_max(max_bound, count),
+            },
+        }
+    }
+
+    pub fn combine(self, other: ReturnCountState) -> ReturnCountState {
+        match other {
+            Self::NotSpecified => self,
+            Self::Unbounded => Self::Unbounded,
+            Self::MinBounded(min) => self.with_known_min_count(min),
+            Self::Bounded { min, max } => self.with_known_bounds(min, max),
+            Self::Constant(count) => self.with_known_count(count),
+        }
+    }
 }
 
 impl Default for ReturnCountState {
@@ -267,29 +294,31 @@ pub struct FunctionCompilationState<'a> {
     instructions: Vec<Instruction>,
     arguments: ArgumentScope,
     scope_vars: Vec<LocalScope>,
-    return_count: ReturnCountState,
+    return_count: ReturnCount,
 }
 
 impl<'a> FunctionCompilationState<'a> {
-    pub fn new(global_values: &'a mut GlobalValues) -> Self {
+    pub fn new(global_values: &'a mut GlobalValues, return_count: ReturnCount) -> Self {
         Self {
             global_values,
+            return_count,
             reg_alloc: Default::default(),
             label_alloc: Default::default(),
             strings: Default::default(),
             instructions: Default::default(),
             arguments: Default::default(),
             scope_vars: Default::default(),
-            return_count: Default::default(),
         }
     }
 
     pub fn with_args(
         args: impl IntoIterator<Item = impl Into<String>>,
         global_values: &'a mut GlobalValues,
+        return_count: ReturnCount,
     ) -> Self {
         Self {
             global_values,
+            return_count,
             reg_alloc: Default::default(),
             label_alloc: Default::default(),
             strings: Default::default(),
@@ -301,12 +330,7 @@ impl<'a> FunctionCompilationState<'a> {
                     .collect(),
             ),
             scope_vars: Default::default(),
-            return_count: Default::default(),
         }
-    }
-
-    pub fn global_values(&mut self) -> &mut GlobalValues {
-        self.global_values
     }
 }
 
@@ -399,7 +423,7 @@ impl<'a, 'b> LocalScopeCompilationState<'a, 'b> {
     }
 
     pub fn global_values(&mut self) -> &mut GlobalValues {
-        self.func_state.global_values()
+        &mut self.func_state.global_values
     }
 
     pub fn alloc_label(&mut self) -> JmpLabel {
@@ -414,7 +438,7 @@ impl<'a, 'b> LocalScopeCompilationState<'a, 'b> {
             .associate_label(label, instruction_position);
     }
 
-    pub fn return_count(&mut self) -> &mut ReturnCountState {
-        &mut self.func_state.return_count
+    pub fn return_count(&self) -> ReturnCount {
+        self.func_state.return_count
     }
 }

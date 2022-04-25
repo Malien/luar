@@ -1,9 +1,9 @@
-use luar_syn::{BinaryOperator, Expression, UnaryOperator};
+use luar_syn::{BinaryOperator, Expression, UnaryOperator, TableConstructor};
 
 use crate::{
     compiler::{compile_fn_call, compile_var_lookup, LocalScopeCompilationState},
     ids::{ArgumentRegisterID, LocalRegisterID},
-    ops::Instruction,
+    ops::Instruction, machine::DataType,
 };
 
 pub fn compile_expr(expr: &Expression, state: &mut LocalScopeCompilationState) {
@@ -52,7 +52,13 @@ pub fn compile_expr(expr: &Expression, state: &mut LocalScopeCompilationState) {
             state.push_instr(WrapI);
             state.push_label(cont_label);
         }
-        _ => todo!("Cannot compile \"{}\" expression yet", expr),
+        Expression::UnaryOperator {
+            op: UnaryOperator::Minus,
+            exp,
+        } => todo!("Cannot compile negation expression \"{}\" yet", exp),
+        Expression::TableConstructor(table) => {
+            compile_table_constructor(table, state);
+        }
     }
 }
 
@@ -65,10 +71,10 @@ fn compile_binary_op(
     use Instruction::*;
 
     compile_expr(lhs, state);
-    let lhs_reg = state.reg().alloc_dyn();
+    let lhs_reg = state.reg().alloc(DataType::Dynamic);
     state.push_instr(StrLD(lhs_reg));
     compile_expr(rhs, state);
-    let rhs_reg = state.reg().alloc_dyn();
+    let rhs_reg = state.reg().alloc(DataType::Dynamic);
     state.push_instr(StrLD(rhs_reg));
     state.push_instr(LdaLD(lhs_reg));
 
@@ -89,11 +95,15 @@ fn compile_binary_op(
         state.push_instr(instr(rhs_reg));
     }
 
-    state.reg().free_dyn();
-    state.reg().free_dyn();
+    state.reg().free(DataType::Dynamic);
+    state.reg().free(DataType::Dynamic);
 }
 
-fn compile_eq_op(state: &mut LocalScopeCompilationState, rhs_value: LocalRegisterID, negated: bool) {
+fn compile_eq_op(
+    state: &mut LocalScopeCompilationState,
+    rhs_value: LocalRegisterID,
+    negated: bool,
+) {
     use Instruction::*;
     let true_lbl = state.alloc_label();
     let cont_lbl = state.alloc_label();
@@ -106,4 +116,25 @@ fn compile_eq_op(state: &mut LocalScopeCompilationState, rhs_value: LocalRegiste
     state.push_instr(ConstI(1));
     state.push_instr(WrapI);
     state.push_label(cont_lbl);
+}
+
+pub fn compile_table_constructor(table: &TableConstructor, state: &mut LocalScopeCompilationState) {
+    use Instruction::*;
+
+    let table_reg = state.reg().alloc(DataType::Table);
+
+    state.push_instr(NewT);
+    state.push_instr(StrLT(table_reg));
+
+    for value in &table.lfield {
+        compile_expr(value, state);
+        state.push_instr(LdaLT(table_reg));
+        state.push_instr(PushD);
+    }
+
+    for (_, _) in &table.ffield {
+        todo!("Cannot compile named table constructors \"{}\" yet", table);
+    }
+
+    state.reg().free(DataType::Table);
 }

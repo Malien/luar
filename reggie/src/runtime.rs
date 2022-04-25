@@ -3,7 +3,7 @@ use super::{
     machine::{EqualityFlag, Machine, OrderingFlag, ProgramCounter, StackFrame},
     ops::Instruction,
 };
-use crate::{ArithmeticError, EvalError, LuaValue, NativeFunction, NativeFunctionKind, TypeError};
+use crate::{ArithmeticError, EvalError, LuaValue, NativeFunction, NativeFunctionKind, TypeError, TableRef, TableValue};
 use luar_error::ArithmeticOperator;
 use std::borrow::Borrow;
 
@@ -291,25 +291,41 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 )?;
                 *position += 1;
             }
+            Instruction::NewT => {
+                machine.accumulators.t = Some(TableRef::from(TableValue::new()));
+                *position += 1;
+            },
+            Instruction::StrRT(reg) => {
+                machine.argument_registers.t[reg.0 as usize] = machine.accumulators.t.clone();
+                *position += 1;
+            },
+            Instruction::LdaRT(reg) => {
+                machine.accumulators.t = machine.argument_registers.t[reg.0 as usize].clone();
+                *position += 1;
+            },
+            Instruction::LdaLT(reg) => {
+                machine.accumulators.t = frame.local_values.t[reg.0 as usize].clone();
+                *position += 1;
+            },
+            Instruction::StrLT(reg) => {
+                frame.local_values.t[reg.0 as usize] = machine.accumulators.t.clone();
+                *position += 1;
+            },
 
             Instruction::LdaRF(_) => todo!(),
             Instruction::LdaRS(_) => todo!(),
-            Instruction::LdaRT(_) => todo!(),
             Instruction::LdaRC(_) => todo!(),
             Instruction::LdaRU(_) => todo!(),
             Instruction::LdaLF(_) => todo!(),
             Instruction::LdaLS(_) => todo!(),
-            Instruction::LdaLT(_) => todo!(),
             Instruction::LdaLC(_) => todo!(),
             Instruction::LdaLU(_) => todo!(),
             Instruction::StrRF(_) => todo!(),
             Instruction::StrRS(_) => todo!(),
-            Instruction::StrRT(_) => todo!(),
             Instruction::StrRC(_) => todo!(),
             Instruction::StrRU(_) => todo!(),
             Instruction::StrLF(_) => todo!(),
             Instruction::StrLS(_) => todo!(),
-            Instruction::StrLT(_) => todo!(),
             Instruction::StrLC(_) => todo!(),
             Instruction::StrLU(_) => todo!(),
             Instruction::LdaFGl(_) => todo!(),
@@ -399,6 +415,10 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::RTShiftRight => todo!(),
             Instruction::RCShiftRight => todo!(),
             Instruction::RUShiftRight => todo!(),
+            Instruction::AssocRD(_) => todo!(),
+            Instruction::AssocLD(_) => todo!(),
+            Instruction::LdaAssoc => todo!(),
+            Instruction::PushD => todo!(),
         }
     }
 }
@@ -448,7 +468,7 @@ mod test {
             CodeBlock, EqualityFlag, EqualityFlag::EQ, EqualityFlag::NE, Machine, OrderingFlag,
             OrderingFlag::GT, OrderingFlag::LT,
         },
-        meta::{CodeMeta, LocalRegCount},
+        meta::{reg_count, CodeMeta, LocalRegCount},
         ops::Instruction::{self, *},
         EvalError, LuaValue, NativeFunction, Strict,
     };
@@ -488,7 +508,7 @@ mod test {
     }
 
     macro_rules! test_instructions {
-        ($name: ident, [$($instr: expr),*], $post_condition: expr) => {
+        ($name: ident, [$($instr: expr),*$(,)?], $post_condition: expr) => {
             test_instructions_with_locals! {$name, [$($instr,)*], LocalRegCount::default(), $post_condition}
         };
     }
@@ -538,10 +558,7 @@ mod test {
             LdaLD(LocalRegisterID(0)),
             Ret
         ],
-        LocalRegCount {
-            d: 1,
-            ..Default::default()
-        },
+        reg_count! { D: 1 },
         |machine: Machine| { assert_eq!(machine.accumulators.d, LuaValue::Int(42)) }
     );
 
@@ -571,10 +588,7 @@ mod test {
             StrRD(ArgumentRegisterID(0)),
             Ret,
         ],
-        LocalRegCount {
-            d: 1,
-            ..Default::default()
-        },
+        reg_count! { D: 1 },
         |machine: Machine| {
             assert_eq!(machine.argument_registers.d[0].coerce_to_f64(), Some(3.0));
         }
@@ -592,10 +606,7 @@ mod test {
             StrRD(ArgumentRegisterID(0)),
             Ret,
         ],
-        LocalRegCount {
-            d: 1,
-            ..Default::default()
-        },
+        reg_count! { D: 1 },
         |machine: Machine| {
             assert_eq!(machine.argument_registers.d[0].coerce_to_f64(), Some(3.0));
         }
@@ -886,7 +897,7 @@ mod test {
         let top_level_block = machine.code_blocks.add_module(module);
 
         let res = call_block::<LuaValue>(top_level_block, &mut machine).unwrap();
-        assert_eq!(res, LuaValue::Float(69.0));
+        assert_eq!(res, LuaValue::Int(69));
     }
 
     #[test]
@@ -999,7 +1010,7 @@ mod test {
         let top_level_block = machine.code_blocks.add_module(module);
 
         let res = call_block::<LuaValue>(top_level_block, &mut machine).unwrap();
-        assert_eq!(res, LuaValue::Float(69.0));
+        assert_eq!(res, LuaValue::Int(69));
     }
 
     test_instructions!(
@@ -1042,10 +1053,7 @@ mod test {
             LdaLI(LocalRegisterID(0)),
             Ret
         ],
-        LocalRegCount {
-            i: 1,
-            ..Default::default()
-        },
+        reg_count! { I: 1 },
         |machine: Machine| {
             assert_eq!(machine.accumulators.i, 69);
         }
@@ -1077,10 +1085,7 @@ mod test {
             IAddR(ArgumentRegisterID(0)),
             Ret
         ],
-        LocalRegCount {
-            i: 1,
-            ..Default::default()
-        },
+        reg_count! { I: 1 },
         |machine: Machine| {
             assert_eq!(machine.accumulators.i, 69420);
         }
@@ -1145,4 +1150,51 @@ mod test {
     //         assert_eq!(machine.accumulators.d, LuaValue::Int(69));
     //     }
     // );
+
+    test_instructions!(
+        new_and_str_rt,
+        [
+            NewT,
+            StrRT(ArgumentRegisterID(0)),
+            NewT,
+            Ret
+        ],
+        |machine: Machine| {
+            assert!(machine.accumulators.t.is_some());
+            assert!(machine.argument_registers.t[0].is_some());
+            assert_ne!(machine.argument_registers.t[0], machine.accumulators.t);
+        }
+    );
+
+    test_instructions!(
+        lda_and_str_rt,
+        [
+            NewT,
+            StrRT(ArgumentRegisterID(0)),
+            NewT,
+            LdaRT(ArgumentRegisterID(0)),
+            Ret
+        ],
+        |machine: Machine| {
+            assert_eq!(machine.accumulators.t, machine.argument_registers.t[0])
+        }
+    );
+
+    test_instructions_with_locals!(
+        lda_and_str_lt,
+        [
+            NewT,
+            StrLT(LocalRegisterID(0)),
+            StrRT(ArgumentRegisterID(0)),
+            NewT,
+            StrRT(ArgumentRegisterID(1)),
+            LdaLT(LocalRegisterID(0)),
+            Ret
+        ],
+        reg_count! { T: 1 },
+        |machine: Machine| {
+            assert_eq!(machine.accumulators.t, machine.argument_registers.t[0]);
+            assert_ne!(machine.accumulators.t, machine.argument_registers.t[1]);
+        }
+    );
 }

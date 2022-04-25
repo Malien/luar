@@ -10,6 +10,12 @@ pub use traits::*;
 
 pub mod signature;
 
+pub mod table;
+pub use table::*;
+
+pub mod key;
+pub use key::*;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum LuaValue {
     Nil,
@@ -18,6 +24,7 @@ pub enum LuaValue {
     String(String),
     NativeFunction(NativeFunction),
     Function(BlockID),
+    Table(TableRef),
 }
 
 impl Default for LuaValue {
@@ -49,8 +56,7 @@ impl LuaValue {
     }
 
     pub fn is_table(&self) -> bool {
-        // matches!(self, Self::Table(_))
-        false
+        matches!(self, Self::Table(_))
     }
 
     pub fn is_function(&self) -> bool {
@@ -77,6 +83,13 @@ impl LuaValue {
             return *block_id;
         }
         panic!("Tried to call unwrap_lua_function() on {:?}", self)
+    }
+
+    pub fn unwrap_table(self) -> TableRef {
+        if let Self::Table(table_ref) = self {
+            return table_ref;
+        }
+        panic!("Tried to call unwrap_table() on {:?}", self)
     }
 
     pub fn as_lua_function(self) -> Option<BlockID> {
@@ -109,6 +122,9 @@ impl LuaValue {
             (Self::Int(lhs), Self::Int(rhs)) => lhs == rhs,
             (Self::Float(lhs), Self::Float(rhs)) => eq_with_nan(*lhs, *rhs),
             (Self::String(lhs), Self::String(rhs)) => lhs == rhs,
+            (Self::NativeFunction(lhs), Self::NativeFunction(rhs)) => lhs == rhs,
+            (Self::Function(lhs), Self::Function(rhs)) => lhs == rhs,
+            (Self::Table(lhs), Self::Table(rhs)) => lhs == rhs,
             _ => false,
         }
     }
@@ -125,6 +141,7 @@ impl std::fmt::Display for LuaValue {
                 write!(f, "native_function: {:p}", Rc::as_ptr(&function.0))
             }
             LuaValue::Function(block_id) => write!(f, "function: {:#x}", block_id.0),
+            LuaValue::Table(table_ref) => write!(f, "table: {:p}", table_ref.as_ptr()),
         }
     }
 }
@@ -132,13 +149,14 @@ impl std::fmt::Display for LuaValue {
 #[cfg(feature = "quickcheck")]
 impl quickcheck::Arbitrary for LuaValue {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        use test_util::with_thread_gen;
+        use test_util::{with_thread_gen, GenExt};
 
-        match u8::arbitrary(g) % 4 {
+        match u8::arbitrary(g) % 5 {
             0 => LuaValue::Nil,
             1 => LuaValue::Int(with_thread_gen(i32::arbitrary)),
             2 => LuaValue::Float(with_thread_gen(f64::arbitrary)),
             3 => LuaValue::String(with_thread_gen(String::arbitrary)),
+            4 => LuaValue::Table(TableRef::arbitrary(&mut g.next_iter())),
             _ => unreachable!(),
         }
     }
@@ -157,6 +175,9 @@ impl quickcheck::Arbitrary for LuaValue {
             }
             LuaValue::NativeFunction(_) | LuaValue::Function(_) => {
                 Box::new(std::iter::once(LuaValue::Nil))
+            }
+            LuaValue::Table(table) => {
+                Box::new(std::iter::once(LuaValue::Nil).chain(table.shrink().map(LuaValue::Table)))
             }
         }
     }

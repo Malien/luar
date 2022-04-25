@@ -1,4 +1,4 @@
-use luar_syn::{Chunk, FunctionName, Var};
+use luar_syn::{Chunk, FunctionName, Return, Var};
 
 use crate::{
     global_values::GlobalValues,
@@ -11,7 +11,7 @@ use crate::{
 
 use super::{
     compile_dyn_wrapper, compile_function, compile_statement, ret::compile_ret,
-    FunctionCompilationState, LocalScopeCompilationState,
+    return_traversal::return_traverse_module, FunctionCompilationState, LocalScopeCompilationState,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -33,7 +33,8 @@ pub fn compile_module(
     module: &luar_syn::Module,
     global_values: &mut GlobalValues,
 ) -> CompiledModule {
-    let mut state = FunctionCompilationState::new(global_values);
+    let return_count = return_traverse_module(module);
+    let mut state = FunctionCompilationState::new(global_values, return_count);
     let mut root_scope = LocalScopeCompilationState::new(&mut state);
     let mut blocks = KeyedVec::new();
 
@@ -47,11 +48,10 @@ pub fn compile_module(
             }
         };
     }
-    if let Some(ret) = &module.ret {
-        compile_ret(ret, &mut root_scope);
-    } else {
-        root_scope.push_instr(Instruction::Ret);
-    }
+
+    let empty_ret = Return(vec![]);
+    let ret = module.ret.as_ref().unwrap_or(&empty_ret);
+    compile_ret(ret, &mut root_scope);
 
     CompiledModule {
         blocks,
@@ -60,13 +60,10 @@ pub fn compile_module(
             meta: CodeMeta {
                 arg_count: ArgumentCount::Known(0),
                 local_count: state.reg_alloc.into_used_register_count(),
-                return_count: state
-                    .return_count
-                    .into_return_count()
-                    .unwrap_or(ReturnCount::Constant(0)),
+                return_count,
                 label_mappings: state.label_alloc.into_mappings(),
                 const_strings: state.strings,
-                debug_name: Some("<module root>".to_owned())
+                debug_name: Some("<module root>".to_owned()),
             },
         },
     }
@@ -126,10 +123,10 @@ mod test {
     use super::compile_module;
     use crate::{
         compiler::compile_function,
-        ids::{ArgumentRegisterID, JmpLabel, LocalBlockID, LocalRegisterID, StringID},
+        ids::{ArgumentRegisterID, JmpLabel, LocalBlockID, StringID},
         keyed_vec::keyed_vec,
         machine::CodeBlock,
-        meta::{ArgumentCount, CodeMeta, LocalRegCount, ReturnCount},
+        meta::{CodeMeta, LocalRegCount, ReturnCount},
         ops::Instruction,
         GlobalValues, LuaError,
     };
@@ -242,116 +239,6 @@ mod test {
     }
 
     #[test]
-    fn compile_add_two_constants() -> Result<(), LuaError> {
-        let module = luar_syn::lua_parser::module("return 1 + 2")?;
-        let module = compile_module(&module, &mut GlobalValues::default());
-
-        assert_eq!(module.top_level.meta.return_count, ReturnCount::Constant(1));
-        assert_eq!(
-            module.top_level.meta.local_count,
-            LocalRegCount {
-                d: 1,
-                ..Default::default()
-            }
-        );
-
-        use Instruction::*;
-        assert_eq!(
-            module.top_level.instructions,
-            [
-                ConstI(1),
-                WrapI,
-                StrLD(LocalRegisterID(0)),
-                ConstI(2),
-                WrapI,
-                DAddL(LocalRegisterID(0)),
-                StrRD(ArgumentRegisterID(0)),
-                Ret
-            ]
-        );
-
-        Ok(())
-    }
-
-    test_compilation!(
-        compile_sub_two_constants,
-        "return 1 - 2",
-        CodeBlock {
-            instructions: vec![
-                ConstI(1),
-                WrapI,
-                StrLD(LocalRegisterID(0)),
-                ConstI(2),
-                WrapI,
-                DSubL(LocalRegisterID(0)),
-                StrRD(ArgumentRegisterID(0)),
-                Ret
-            ],
-            meta: CodeMeta {
-                arg_count: ArgumentCount::Known(0),
-                return_count: ReturnCount::Constant(1),
-                local_count: LocalRegCount {
-                    d: 1,
-                    ..Default::default()
-                },
-                ..Default::default()
-            }
-        }
-    );
-
-    test_compilation!(
-        compile_mul_two_constants,
-        "return 1 * 2",
-        CodeBlock {
-            instructions: vec![
-                ConstI(1),
-                WrapI,
-                StrLD(LocalRegisterID(0)),
-                ConstI(2),
-                WrapI,
-                DMulL(LocalRegisterID(0)),
-                StrRD(ArgumentRegisterID(0)),
-                Ret
-            ],
-            meta: CodeMeta {
-                arg_count: ArgumentCount::Known(0),
-                return_count: ReturnCount::Constant(1),
-                local_count: LocalRegCount {
-                    d: 1,
-                    ..Default::default()
-                },
-                ..Default::default()
-            }
-        }
-    );
-
-    test_compilation!(
-        compile_div_two_constants,
-        "return 1 / 2",
-        CodeBlock {
-            instructions: vec![
-                ConstI(1),
-                WrapI,
-                StrLD(LocalRegisterID(0)),
-                ConstI(2),
-                WrapI,
-                DDivL(LocalRegisterID(0)),
-                StrRD(ArgumentRegisterID(0)),
-                Ret
-            ],
-            meta: CodeMeta {
-                arg_count: 0.into(),
-                return_count: ReturnCount::Constant(1),
-                local_count: LocalRegCount {
-                    d: 1,
-                    ..Default::default()
-                },
-                ..Default::default()
-            }
-        }
-    );
-
-    #[test]
     fn compile_function_declaration() -> Result<(), LuaError> {
         let module = luar_syn::lua_parser::module("function foo() return 42 end")?;
         let function_decl =
@@ -384,6 +271,7 @@ mod test {
                 arg_count: 0.into(),
                 return_count: 1.into(),
                 label_mappings: keyed_vec![7],
+                debug_name: Some("<module root>".to_owned()),
                 ..Default::default()
             },
             instructions: vec![

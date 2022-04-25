@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{rc::Rc, hash::Hash};
 
 use crate::{
     signature::{ArgumentType, FunctionSignatureList},
@@ -8,6 +8,20 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub struct NativeFunction(pub(crate) Rc<NativeFunctionKind>);
+
+impl Hash for NativeFunction {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        Rc::as_ptr(&self.0).hash(state);
+    }
+}
+
+impl PartialEq for NativeFunction {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Eq for NativeFunction {}
 
 impl From<OverloadSet> for NativeFunction {
     fn from(set: OverloadSet) -> Self {
@@ -35,14 +49,6 @@ impl NativeFunction {
         ))))
     }
 }
-
-impl PartialEq for NativeFunction {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
-    }
-}
-
-impl Eq for NativeFunction {}
 
 pub(crate) enum NativeFunctionKind {
     Dyn(Box<dyn NativeFunctionCallable>),
