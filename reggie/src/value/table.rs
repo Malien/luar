@@ -97,6 +97,10 @@ impl TableValue {
                 .iter()
                 .all(|(key, value)| self.get(key).total_eq(value))
     }
+
+    pub fn push(&mut self, value: LuaValue) {
+        self.array.push(value)
+    }
 }
 
 #[derive(Debug)]
@@ -115,6 +119,10 @@ impl TableRef {
         Rc::try_unwrap(self.0)
             .unwrap_or_else(|rc| (*rc).clone())
             .into_inner()
+    }
+
+    pub fn push(&mut self, value: LuaValue) {
+        RefCell::borrow_mut(&self.0).push(value)
     }
 }
 

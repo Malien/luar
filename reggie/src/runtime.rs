@@ -311,6 +311,11 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 frame.local_values.t[reg.0 as usize] = machine.accumulators.t.clone();
                 *position += 1;
             },
+            Instruction::PushD => {
+                let table = machine.accumulators.t.as_mut().unwrap();
+                table.push(machine.accumulators.d.clone());
+                *position += 1;
+            },
 
             Instruction::LdaRF(_) => todo!(),
             Instruction::LdaRS(_) => todo!(),
@@ -418,7 +423,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::AssocRD(_) => todo!(),
             Instruction::AssocLD(_) => todo!(),
             Instruction::LdaAssoc => todo!(),
-            Instruction::PushD => todo!(),
         }
     }
 }
