@@ -9,3 +9,7 @@
 function constructing_list_table_does_not_error_out()
     local tbl = { 1, 2, 3, 4, "foo", "bar", nil, constructing_list_table_does_not_error_out }
 end
+
+function constructing_associative_table_does_not_error_out()
+    local lbl = { foo = "bar", bar = 42, baz = constructing_associative_table_does_not_error_out }
+end

@@ -3,7 +3,10 @@ use super::{
     machine::{EqualityFlag, Machine, OrderingFlag, ProgramCounter, StackFrame},
     ops::Instruction,
 };
-use crate::{ArithmeticError, EvalError, LuaValue, NativeFunction, NativeFunctionKind, TypeError, TableRef, TableValue};
+use crate::{
+    ArithmeticError, EvalError, LuaValue, NativeFunction, NativeFunctionKind, TableRef, TableValue,
+    TypeError,
+};
 use luar_error::ArithmeticOperator;
 use std::borrow::Borrow;
 
@@ -294,28 +297,36 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::NewT => {
                 machine.accumulators.t = Some(TableRef::from(TableValue::new()));
                 *position += 1;
-            },
+            }
             Instruction::StrRT(reg) => {
                 machine.argument_registers.t[reg.0 as usize] = machine.accumulators.t.clone();
                 *position += 1;
-            },
+            }
             Instruction::LdaRT(reg) => {
                 machine.accumulators.t = machine.argument_registers.t[reg.0 as usize].clone();
                 *position += 1;
-            },
+            }
             Instruction::LdaLT(reg) => {
                 machine.accumulators.t = frame.local_values.t[reg.0 as usize].clone();
                 *position += 1;
-            },
+            }
             Instruction::StrLT(reg) => {
                 frame.local_values.t[reg.0 as usize] = machine.accumulators.t.clone();
                 *position += 1;
-            },
+            }
             Instruction::PushD => {
                 let table = machine.accumulators.t.as_mut().unwrap();
                 table.push(machine.accumulators.d.clone());
                 *position += 1;
-            },
+            }
+            Instruction::AssocASD => {
+                let table = machine.accumulators.t.as_mut().unwrap();
+                table.assoc_str(
+                    machine.accumulators.s.as_ref().unwrap(),
+                    machine.accumulators.d.clone(),
+                );
+                *position += 1;
+            }
 
             Instruction::LdaRF(_) => todo!(),
             Instruction::LdaRS(_) => todo!(),
@@ -1157,12 +1168,7 @@ mod test {
 
     test_instructions!(
         new_and_str_rt,
-        [
-            NewT,
-            StrRT(ArgumentRegisterID(0)),
-            NewT,
-            Ret
-        ],
+        [NewT, StrRT(ArgumentRegisterID(0)), NewT, Ret],
         |machine: Machine| {
             assert!(machine.accumulators.t.is_some());
             assert!(machine.argument_registers.t[0].is_some());
@@ -1179,9 +1185,7 @@ mod test {
             LdaRT(ArgumentRegisterID(0)),
             Ret
         ],
-        |machine: Machine| {
-            assert_eq!(machine.accumulators.t, machine.argument_registers.t[0])
-        }
+        |machine: Machine| { assert_eq!(machine.accumulators.t, machine.argument_registers.t[0]) }
     );
 
     test_instructions_with_locals!(

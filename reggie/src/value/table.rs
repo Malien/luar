@@ -101,6 +101,10 @@ impl TableValue {
     pub fn push(&mut self, value: LuaValue) {
         self.array.push(value)
     }
+
+    pub fn assoc_str<S: AsRef<str> + Into<String>>(&mut self, str: S, value: LuaValue) {
+        self.hash.insert(LuaKey::String(str.into()), value);
+    }
 }
 
 #[derive(Debug)]
@@ -123,6 +127,10 @@ impl TableRef {
 
     pub fn push(&mut self, value: LuaValue) {
         RefCell::borrow_mut(&self.0).push(value)
+    }
+
+    pub fn assoc_str<S: AsRef<str> + Into<String>>(&mut self, str: S, value: LuaValue) {
+        RefCell::borrow_mut(&self.0).assoc_str(str, value)
     }
 }
 

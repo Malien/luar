@@ -381,6 +381,10 @@ Depending on the type of AD:
 
 Associate key stored in AD with value referenced by XDZ in table stored in AT.
 
+#### assoc_ASD
+
+Associate key stored in AS, with value stored in AD, in the table stored in AT.
+
 #### lda_assoc
 
 Load value associated with key in register AD into AD, from a table stored in AT.

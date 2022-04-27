@@ -140,6 +140,8 @@ pub enum Instruction {
     // assoc_XDZ
     AssocRD(ArgumentRegisterID),
     AssocLD(LocalRegisterID),
+    // assoc_ASD
+    AssocASD,
 
     // lda_assoc
     LdaAssoc,
@@ -421,6 +423,7 @@ impl std::fmt::Display for Instruction {
             Instruction::LdaAssoc => write!(f, "lda_assoc"),
             Instruction::NewT => write!(f, "new_T"),
             Instruction::PushD => write!(f, "push_D"),
+            Instruction::AssocASD => write!(f, "assoc AS D")
         }
     }
 }

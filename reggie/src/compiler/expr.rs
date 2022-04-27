@@ -132,8 +132,12 @@ pub fn compile_table_constructor(table: &TableConstructor, state: &mut LocalScop
         state.push_instr(PushD);
     }
 
-    for (_, _) in &table.ffield {
-        todo!("Cannot compile named table constructors \"{}\" yet", table);
+    for (ident, value) in &table.ffield {
+        let ident_id = state.alloc_string(ident.as_ref().to_owned());
+        compile_expr(value, state);
+        state.push_instr(ConstS(ident_id));
+        state.push_instr(LdaLT(table_reg));
+        state.push_instr(AssocASD);
     }
 
     state.reg().free(DataType::Table);
