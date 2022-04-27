@@ -8,6 +8,7 @@ use crate::{
     TypeError,
 };
 use luar_error::ArithmeticOperator;
+use luar_lex::Ident;
 use std::borrow::Borrow;
 
 pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
@@ -327,6 +328,35 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 );
                 *position += 1;
             }
+            Instruction::CastT => {
+                machine.equality_flag = if let LuaValue::Table(ref table) = machine.accumulators.d {
+                    machine.accumulators.t = Some(table.clone());
+                    EqualityFlag::EQ
+                } else {
+                    EqualityFlag::NE
+                };
+                *position += 1;
+            }
+            Instruction::TablePropertyLookupError => {
+                return Err(EvalError::from(TypeError::CannotAccessProperty {
+                    property: Ident::new(machine.accumulators.s.take().unwrap()),
+                    of: std::mem::replace(&mut machine.accumulators.d, LuaValue::Nil),
+                }))
+            }
+            Instruction::WrapT => {
+                machine.accumulators.d =
+                    LuaValue::Table(machine.accumulators.t.as_ref().unwrap().clone());
+                *position += 1;
+            }
+            Instruction::LdaAssocAS => {
+                machine.accumulators.d = machine
+                    .accumulators
+                    .t
+                    .as_mut()
+                    .unwrap()
+                    .get_str_assoc(machine.accumulators.s.as_ref().unwrap());
+                *position += 1;
+            }
 
             Instruction::LdaRF(_) => todo!(),
             Instruction::LdaRS(_) => todo!(),
@@ -411,13 +441,11 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::TestLU(_) => todo!(),
             Instruction::TestLD(_) => todo!(),
             Instruction::TypeTest => todo!(),
-            Instruction::WrapT => todo!(),
             Instruction::WrapU => todo!(),
             Instruction::CastF => todo!(),
             Instruction::CastI => todo!(),
             Instruction::CastS => todo!(),
             Instruction::CastC => todo!(),
-            Instruction::CastT => todo!(),
             Instruction::CastU => todo!(),
             Instruction::JmpN(_) => todo!(),
             Instruction::JmpF(_) => todo!(),
@@ -433,7 +461,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::RUShiftRight => todo!(),
             Instruction::AssocRD(_) => todo!(),
             Instruction::AssocLD(_) => todo!(),
-            Instruction::LdaAssoc => todo!(),
+            Instruction::LdaAssocAD => todo!(),
         }
     }
 }

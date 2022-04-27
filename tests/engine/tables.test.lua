@@ -11,5 +11,14 @@ function constructing_list_table_does_not_error_out()
 end
 
 function constructing_associative_table_does_not_error_out()
-    local lbl = { foo = "bar", bar = 42, baz = constructing_associative_table_does_not_error_out }
+    local tbl = { foo = "bar", bar = 42, baz = constructing_associative_table_does_not_error_out }
+end
+
+function property_associations_are_preserved_in_the_table()
+    local tbl = { foo = "bar", bar = 42, baz = constructing_associative_table_does_not_error_out }
+
+    assert(tbl.foo == "bar")
+    assert(tbl.bar == 42)
+    assert(tbl.baz == constructing_associative_table_does_not_error_out)
+    assert(not tbl.nope)
 end

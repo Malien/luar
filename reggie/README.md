@@ -385,9 +385,13 @@ Associate key stored in AD with value referenced by XDZ in table stored in AT.
 
 Associate key stored in AS, with value stored in AD, in the table stored in AT.
 
-#### lda_assoc
+#### lda_assoc AD
 
 Load value associated with key in register AD into AD, from a table stored in AT.
+
+#### lda_assoc AS
+
+Load value associated with string key in register AS into AD, from a table stored in AT.
 
 #### push_D
 
@@ -526,6 +530,8 @@ If the value is of type X, unwrap it and put in the corresponding register AX. S
 
 If the value is of type other than X, set [EF](#equality-flag) register to `NE`
 
+After the operation the value of AD is undefined (or should I guarantee it to be set to nil?)
+
 - X is a `F`, `I`, `C`, `S`, `U` for type of register
 
 #### label
@@ -558,6 +564,6 @@ Conditional jump to the label with idx of &lt;label_idx&gt; depending on the val
 - `jmpT` jump if [TTR](#type-test-result) is set to `T`
 - `jmpU` jump if [TTR](#type-test-result) is set to `U`
 
-#### panic
+#### error table_property_lookup
 
-`TODO`
+Emit an error which tells the failure to load property with name stored in AS, from table stored in AT

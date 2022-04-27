@@ -140,5 +140,7 @@ pub fn compile_table_constructor(table: &TableConstructor, state: &mut LocalScop
         state.push_instr(AssocASD);
     }
 
+    state.push_instr(WrapT);
+
     state.reg().free(DataType::Table);
 }

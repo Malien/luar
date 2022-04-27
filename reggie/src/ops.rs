@@ -144,7 +144,8 @@ pub enum Instruction {
     AssocASD,
 
     // lda_assoc
-    LdaAssoc,
+    LdaAssocAD,
+    LdaAssocAS,
 
     // push_D
     PushD,
@@ -262,7 +263,8 @@ pub enum Instruction {
     // jmpU
     JmpU(JmpLabel),
     
-    // panic not needed (and not spec'd) for now
+    // error_table_property_lookup
+    TablePropertyLookupError
 }
 
 impl std::fmt::Display for Instruction {
@@ -420,10 +422,12 @@ impl std::fmt::Display for Instruction {
             Instruction::JmpU(lbl) => write!(f, "jmp_U {}", lbl.0),
             Instruction::AssocRD(reg) => write!(f, "assoc RD{}", reg.0),
             Instruction::AssocLD(reg) => write!(f, "assoc LD{}", reg.0),
-            Instruction::LdaAssoc => write!(f, "lda_assoc"),
             Instruction::NewT => write!(f, "new_T"),
             Instruction::PushD => write!(f, "push_D"),
-            Instruction::AssocASD => write!(f, "assoc AS D")
+            Instruction::AssocASD => write!(f, "assoc AS D"),
+            Instruction::LdaAssocAD => write!(f, "lda_assoc AD"),
+            Instruction::LdaAssocAS => write!(f, "lda_assoc AS"),
+            Instruction::TablePropertyLookupError => write!(f, "error table_property_lookup"),
         }
     }
 }

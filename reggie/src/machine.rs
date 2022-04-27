@@ -105,11 +105,13 @@ impl std::fmt::Display for CodeBlock {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{} -> {}", self.meta.arg_count, self.meta.return_count)?;
         let lc = &self.meta.local_count;
-        let has_any_locals = lc.values().all(|v| *v == 0);
+        let has_any_locals = lc.values().any(|v| *v != 0);
         if has_any_locals {
             writeln!(f, "locals {{")?;
             for (reg_type, count) in lc {
-                writeln!(f, "\t{}: {}", reg_type, count)?;
+                if *count != 0 {
+                    writeln!(f, "\t{}: {}", reg_type, count)?;
+                }
             }
             writeln!(f, "}}")?;
         }
