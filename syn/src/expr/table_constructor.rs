@@ -133,19 +133,24 @@ impl Arbitrary for TableConstructor {
 #[cfg(test)]
 mod test {
     use super::TableConstructor;
-    use crate::unspanned_lua_token_parser;
-    use luar_lex::Token;
+    use crate::{unspanned_lua_token_parser, Expression};
+    use luar_lex::{Token, Ident};
 
     #[cfg(feature = "quickcheck")]
     use super::lfieldlist_tokens;
     #[cfg(feature = "quickcheck")]
-    use crate::Expression;
-    #[cfg(feature = "quickcheck")]
-    use luar_lex::Ident;
-    #[cfg(feature = "quickcheck")]
     use luar_lex::ToTokenStream;
     #[cfg(feature = "quickcheck")]
     use quickcheck::TestResult;
+
+    #[test]
+    fn correctly_displays_combined_table_constructor() {
+        let str = format!("{}", TableConstructor {
+            lfield: vec![Expression::Nil],
+            ffield: vec![(Ident::new("a"), Expression::Nil)]
+        });
+        assert_eq!(str, "{ nil; a = nil }")
+    }
 
     #[test]
     fn parses_empty_table_constructor() {

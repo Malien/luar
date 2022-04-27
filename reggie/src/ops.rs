@@ -1,4 +1,6 @@
-use super::ids::{ArgumentRegisterID, GlobalCellID, JmpLabel, LocalRegisterID, StringID, LocalBlockID};
+use super::ids::{
+    ArgumentRegisterID, GlobalCellID, JmpLabel, LocalBlockID, LocalRegisterID, StringID,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Instruction {
@@ -262,9 +264,11 @@ pub enum Instruction {
     JmpT(JmpLabel),
     // jmpU
     JmpU(JmpLabel),
-    
-    // error_table_property_lookup
-    TablePropertyLookupError
+
+    // errors
+    TablePropertyLookupError,
+    TableMemberLookupErrorR(ArgumentRegisterID),
+    TableMemberLookupErrorL(LocalRegisterID),
 }
 
 impl std::fmt::Display for Instruction {
@@ -428,6 +432,12 @@ impl std::fmt::Display for Instruction {
             Instruction::LdaAssocAD => write!(f, "lda_assoc AD"),
             Instruction::LdaAssocAS => write!(f, "lda_assoc AS"),
             Instruction::TablePropertyLookupError => write!(f, "error table_property_lookup"),
+            Instruction::TableMemberLookupErrorR(reg) => {
+                write!(f, "error table_member_lookup RD{}", reg.0)
+            }
+            Instruction::TableMemberLookupErrorL(reg) => {
+                write!(f, "error table_member_lookup LD{}", reg.0)
+            }
         }
     }
 }

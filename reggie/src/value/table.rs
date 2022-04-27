@@ -44,15 +44,15 @@ impl TableValue {
 
     pub fn get(&self, key: &LuaKey) -> &LuaValue {
         match key {
-            LuaKey::Int(int) if *int > 0 && self.array.len() < *int as usize => {
-                &self.array[*int as usize]
+            LuaKey::Int(int) if *int > 0 && self.array.len() >= *int as usize => {
+                &self.array[*int as usize - 1]
             }
             LuaKey::Float(float)
-                if *float > 0.0
+                if *float >= 1.0
                     && is_usize_like_float(float.into_inner())
-                    && self.array.len() < float.into_inner() as usize =>
+                    && self.array.len() >= float.into_inner() as usize =>
             {
-                &self.array[float.into_inner() as usize]
+                &self.array[float.into_inner() as usize - 1]
             }
             key => self.hash.get(key).unwrap_or(&LuaValue::Nil),
         }
@@ -60,21 +60,21 @@ impl TableValue {
 
     pub fn set(&mut self, key: LuaKey, value: LuaValue) {
         match key {
-            LuaKey::Int(int) if int > 0 && self.array.len() < int as usize => {
-                self.array[int as usize] = value;
+            LuaKey::Int(int) if int > 0 && self.array.len() >= int as usize => {
+                self.array[int as usize - 1] = value;
             }
-            LuaKey::Int(int) if int > 0 && self.array.len() == int as usize => {
+            LuaKey::Int(int) if int > 0 && self.array.len() + 1 == int as usize => {
                 self.array.push(value);
             }
             LuaKey::Float(float)
-                if float > 0.0
+                if float >= 1.0
                     && is_usize_like_float(float.into_inner())
-                    && self.array.len() < float.into_inner() as usize =>
+                    && self.array.len() + 1 >= float.into_inner() as usize =>
             {
-                self.array[float.into_inner() as usize] = value;
+                self.array[float.into_inner() as usize - 1] = value;
             }
             LuaKey::Float(float)
-                if float > 0.0
+                if float >= 1.0
                     && is_usize_like_float(float.into_inner())
                     && self.array.len() == float.into_inner() as usize =>
             {
@@ -139,6 +139,14 @@ impl TableRef {
 
     pub fn get_str_assoc(&mut self, str: impl Into<String>) -> LuaValue {
         self.0.borrow_mut().get_str_assoc(str)
+    }
+
+    pub fn get(&self, member: &LuaKey) -> LuaValue {
+        self.0.borrow().get(member).clone()
+    }
+
+    pub fn set(&mut self, member: LuaKey, value: LuaValue) {
+        self.0.borrow_mut().set(member, value)
     }
 }
 

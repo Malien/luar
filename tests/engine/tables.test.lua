@@ -22,3 +22,21 @@ function property_associations_are_preserved_in_the_table()
     assert(tbl.baz == constructing_associative_table_does_not_error_out)
     assert(not tbl.nope)
 end
+
+function member_associations_are_preserved_in_the_table()
+    local tbl = { 42, 69; foo = "bar" }
+    local assoc_name = 2
+
+    assert(tbl[1] == 42)
+    assert(tbl[2] == 69)
+    assert(not tbl[3])
+    assert(tbl["foo"] == "bar")
+    assert(tbl[assoc_name] == 69)
+end
+
+function nil_lookup_is_not_an_error()
+    local tbl = { }
+    local nan = 0/0
+    assert(not tbl[nil])
+    assert(not tbl[nan])
+end

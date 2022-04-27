@@ -1,24 +1,45 @@
 use luar_lex::Ident;
-use luar_syn::Var;
+use luar_syn::{Var, Expression};
+
+use crate::{compiler::compile_expr, machine::DataType};
 
 use super::{LocalScopeCompilationState, VarLookup};
 
 pub fn compile_var_lookup(var: &Var, state: &mut LocalScopeCompilationState) {
     match var {
         Var::Named(ident) => compile_named_lookup(ident, state),
-        Var::PropertyAccess { from, property } => compile_property_lookup(from, property, state),
-        _ => todo!("Cannot compile var lookup into tables \"{}\", yet", var),
+        Var::PropertyAccess { from, property } => {
+            compile_property_lookup(from, property, state)
+        }
+        Var::MemberLookup { from, value } => {
+            compile_member_lookup(from, value, state)
+        }
     }
 }
 
-fn compile_property_lookup(
-    from: &Box<Var>,
-    property: &Ident,
-    state: &mut LocalScopeCompilationState,
-) {
+fn compile_member_lookup(from: &Var, value: &Expression, state: &mut LocalScopeCompilationState) {
     use crate::ops::Instruction::*;
 
-    compile_var_lookup(from.as_ref(), state);
+    let tmp_reg = state.reg().alloc(DataType::Dynamic);
+    compile_expr(value, state);
+    state.push_instr(StrLD(tmp_reg));
+
+    let is_table_lbl = state.alloc_label();
+    compile_var_lookup(from, state);
+    state.push_instr(CastT);
+    state.push_instr(JmpEQ(is_table_lbl));
+    state.push_instr(TableMemberLookupErrorL(tmp_reg));
+    state.push_label(is_table_lbl);
+    state.push_instr(LdaLD(tmp_reg));
+    state.push_instr(LdaAssocAD);
+
+    state.reg().free(DataType::Dynamic);
+}
+
+fn compile_property_lookup(from: &Var, property: &Ident, state: &mut LocalScopeCompilationState) {
+    use crate::ops::Instruction::*;
+
+    compile_var_lookup(from, state);
     let property_id = state.alloc_string(property.as_ref().into());
     let is_table_lbl = state.alloc_label();
     state.push_instr(ConstS(property_id));

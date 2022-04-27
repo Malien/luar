@@ -566,4 +566,8 @@ Conditional jump to the label with idx of &lt;label_idx&gt; depending on the val
 
 #### error table_property_lookup
 
-Emit an error which tells the failure to load property with name stored in AS, from table stored in AT
+Emit an error which tells the failure to load property with name stored in AS, from value stored in AD
+
+#### error table_member_lookup XDZ
+
+Emit an error which tells the failure to load member with value stored in AD, from value stored in register XDZ

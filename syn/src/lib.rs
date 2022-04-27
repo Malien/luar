@@ -374,12 +374,22 @@ peg::parser! {
             = _:[Token::OpenSquigglyBracket] tc:table_constructor_contents() _:[Token::CloseSquigglyBracket] { tc }
 
         rule table_constructor_contents() -> TableConstructor
-            = lfield:lfieldlist()? ffield:ffieldlist()? {
-                let mut lfield = lfield.unwrap_or_default();
+            = ffield:ffieldlist() {
+                let mut ffield = ffield;
+                ffield.reverse();
+                TableConstructor { ffield, lfield: vec![] }
+            }
+            / lfield:lfieldlist() ffield:ffield_tail()? {
+                let mut lfield = lfield;
                 lfield.reverse();
                 let mut ffield = ffield.unwrap_or_default();
                 ffield.reverse();
                 TableConstructor { lfield, ffield }
+            }
+
+        rule ffield_tail() -> Vec<(Ident, Expression)> 
+            = _:[Token::Semicolon] ffield:ffieldlist()? {
+                ffield.unwrap_or_default()
             }
 
         rule lfieldlist() -> Vec<Expression>
@@ -388,6 +398,7 @@ peg::parser! {
                 tail.push(head);
                 tail
             }
+            / { Vec::new() }
 
         rule _lfieldlist() -> Vec<Expression>
             = head:expression() tail:_lfieldlist_after_expr() {

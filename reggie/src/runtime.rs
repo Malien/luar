@@ -4,8 +4,8 @@ use super::{
     ops::Instruction,
 };
 use crate::{
-    ArithmeticError, EvalError, LuaValue, NativeFunction, NativeFunctionKind, TableRef, TableValue,
-    TypeError,
+    ArithmeticError, EvalError, LuaKey, LuaValue, NativeFunction, NativeFunctionKind, TableRef,
+    TableValue, TypeError,
 };
 use luar_error::ArithmeticOperator;
 use luar_lex::Ident;
@@ -343,6 +343,24 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                     of: std::mem::replace(&mut machine.accumulators.d, LuaValue::Nil),
                 }))
             }
+            Instruction::TableMemberLookupErrorR(reg) => {
+                return Err(EvalError::from(TypeError::CannotAccessMember {
+                    member: std::mem::replace(
+                        &mut machine.argument_registers.d[reg.0 as usize],
+                        LuaValue::Nil,
+                    ),
+                    of: std::mem::replace(&mut machine.accumulators.d, LuaValue::Nil),
+                }))
+            }
+            Instruction::TableMemberLookupErrorL(reg) => {
+                return Err(EvalError::from(TypeError::CannotAccessMember {
+                    member: std::mem::replace(
+                        &mut frame.local_values.d[reg.0 as usize],
+                        LuaValue::Nil,
+                    ),
+                    of: std::mem::replace(&mut machine.accumulators.d, LuaValue::Nil),
+                }))
+            }
             Instruction::WrapT => {
                 machine.accumulators.d =
                     LuaValue::Table(machine.accumulators.t.as_ref().unwrap().clone());
@@ -355,6 +373,45 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                     .as_mut()
                     .unwrap()
                     .get_str_assoc(machine.accumulators.s.as_ref().unwrap());
+                *position += 1;
+            }
+            Instruction::LdaAssocAD => {
+                match LuaKey::try_from(machine.accumulators.d.clone()) {
+                    Ok(key) => {
+                        machine.accumulators.d = machine.accumulators.t.as_mut().unwrap().get(&key);
+                    },
+                    Err(_) => {
+                        machine.accumulators.d = LuaValue::Nil;
+                    }
+                }
+                *position += 1;
+            }
+            Instruction::DMulR(reg) => {
+                machine.accumulators.d = mul_dyn(
+                    &machine.accumulators.d,
+                    &machine.argument_registers.d[reg.0 as usize],
+                )?;
+                *position += 1;
+            }
+            Instruction::DMulL(reg) => {
+                machine.accumulators.d = mul_dyn(
+                    &machine.accumulators.d,
+                    &frame.local_values.d[reg.0 as usize],
+                )?;
+                *position += 1;
+            }
+            Instruction::DDivR(reg) => {
+                machine.accumulators.d = div_dyn(
+                    &machine.accumulators.d,
+                    &machine.argument_registers.d[reg.0 as usize],
+                )?;
+                *position += 1;
+            }
+            Instruction::DDivL(reg) => {
+                machine.accumulators.d = div_dyn(
+                    &machine.accumulators.d,
+                    &frame.local_values.d[reg.0 as usize],
+                )?;
                 *position += 1;
             }
 
@@ -402,10 +459,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::ISubL(_) => todo!(),
             Instruction::IDivR(_) => todo!(),
             Instruction::IDivL(_) => todo!(),
-            Instruction::DMulR(_) => todo!(),
-            Instruction::DMulL(_) => todo!(),
-            Instruction::DDivR(_) => todo!(),
-            Instruction::DDivL(_) => todo!(),
             Instruction::SConcatR(_) => todo!(),
             Instruction::SConcatL(_) => todo!(),
             Instruction::DConcatR(_) => todo!(),
@@ -461,7 +514,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::RUShiftRight => todo!(),
             Instruction::AssocRD(_) => todo!(),
             Instruction::AssocLD(_) => todo!(),
-            Instruction::LdaAssocAD => todo!(),
         }
     }
 }
@@ -494,6 +546,35 @@ fn add_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
                     lhs: lhs.clone(),
                     rhs: rhs.clone(),
                     op: ArithmeticOperator::Add,
+                }))
+            }
+        }
+    }
+}
+
+fn div_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
+    if let (Some(lhs), Some(rhs)) = (lhs.coerce_to_f64(), rhs.coerce_to_f64()) {
+        Ok(LuaValue::Float(lhs / rhs))
+    } else {
+        Err(TypeError::Arithmetic(ArithmeticError::Binary {
+            lhs: lhs.clone(),
+            rhs: rhs.clone(),
+            op: ArithmeticOperator::Div,
+        }))
+    }
+}
+
+fn mul_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
+    match (lhs, rhs) {
+        (LuaValue::Int(lhs), LuaValue::Int(rhs)) => Ok(LuaValue::Int(lhs * rhs)),
+        (lhs, rhs) => {
+            if let (Some(lhs), Some(rhs)) = (lhs.coerce_to_f64(), rhs.coerce_to_f64()) {
+                Ok(LuaValue::Float(lhs * rhs))
+            } else {
+                Err(TypeError::Arithmetic(ArithmeticError::Binary {
+                    lhs: lhs.clone(),
+                    rhs: rhs.clone(),
+                    op: ArithmeticOperator::Mul,
                 }))
             }
         }

@@ -30,7 +30,8 @@ pub enum TypeError<V> {
         expected: ExpectedType,
         got: V,
     },
-    NilLookup,
+    NilAssign(V),
+    NaNAssign(V),
     IsNotIndexable(V),
     CannotAccessProperty {
         property: Ident,
@@ -38,6 +39,10 @@ pub enum TypeError<V> {
     },
     CannotAssignProperty {
         property: Ident,
+        of: V,
+    },
+    CannotAccessMember {
+        member: V,
         of: V,
     },
     Ordering {
@@ -111,16 +116,6 @@ impl fmt::Display for ArithmeticOperator {
     }
 }
 
-// impl fmt::Display for EvalError {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         match self {
-//             Self::TypeError(err) => fmt::Display::fmt(err, f),
-//             Self::AssertionError => f.write_str("Assertion failed"),
-//             Self::IO(err) => write!(f, "IO Error: {}", err),
-//         }
-//     }
-// }
-
 impl<V: fmt::Display> fmt::Display for TypeError<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt("Type Error: ", f)?;
@@ -140,13 +135,17 @@ impl<V: fmt::Display> fmt::Display for TypeError<V> {
                     position, expected, got
                 )
             }
-            Self::NilLookup => write!(f, "Tried to perform a table lookup with a nil key"),
+            Self::NilAssign(value) => write!(f, "Tried to assign value {} to a nil key in a table", value),
+            Self::NaNAssign(value) => write!(f, "Tried to assign value {} to a NaN key in a table", value),
             Self::IsNotIndexable(value) => write!(f, "Value {} cannot be indexed", value),
             Self::CannotAccessProperty { property, of } => {
                 write!(f, "Cannot access property {} of {}", property, of)
             }
             Self::CannotAssignProperty { property, of } => {
                 write!(f, "Cannot assign to property {} of {}", property, of)
+            }
+            Self::CannotAccessMember { member, of } => {
+                write!(f, "Cannot access member {} of {}", member, of)
             }
             Self::Ordering { lhs, rhs, op } => {
                 write!(

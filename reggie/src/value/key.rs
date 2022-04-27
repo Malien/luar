@@ -14,24 +14,28 @@ pub enum LuaKey {
     Table(TableRef),
 }
 
-impl LuaKey {
-    pub fn new(value: LuaValue) -> Option<Self> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InvalidLuaKey {
+    Nil,
+    NaN,
+}
+
+impl TryFrom<LuaValue> for LuaKey {
+    type Error = InvalidLuaKey;
+
+    fn try_from(value: LuaValue) -> Result<Self, Self::Error> {
         match value {
-            LuaValue::Nil => None,
-            LuaValue::Int(int) => Some(Self::Int(int)),
-            LuaValue::Float(float) => NotNan::from_f64(float).map(Self::Float),
-            LuaValue::String(str) => Some(Self::String(str)),
-            LuaValue::NativeFunction(func) => Some(Self::NativeFunction(func)),
-            LuaValue::Function(func) => Some(Self::Function(func)),
-            LuaValue::Table(table) => Some(Self::Table(table)),
+            LuaValue::Nil => Err(InvalidLuaKey::Nil),
+            LuaValue::Int(int) => Ok(Self::Int(int)),
+            LuaValue::Float(float) => NotNan::from_f64(float)
+                .map(Self::Float)
+                .ok_or(InvalidLuaKey::NaN),
+            LuaValue::String(str) => Ok(Self::String(str)),
+            LuaValue::NativeFunction(func) => Ok(Self::NativeFunction(func)),
+            LuaValue::Function(func) => Ok(Self::Function(func)),
+            LuaValue::Table(table) => Ok(Self::Table(table)),
         }
     }
-    // pub fn number(num: impl Into<LuaNumber>) -> Self {
-    //     Self::Number(num.into())
-    // }
-    // pub fn string(str: impl Into<String>) -> Self {
-    //     Self::String(str.into())
-    // }
 }
 
 impl From<LuaKey> for LuaValue {

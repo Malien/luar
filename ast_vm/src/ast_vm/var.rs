@@ -28,11 +28,9 @@ pub(crate) fn eval_var(
 
 fn member_lookup(value: LuaValue, key: LuaValue) -> Result<LuaValue, TypeError> {
     if let LuaValue::Table(table) = value {
-        if let Some(key) = LuaKey::new(key) {
-            Ok(table.get(&key))
-        } else {
-            Err(TypeError::NilLookup)
-        }
+        Ok(LuaKey::new(key)
+            .map(|key| table.get(&key))
+            .unwrap_or(LuaValue::Nil))
     } else {
         Err(TypeError::IsNotIndexable(value))
     }
@@ -76,7 +74,7 @@ fn assign_to_value_member(of: LuaValue, key: LuaValue, value: LuaValue) -> Resul
             table.set(key, value);
             Ok(())
         } else {
-            Err(TypeError::NilLookup)
+            Err(TypeError::NilAssign(value))
         }
     } else {
         Err(TypeError::IsNotIndexable(of))
@@ -101,7 +99,8 @@ fn assign_to_value_property(
 mod test {
     use crate::{
         ast_vm,
-        lang::{GlobalContext, LuaKey, LuaValue, ReturnValue, TableValue}, LuaError, TypeError,
+        lang::{GlobalContext, LuaKey, LuaValue, ReturnValue, TableValue},
+        LuaError, TypeError,
     };
     use luar_error::assert_type_error;
     use luar_lex::Ident;
@@ -133,18 +132,6 @@ mod test {
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::Nil);
 
-        Ok(())
-    }
-
-    #[test]
-    fn looking_up_table_with_nil_results_in_an_type_error() -> Result<(), LuaError> {
-        let module = lua_parser::module(
-            "tbl = {}
-            return tbl[nil]",
-        )?;
-        let mut context = GlobalContext::new();
-        let res = ast_vm::eval_module(&module, &mut context);
-        assert_type_error!(TypeError::NilLookup, res);
         Ok(())
     }
 
