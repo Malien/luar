@@ -1,13 +1,8 @@
 {
-    "Ordering flag": {
+    "Test flag": {
         "scope": "markdown",
-        "prefix": "OF",
-        "body": "[OF](#ordering-flag)"
-    },
-    "Equality flag": {
-        "scope": "markdown",
-        "prefix": "EF",
-        "body": "[EF](#equality-flag)"
+        "prefix": "TF",
+        "body": "[TF](#test-flag)"
     },
     "Value count": {
         "scope": "markdown",

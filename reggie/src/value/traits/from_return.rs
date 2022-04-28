@@ -97,7 +97,7 @@ impl_from_lua_return_tuple! {
     0 => (A, [A-B-C-D-]),
     1 => (B, [A+B-C-D-]),
     2 => (C, [A+B+C-D-]),
-    4 => (D, [A+B+C+D-]),
+    3 => (D, [A+B+C+D-]),
 }
 
 impl<'a> FromReturn<'a> for &'a [LuaValue] {

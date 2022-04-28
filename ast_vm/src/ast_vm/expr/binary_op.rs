@@ -1,6 +1,7 @@
 use crate::{
     ast_vm::eval_expr,
-    lang::{LocalScope, LuaValue, ScopeHolder}, EvalError, TypeError, ArithmeticError,
+    lang::{LocalScope, LuaValue, ScopeHolder},
+    ArithmeticError, EvalError, TypeError,
 };
 use luar_error::{ArithmeticOperator, OrderingOperator};
 use luar_syn::{BinaryOperator, Expression};
@@ -76,7 +77,7 @@ macro_rules! ord_op {
                 _ => Err(TypeError::Ordering {
                     lhs,
                     rhs,
-                    op: $op
+                    op: Some($op)
                 })
             }
         }
@@ -92,10 +93,11 @@ ord_op!(greater_or_equals, >=, OrderingOperator::GreaterOrEquals);
 mod test {
     use crate::{
         ast_vm,
-        lang::{GlobalContext, LuaFunction, LuaNumber, LuaValue, ReturnValue}, LuaError,
+        lang::{GlobalContext, LuaFunction, LuaValue, ReturnValue},
+        LuaError,
     };
     use luar_syn::lua_parser;
-    use non_empty::{ne_vec, NonEmptyVec};
+    use non_empty::NonEmptyVec;
     use quickcheck::TestResult;
 
     #[quickcheck]
@@ -359,114 +361,6 @@ mod test {
         assert!(res.is_err());
 
         Ok(TestResult::passed())
-    }
-
-    #[quickcheck]
-    #[allow(non_snake_case)]
-    fn comparing_numbers_behave_according_to_IEEE754(lhs: f64, rhs: f64) -> Result<(), LuaError> {
-        let module = lua_parser::module("return a > b, a < b, a >= b, a <= b")?;
-        let mut context = GlobalContext::new();
-        context.set("a", LuaValue::number(lhs));
-        context.set("b", LuaValue::number(rhs));
-        let expected = ne_vec![
-            LuaValue::from_bool(lhs > rhs),
-            LuaValue::from_bool(lhs < rhs),
-            LuaValue::from_bool(lhs >= rhs),
-            LuaValue::from_bool(lhs <= rhs)
-        ];
-        let res = ast_vm::eval_module(&module, &mut context)?;
-        assert_eq!(res, ReturnValue::MultiValue(expected));
-        Ok(())
-    }
-
-    #[quickcheck]
-    fn comparing_strings_orders_then_lexicographically(
-        lhs: String,
-        rhs: String,
-    ) -> Result<(), LuaError> {
-        let module = lua_parser::module("return a > b, a < b, a >= b, a <= b")?;
-        let mut context = GlobalContext::new();
-        context.set("a", LuaValue::string(lhs.clone()));
-        context.set("b", LuaValue::string(rhs.clone()));
-        let expected = ne_vec![
-            LuaValue::from_bool(lhs > rhs),
-            LuaValue::from_bool(lhs < rhs),
-            LuaValue::from_bool(lhs >= rhs),
-            LuaValue::from_bool(lhs <= rhs)
-        ];
-        let res = ast_vm::eval_module(&module, &mut context)?;
-        assert_eq!(res, ReturnValue::MultiValue(expected));
-        Ok(())
-    }
-
-    #[quickcheck]
-    fn comparing_strings_and_numbers_coerces_numbers_to_strings(
-        str: String,
-        num: LuaNumber,
-    ) -> Result<(), LuaError> {
-        let module = lua_parser::module("return a > b, a < b, a >= b, a <= b")?;
-        let mut context = GlobalContext::new();
-
-        {
-            context.set("a", LuaValue::string(str.clone()));
-            context.set("b", LuaValue::number(num));
-            let lhs = &str;
-            let rhs = &format!("{}", num);
-            let expected = ne_vec![
-                LuaValue::from_bool(lhs > rhs),
-                LuaValue::from_bool(lhs < rhs),
-                LuaValue::from_bool(lhs >= rhs),
-                LuaValue::from_bool(lhs <= rhs)
-            ];
-            let res = ast_vm::eval_module(&module, &mut context)?;
-            assert_eq!(res, ReturnValue::MultiValue(expected));
-        }
-        {
-            context.set("a", LuaValue::number(num));
-            context.set("b", LuaValue::string(str.clone()));
-            let lhs = &format!("{}", num);
-            let rhs = &str;
-            let expected = ne_vec![
-                LuaValue::from_bool(lhs > rhs),
-                LuaValue::from_bool(lhs < rhs),
-                LuaValue::from_bool(lhs >= rhs),
-                LuaValue::from_bool(lhs <= rhs)
-            ];
-            let res = ast_vm::eval_module(&module, &mut context)?;
-            assert_eq!(res, ReturnValue::MultiValue(expected));
-        }
-
-        Ok(())
-    }
-
-    #[quickcheck]
-    fn values_other_than_numbers_and_strings_are_not_comparable(
-        val: LuaValue,
-    ) -> Result<(), LuaError> {
-        let ops = [">", "<", ">=", "<="];
-        let modules = IntoIterator::into_iter(ops)
-            .flat_map(|op| {
-                [
-                    format!("return 1 {} value", op),
-                    format!("return value {} 1", op),
-                ]
-            })
-            .map(|str| lua_parser::module(&str))
-            .collect::<Result<Vec<_>, _>>()?;
-        let mut context = GlobalContext::new();
-        let is_comparable = val.is_comparable();
-        context.set("value", val);
-
-        for module in modules {
-            let res = ast_vm::eval_module(&module, &mut context);
-            if is_comparable {
-                assert!(res.is_ok());
-            } else {
-                assert!(res.is_err());
-            }
-        }
-
-        Ok(())
     }
 
     #[quickcheck]

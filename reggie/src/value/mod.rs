@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cmp::Ordering, rc::Rc};
 
 use crate::{eq_with_nan::eq_with_nan, ids::BlockID};
 
@@ -25,6 +25,41 @@ pub enum LuaValue {
     NativeFunction(NativeFunction),
     Function(BlockID),
     Table(TableRef),
+}
+
+impl PartialOrd for LuaValue {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        use Ordering::*;
+
+        match (self, other) {
+            (LuaValue::Nil, LuaValue::Nil) => Some(Equal),
+            (LuaValue::Int(lhs), LuaValue::Int(rhs)) => i32::partial_cmp(lhs, rhs),
+            (LuaValue::Int(lhs), LuaValue::Float(rhs)) => f64::partial_cmp(&(*lhs as f64), rhs),
+            // TODO: either remove ability to compare numbers and strings,
+            //       or provide a version where intermediate string is not being allocated
+            (LuaValue::Int(lhs), LuaValue::String(rhs)) => {
+                String::partial_cmp(&lhs.to_string(), rhs)
+            }
+            (LuaValue::Float(lhs), LuaValue::Int(rhs)) => f64::partial_cmp(lhs, &(*rhs as f64)),
+            (LuaValue::Float(lhs), LuaValue::Float(rhs)) => f64::partial_cmp(lhs, rhs),
+            (LuaValue::Float(lhs), LuaValue::String(rhs)) => {
+                String::partial_cmp(&lhs.to_string(), rhs)
+            }
+            (LuaValue::String(lhs), LuaValue::Int(rhs)) => {
+                String::partial_cmp(lhs, &rhs.to_string())
+            }
+            (LuaValue::String(lhs), LuaValue::Float(rhs)) => {
+                String::partial_cmp(lhs, &rhs.to_string())
+            }
+            (LuaValue::String(lhs), LuaValue::String(rhs)) => String::partial_cmp(lhs, rhs),
+            (LuaValue::NativeFunction(lhs), LuaValue::NativeFunction(rhs)) if lhs == rhs => {
+                Some(Equal)
+            }
+            (LuaValue::Function(lhs), LuaValue::Function(rhs)) if lhs == rhs => Some(Equal),
+            (LuaValue::Table(lhs), LuaValue::Table(rhs)) if lhs == rhs => Some(Equal),
+            _ => None,
+        }
+    }
 }
 
 impl Default for LuaValue {
@@ -127,6 +162,13 @@ impl LuaValue {
             (Self::Table(lhs), Self::Table(rhs)) => lhs == rhs,
             _ => false,
         }
+    }
+
+    pub fn is_comparable(&self) -> bool {
+        matches!(
+            self,
+            LuaValue::Int(_) | LuaValue::Float(_) | LuaValue::String(_)
+        )
     }
 }
 

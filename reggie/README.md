@@ -67,8 +67,7 @@ The VM also defines couple of special use-case registers, such as:
 - Program counter (PC)
 - Return address (RA)
 - Value count (VC)
-- Equality flag (EF)
-- Ordering flag (OF)
+- Test flag (TF)
 - Type test result (TTR)
 
 #### Program counter
@@ -83,13 +82,9 @@ Is the byte-offset of the instruction that currently executing function should j
 
 Program readable and writable global register. It contains the amount of argument the function was called with, or the amount of arguments function returns.
 
-#### Equality flag
+#### Test flag
 
-Is set to appropriate value of `EQ` `NE` when [comparing two values for equality](#eqtestxyz) or [ordering](#testxyz). Is global to the runtime, cannot be read nor set directly.
-
-#### Ordering flag
-
-Is set to appropriate value of `LT` or `GT` when [comparing two values](#testxyz) for ordering.
+Is set to appropriate value of `EQ`, `NE`, `LT` and `GT` when [comparing two values for equality](#eqtestxyz) or [ordering](#testxyz). Is global to the runtime, cannot be read nor set directly.
 
 #### Type test result
 
@@ -296,6 +291,10 @@ Divides the value of the register XFZ to the current value of accumulator regist
 - X is the type of source register
 - Z is the number of source register
 
+#### F_neg
+
+Negate the float value of AF. Store the result in AF.
+
 #### I_add_XZ
 
 Adds the value of the register XIZ to the current value of accumulator register AI.
@@ -324,6 +323,10 @@ Performs integer division of the value of the register XIZ to the current value 
 - X is the type of source register
 - Z is the number of source register
 
+#### I_neg
+
+Negate the integer value of AI. Store the result in AI.
+
 <!-- #### I_mod_XZ
 
 Return the modulo of the value of the accumulator register AF divided by value in the register XIZ. The result is stored in AF.
@@ -331,7 +334,7 @@ Return the modulo of the value of the accumulator register AF divided by value i
 -   X is the type of source register
 -   Z is the number of source register -->
 
-#### D_add_XZ, D_mul_XZ, D_sub_XZ, D_div_XZ<!--, D_mod_XZ -->
+#### D_add_XZ, D_mul_XZ, D_sub_XZ, D_div_XZ<!--, D_mod_XZ --> D_neg
 
 If dynamic type of value in AD or XDZ is not a number (F, I) or a string (S), panic with `arith` error.
 
@@ -440,7 +443,7 @@ Jumps to instruction pointed in [RA](#return-address), discards current call fra
 
 #### eq_test_XYZ
 
-Tests the values in AY and in the register XYZ for equality. Sets the [EF](#equality-flag) to the corresponding value.
+Tests the values in AY and in the register XYZ for equality. Sets the [TF](#test-flag) to the corresponding value.
 
 - X is the type of register (e.g. `R`, `ExtR`, `L`)
 - Y is the type of register's value (can only be `S`, `T`, `C`, `D`)
@@ -448,8 +451,8 @@ Tests the values in AY and in the register XYZ for equality. Sets the [EF](#equa
 
 Depending on the result:
 
-- If values are equal, set [EF](#equality-flag) to `EQ`
-- If values are not equal, set [EF](#equality-flag) to `NE`
+- If values are equal, set [TF](#test-flag) to `EQ`
+- If values are not equal, set [TF](#test-flag) to `NE`
 
 Depending on the type of Y:
 
@@ -465,7 +468,7 @@ Depending on the type of Y:
 
 #### test_XYZ
 
-Compares the values in AY to the value in register XYZ. Sets the [EF](#equality-flag) and [OF](#ordering-flag) registers to the corresponding value.
+Compares the values in AY to the value in register XYZ. Sets the [TF](#test-flag) registers to the corresponding value.
 
 - X is the type of register (e.g. `R`, `ExtR`, `L`)
 - Y is the type of register's value (can only be `F`, `I`, `S`, `D`)
@@ -473,9 +476,10 @@ Compares the values in AY to the value in register XYZ. Sets the [EF](#equality-
 
 Depending on the result:
 
-- If values are equal, set [EF](#equality-flag) to `EQ`
-- If value is greater, set [OF](#ordering-flag) to `GT` and [EF](#equality-flag) to `NE`
-- If value is lesser, set [OF](#ordering-flag) to `LT` and [EF](#equality-flag) to `NE`
+- If values are equal, set [TF](#test-flag) to `EQ`
+- If value is greater, set [TF](#test-flag) to `GT`
+- If value is lesser, set [TF](#test-flag) to `LT`
+- If values are not equal, set [TF](#test-flag) to `NE`
 
 Depending on the type T:
 
@@ -490,7 +494,7 @@ Do a type test of a value in AD, and set [TTR](#type-test-result) to the appropr
 
 #### nil_test
 
-Test if value in register AD is `nil`, and set [EF](#equality-flag) to `EQ` if it is, or `NE` otherwise
+Test if value in register AD is `nil`, and set [TF](#test-flag) to `EQ` if it is, or `NE` otherwise.
 
 #### const_F &lt;value&gt;
 
@@ -526,9 +530,9 @@ Take value from accumulator AX, wrap it into dynamic value, and store in registe
 
 Take the current value from AD and try to unwrap it into type X
 
-If the value is of type X, unwrap it and put in the corresponding register AX. Set the register [EF](#equality-flag) to `EQ`
+If the value is of type X, unwrap it and put in the corresponding register AX. Set the register [TF](#test-flag) to `EQ`.
 
-If the value is of type other than X, set [EF](#equality-flag) register to `NE`
+If the value is of type other than X, set [TF](#test-flag) register to `NE`.
 
 After the operation the value of AD is undefined (or should I guarantee it to be set to nil?)
 
@@ -544,14 +548,14 @@ Unconditional jump to the instruction followed by label instruction with the idx
 
 #### (jmplt, jmpgt, jmpeq, jmpne, jmple, jmpge) &lt;label_idx&gt;
 
-Conditional jump to the label with idx of &lt;label_idx&gt; depending on the values of [EF](#equality-flag) and [OF](#ordering-flag) register.
+Conditional jump to the label with idx of &lt;label_idx&gt; depending on the values of [TF](#test-flag) register.
 
-- `jmplt` jump if [EF](#equality-flag) is set to `NE` and [OF](#ordering-flag) is set to `LT`
-- `jmpgt` jump if [EF](#equality-flag) is set to `NE` and [OF](#ordering-flag) is set to `GT`
-- `jmpeq` jump if [EF](#equality-flag) is set to `EQ`
-- `jmpne` jump if [EF](#equality-flag) is set to `NE`,
-- `jmple` jump if [OF](#ordering-flag) is set to `LT`
-- `jmpge` jump if [OF](#ordering-flag) is set to `GT`
+- `jmplt` jump if [TF](#test-flag) is set to `LT`
+- `jmpgt` jump if [TF](#test-flag) is set to `GT`
+- `jmpeq` jump if [TF](#test-flag) is set to `EQ`
+- `jmpne` jump if [TF](#test-flag) is set to `NE`,
+- `jmple` jump if [TF](#test-flag) is set to `LT` or `EQ`,
+- `jmpge` jump if [TF](#test-flag) is set to `GT` or `EQ`
 
 #### (jmpN, jmpF, jmpI, jmpC, jmpT, jmpU) &lt;label_idx&gt;
 

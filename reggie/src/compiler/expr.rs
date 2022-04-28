@@ -1,9 +1,10 @@
-use luar_syn::{BinaryOperator, Expression, UnaryOperator, TableConstructor};
+use luar_syn::{BinaryOperator, Expression, TableConstructor, UnaryOperator};
 
 use crate::{
     compiler::{compile_fn_call, compile_var_lookup, LocalScopeCompilationState},
-    ids::{ArgumentRegisterID, LocalRegisterID},
-    ops::Instruction, machine::DataType,
+    ids::{ArgumentRegisterID, JmpLabel, LocalRegisterID},
+    machine::DataType,
+    ops::Instruction,
 };
 
 pub fn compile_expr(expr: &Expression, state: &mut LocalScopeCompilationState) {
@@ -41,25 +42,34 @@ pub fn compile_expr(expr: &Expression, state: &mut LocalScopeCompilationState) {
             exp,
         } => {
             compile_expr(exp, state);
-            let true_label = state.alloc_label();
-            let cont_label = state.alloc_label();
-            state.push_instr(NilTest);
-            state.push_instr(JmpEQ(true_label));
-            state.push_instr(ConstN);
-            state.push_instr(Jmp(cont_label));
-            state.push_label(true_label);
-            state.push_instr(ConstI(1));
-            state.push_instr(WrapI);
-            state.push_label(cont_label);
+            compile_not(state);
         }
         Expression::UnaryOperator {
             op: UnaryOperator::Minus,
             exp,
-        } => todo!("Cannot compile negation expression \"{}\" yet", exp),
+        } => {
+            compile_expr(exp, state);
+            state.push_instr(NegD);
+        }
         Expression::TableConstructor(table) => {
             compile_table_constructor(table, state);
         }
     }
+}
+
+fn compile_not(state: &mut LocalScopeCompilationState) {
+    use Instruction::*;
+
+    let true_label = state.alloc_label();
+    let cont_label = state.alloc_label();
+    state.push_instr(NilTest);
+    state.push_instr(JmpEQ(true_label));
+    state.push_instr(ConstN);
+    state.push_instr(Jmp(cont_label));
+    state.push_label(true_label);
+    state.push_instr(ConstI(1));
+    state.push_instr(WrapI);
+    state.push_label(cont_label);
 }
 
 fn compile_binary_op(
@@ -78,25 +88,43 @@ fn compile_binary_op(
     state.push_instr(StrLD(rhs_reg));
     state.push_instr(LdaLD(lhs_reg));
 
-    if let BinaryOperator::Equals = op {
-        compile_eq_op(state, rhs_reg, false);
-    } else if let BinaryOperator::NotEquals = op {
-        compile_eq_op(state, rhs_reg, true);
-    } else {
-        let instr = match op {
-            BinaryOperator::Plus => DAddL,
-            BinaryOperator::Minus => DSubL,
-            BinaryOperator::Mul => DMulL,
-            BinaryOperator::Div => DDivL,
-            BinaryOperator::Equals => unreachable!(),
-            _ => todo!(),
-        };
+    match op {
+        BinaryOperator::Equals => compile_eq_op(state, rhs_reg, false),
+        BinaryOperator::NotEquals => compile_eq_op(state, rhs_reg, true),
+        BinaryOperator::Plus => state.push_instr(DAddL(rhs_reg)),
+        BinaryOperator::Minus => state.push_instr(DSubL(rhs_reg)),
+        BinaryOperator::Mul => state.push_instr(DMulL(rhs_reg)),
+        BinaryOperator::Div => state.push_instr(DDivL(rhs_reg)),
 
-        state.push_instr(instr(rhs_reg));
+        BinaryOperator::Less => compile_comparison(rhs_reg, JmpLT, state),
+        BinaryOperator::Greater => compile_comparison(rhs_reg, JmpGT, state),
+        BinaryOperator::LessOrEquals => compile_comparison(rhs_reg, JmpLE, state),
+        BinaryOperator::GreaterOrEquals => compile_comparison(rhs_reg, JmpGE, state),
+
+        op => todo!("Cannot compile use of {} operator yet", op),
     }
 
     state.reg().free(DataType::Dynamic);
     state.reg().free(DataType::Dynamic);
+}
+
+fn compile_comparison(
+    rhs_reg: LocalRegisterID,
+    jmp_instr: impl FnOnce(JmpLabel) -> Instruction,
+    state: &mut LocalScopeCompilationState,
+) {
+    use Instruction::*;
+
+    let true_lbl = state.alloc_label();
+    let cont_lbl = state.alloc_label();
+    state.push_instr(TestLD(rhs_reg));
+    state.push_instr(jmp_instr(true_lbl));
+    state.push_instr(ConstN);
+    state.push_instr(Jmp(cont_lbl));
+    state.push_label(true_lbl);
+    state.push_instr(ConstI(1));
+    state.push_instr(WrapI);
+    state.push_label(cont_lbl);
 }
 
 fn compile_eq_op(

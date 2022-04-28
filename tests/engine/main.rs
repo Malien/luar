@@ -11,16 +11,22 @@ macro_rules! lua_test {
             );
         }
     };
+    ($test_fn: tt !, [$($name: ident),*$(,)?]) => {
+        $(lua_test!($test_fn!, $name);)*
+    }
 }
 
 macro_rules! run_tests {
     ($test_fn: path) => {
-        lua_test!($test_fn!, conditional);
-        lua_test!($test_fn!, assignment);
-        lua_test!($test_fn!, local_decl);
-        lua_test!($test_fn!, while_loop);
-        lua_test!($test_fn!, tables);
-        lua_test!($test_fn!, arithmetic);
+        lua_test!($test_fn!, [
+            conditional,
+            assignment,
+            local_decl,
+            while_loop,
+            tables,
+            arithmetic,
+            comparison,
+        ]);
     };
 }
 

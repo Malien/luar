@@ -52,7 +52,7 @@ pub enum TypeError<V> {
     Ordering {
         lhs: V,
         rhs: V,
-        op: OrderingOperator,
+        op: Option<OrderingOperator>,
     },
 }
 
@@ -139,8 +139,12 @@ impl<V: fmt::Display> fmt::Display for TypeError<V> {
                     position, expected, got
                 )
             }
-            Self::NilAssign(value) => write!(f, "Tried to assign value {} to a nil key in a table", value),
-            Self::NaNAssign(value) => write!(f, "Tried to assign value {} to a NaN key in a table", value),
+            Self::NilAssign(value) => {
+                write!(f, "Tried to assign value {} to a nil key in a table", value)
+            }
+            Self::NaNAssign(value) => {
+                write!(f, "Tried to assign value {} to a NaN key in a table", value)
+            }
             Self::IsNotIndexable(value) => write!(f, "Value {} cannot be indexed", value),
             Self::CannotAccessProperty { property, of } => {
                 write!(f, "Cannot access property {} of {}", property, of)
@@ -154,12 +158,19 @@ impl<V: fmt::Display> fmt::Display for TypeError<V> {
             Self::CannotAssignMember { member, of } => {
                 write!(f, "Cannot assign to a member {} of {}", member, of)
             }
-            Self::Ordering { lhs, rhs, op } => {
+            Self::Ordering {
+                lhs,
+                rhs,
+                op: Some(op),
+            } => {
                 write!(
                     f,
                     "Cannot compare {} and {} with an \"{}\" operator",
                     lhs, rhs, op
                 )
+            }
+            Self::Ordering { lhs, rhs, op: None } => {
+                write!(f, "Cannot compare {} and {}", lhs, rhs)
             }
         }
     }

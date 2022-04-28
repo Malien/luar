@@ -92,6 +92,9 @@ pub enum Instruction {
     FDivR(ArgumentRegisterID),
     FDivL(LocalRegisterID),
 
+    // F_neg
+    NegF,
+
     // I_add_XZ
     IAddR(ArgumentRegisterID),
     IAddL(LocalRegisterID),
@@ -108,6 +111,9 @@ pub enum Instruction {
     IDivR(ArgumentRegisterID),
     IDivL(LocalRegisterID),
 
+    // I_neg
+    NegI,
+
     // D_add_XZ
     DAddR(ArgumentRegisterID),
     DAddL(LocalRegisterID),
@@ -123,6 +129,9 @@ pub enum Instruction {
     // D_div_XZ
     DDivR(ArgumentRegisterID),
     DDivL(LocalRegisterID),
+
+    // D_neg
+    NegD,
 
     // S_concat_XZ
     SConcatR(ArgumentRegisterID),
@@ -448,6 +457,9 @@ impl std::fmt::Display for Instruction {
             Instruction::TableMemberAssignErrorL(reg) => {
                 write!(f, "error table_member_assign LD{}", reg.0)
             }
+            Instruction::NegF => write!(f, "neg F"),
+            Instruction::NegI => write!(f, "neg I"),
+            Instruction::NegD => write!(f, "neg D"),
         }
     }
 }

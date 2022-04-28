@@ -58,25 +58,30 @@ pub struct Accumulators {
     pub d: LuaValue,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EqualityFlag {
-    NE,
-    EQ,
-}
-
-impl EqualityFlag {
+impl TestFlag {
     pub fn from_bool(v: bool) -> Self {
         match v {
             true => Self::EQ,
             false => Self::NE,
         }
     }
+
+    pub fn test_succeeded(self) -> bool {
+        matches!(self, Self::EQ | Self::LT)
+    }
+
+    pub fn test_failed(self) -> bool {
+        matches!(self, Self::NE | Self::GT)
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OrderingFlag {
-    LT,
-    GT,
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TestFlag {
+    EQ = 0b00,
+    NE = 0b01,
+    LT = 0b10,
+    GT = 0b11,
 }
 
 pub enum TypeTestResult {
@@ -252,8 +257,7 @@ pub struct Machine {
     pub accumulators: Accumulators,
     pub program_counter: ProgramCounter,
     pub value_count: u16,
-    pub equality_flag: EqualityFlag,
-    pub ordering_flag: OrderingFlag,
+    pub test_flag: TestFlag,
     pub type_test_result: TypeTestResult,
     pub argument_registers: ArgumentRegisters,
     pub global_values: GlobalValues,
@@ -284,8 +288,7 @@ impl Machine {
                 position: 0,
             },
             value_count: 0,
-            equality_flag: EqualityFlag::NE,
-            ordering_flag: OrderingFlag::LT,
+            test_flag: TestFlag::EQ,
             type_test_result: TypeTestResult::Nil,
             argument_registers: ArgumentRegisters {
                 f: [0.0; ARG_REG_COUNT],

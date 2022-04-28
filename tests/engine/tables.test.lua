@@ -1,10 +1,21 @@
--- function trying_to_trick_array_like_tables()
---     local tbl = {}
---     tbl[2] = 42
---     tbl[1] = 0
---     tbl[2] = 69
---     assert(tbl[2] == 69)
--- end
+function trying_to_trick_array_like_tables()
+    local tbl = {}
+    tbl[2] = 42
+    tbl[1] = 0
+    tbl[2] = 69
+    assert(tbl[2] == 69)
+end
+
+function storing_float_that_is_integer_like_is_equivalent_to_storing_that_int()
+    local tbl = {}
+    tbl[1.0] = 42
+    tbl[1.2] = 69
+    assert(tbl[1.0] == 42)
+    assert(tbl[1.2] == 69)
+    assert(tbl[1] == 42)
+    assert(not tbl[2])
+    assert(not tbl[0])
+end
 
 function constructing_list_table_does_not_error_out()
     local tbl = { 1, 2, 3, 4, "foo", "bar", nil, constructing_list_table_does_not_error_out }
@@ -36,7 +47,7 @@ end
 
 function nil_lookup_is_not_an_error()
     local tbl = { }
-    local nan = 0/0
+    local nan = -"nan"
     assert(not tbl[nil])
     assert(not tbl[nan])
 end

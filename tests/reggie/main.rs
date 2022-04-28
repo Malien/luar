@@ -12,6 +12,7 @@ mod unary_op;
 mod while_loop;
 mod table_constructor;
 mod table;
+mod comparison;
 
 pub fn eq_with_nan(a: f64, b: f64) -> bool {
     if a.is_nan() && b.is_nan() {

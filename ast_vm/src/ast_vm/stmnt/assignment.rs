@@ -44,7 +44,8 @@ mod test {
         lang::{
             GlobalContext, LuaFunction, LuaKey, LuaValue, NaNLessTable, ReturnValue, TableRef,
             TableValue,
-        }, LuaError, TypeError,
+        },
+        LuaError, TypeError,
     };
     use itertools::Itertools;
     use luar_error::assert_type_error;
@@ -345,7 +346,7 @@ mod test {
         let module = lua_parser::module("tbl = {} tbl[nil] = 42")?;
         let mut context = GlobalContext::new();
         let res = ast_vm::eval_module(&module, &mut context);
-        assert_type_error!(TypeError::NilLookup, res);
+        assert_type_error!(TypeError::NilAssign(_), res);
         Ok(())
     }
 

@@ -1,15 +1,13 @@
 use super::{
     ids::{ArgumentRegisterID, LocalRegisterID},
-    machine::{EqualityFlag, Machine, OrderingFlag, ProgramCounter, StackFrame},
+    machine::{Machine, ProgramCounter, StackFrame, TestFlag},
     ops::Instruction,
-};
-use crate::{
     ArithmeticError, EvalError, InvalidLuaKey, LuaKey, LuaValue, NativeFunction,
     NativeFunctionKind, TableRef, TableValue, TypeError,
 };
 use luar_error::ArithmeticOperator;
 use luar_lex::Ident;
-use std::borrow::Borrow;
+use std::{borrow::Borrow, cmp::Ordering};
 
 pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
     let mut block = &machine.code_blocks[machine.program_counter.block];
@@ -104,13 +102,13 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 *position += 1;
             }
             Instruction::EqTestRD(ArgumentRegisterID(reg)) => {
-                machine.equality_flag = EqualityFlag::from_bool(
+                machine.test_flag = TestFlag::from_bool(
                     machine.accumulators.d == machine.argument_registers.d[reg as usize],
                 );
                 *position += 1;
             }
             Instruction::EqTestLD(LocalRegisterID(reg)) => {
-                machine.equality_flag = EqualityFlag::from_bool(
+                machine.test_flag = TestFlag::from_bool(
                     machine.accumulators.d == frame.local_values.d[reg as usize],
                 );
                 *position += 1;
@@ -123,46 +121,42 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 *position += 1;
             }
             Instruction::JmpEQ(jmp_label) => {
-                if machine.equality_flag == EqualityFlag::EQ {
+                if let TestFlag::EQ = machine.test_flag {
                     *position = block.meta.label_mappings[jmp_label];
                 } else {
                     *position += 1;
                 }
             }
             Instruction::JmpNE(jmp_label) => {
-                if machine.equality_flag == EqualityFlag::NE {
+                if let TestFlag::NE = machine.test_flag {
                     *position = block.meta.label_mappings[jmp_label];
                 } else {
                     *position += 1;
                 }
             }
             Instruction::JmpLT(jmp_label) => {
-                if machine.equality_flag == EqualityFlag::NE
-                    && machine.ordering_flag == OrderingFlag::LT
-                {
+                if let TestFlag::LT = machine.test_flag {
                     *position = block.meta.label_mappings[jmp_label];
                 } else {
                     *position += 1;
                 }
             }
             Instruction::JmpGT(jmp_label) => {
-                if machine.equality_flag == EqualityFlag::NE
-                    && machine.ordering_flag == OrderingFlag::GT
-                {
+                if let TestFlag::GT = machine.test_flag {
                     *position = block.meta.label_mappings[jmp_label];
                 } else {
                     *position += 1;
                 }
             }
             Instruction::JmpLE(jmp_label) => {
-                if machine.ordering_flag == OrderingFlag::LT {
+                if machine.test_flag == TestFlag::LT || machine.test_flag == TestFlag::EQ {
                     *position = block.meta.label_mappings[jmp_label];
                 } else {
                     *position += 1;
                 }
             }
             Instruction::JmpGE(jmp_label) => {
-                if machine.ordering_flag == OrderingFlag::GT {
+                if machine.test_flag == TestFlag::GT || machine.test_flag == TestFlag::EQ {
                     *position = block.meta.label_mappings[jmp_label];
                 } else {
                     *position += 1;
@@ -202,10 +196,9 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                         NativeFunctionKind::Dyn(dyn_fn) => {
                             dyn_fn.call(&mut machine.argument_registers, machine.value_count)?;
                             machine.value_count = dyn_fn.return_count();
-                        }
-                        NativeFunctionKind::OverloadSet(_) => {
-                            todo!("Cannot call native functions defined with overload sets yet")
-                        }
+                        } // NativeFunctionKind::OverloadSet(_) => {
+                          //     todo!("Cannot call native functions defined with overload sets yet")
+                          // }
                     };
                     *position += 1;
                 }
@@ -277,8 +270,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 *position += 1;
             }
             Instruction::NilTest => {
-                machine.equality_flag =
-                    EqualityFlag::from_bool(machine.accumulators.d == LuaValue::Nil);
+                machine.test_flag = TestFlag::from_bool(machine.accumulators.d == LuaValue::Nil);
                 *position += 1;
             }
             Instruction::DSubR(reg) => {
@@ -329,11 +321,11 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 *position += 1;
             }
             Instruction::CastT => {
-                machine.equality_flag = if let LuaValue::Table(ref table) = machine.accumulators.d {
+                machine.test_flag = if let LuaValue::Table(ref table) = machine.accumulators.d {
                     machine.accumulators.t = Some(table.clone());
-                    EqualityFlag::EQ
+                    TestFlag::EQ
                 } else {
-                    EqualityFlag::NE
+                    TestFlag::NE
                 };
                 *position += 1;
             }
@@ -466,6 +458,32 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                     of: std::mem::replace(&mut machine.accumulators.d, LuaValue::Nil),
                 }))
             }
+            Instruction::NegD => {
+                neg_dyn_accumulator(&mut machine.accumulators.d)?;
+                *position += 1;
+            }
+            Instruction::TestRD(reg) => {
+                let ordering = LuaValue::partial_cmp(
+                    &machine.accumulators.d,
+                    &machine.argument_registers.d[reg.0 as usize],
+                );
+                machine.test_flag = cmp_test_flags(ordering);
+                *position += 1;
+            }
+            Instruction::TestLD(reg) => {
+                let lhs = &mut machine.accumulators.d;
+                let rhs = &mut frame.local_values.d[reg.0 as usize];
+                if !lhs.is_comparable() || !rhs.is_comparable() {
+                    return Err(EvalError::from(TypeError::Ordering {
+                        lhs: std::mem::replace(lhs, LuaValue::Nil),
+                        rhs: std::mem::replace(rhs, LuaValue::Nil),
+                        op: None,
+                    }));
+                }
+                let ordering = LuaValue::partial_cmp(lhs, rhs);
+                machine.test_flag = cmp_test_flags(ordering);
+                *position += 1;
+            }
 
             Instruction::LdaRF(_) => todo!(),
             Instruction::LdaRS(_) => todo!(),
@@ -537,14 +555,12 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::TestRT(_) => todo!(),
             Instruction::TestRC(_) => todo!(),
             Instruction::TestRU(_) => todo!(),
-            Instruction::TestRD(_) => todo!(),
             Instruction::TestLF(_) => todo!(),
             Instruction::TestLS(_) => todo!(),
             Instruction::TestLI(_) => todo!(),
             Instruction::TestLT(_) => todo!(),
             Instruction::TestLC(_) => todo!(),
             Instruction::TestLU(_) => todo!(),
-            Instruction::TestLD(_) => todo!(),
             Instruction::TypeTest => todo!(),
             Instruction::WrapU => todo!(),
             Instruction::CastF => todo!(),
@@ -564,7 +580,43 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::RTShiftRight => todo!(),
             Instruction::RCShiftRight => todo!(),
             Instruction::RUShiftRight => todo!(),
+            Instruction::NegF => todo!(),
+            Instruction::NegI => todo!(),
         }
+    }
+}
+
+fn cmp_test_flags(ordering: Option<Ordering>) -> TestFlag {
+    match ordering {
+        Some(Ordering::Equal) => TestFlag::EQ,
+        Some(Ordering::Less) => TestFlag::LT,
+        Some(Ordering::Greater) => TestFlag::GT,
+        None => TestFlag::NE,
+    }
+}
+
+fn neg_dyn_accumulator(accumulator: &mut LuaValue) -> Result<(), EvalError> {
+    match accumulator {
+        LuaValue::Int(ref mut int) => {
+            *int = -*int;
+            Ok(())
+        }
+        LuaValue::Float(ref mut float) => {
+            *float = -*float;
+            Ok(())
+        }
+        LuaValue::String(ref str) => match str.parse::<f64>() {
+            Ok(value) => {
+                *accumulator = LuaValue::Float(-value);
+                Ok(())
+            }
+            Err(_) => Err(EvalError::from(TypeError::Arithmetic(
+                ArithmeticError::UnaryMinus(std::mem::replace(accumulator, LuaValue::Nil)),
+            ))),
+        },
+        accumulator => Err(EvalError::from(TypeError::Arithmetic(
+            ArithmeticError::UnaryMinus(std::mem::replace(accumulator, LuaValue::Nil)),
+        ))),
     }
 }
 
@@ -639,8 +691,8 @@ mod test {
         ids::{ArgumentRegisterID, JmpLabel, LocalBlockID, LocalRegisterID, StringID},
         keyed_vec::keyed_vec,
         machine::{
-            CodeBlock, EqualityFlag, EqualityFlag::EQ, EqualityFlag::NE, Machine, OrderingFlag,
-            OrderingFlag::GT, OrderingFlag::LT,
+            CodeBlock, Machine,
+            TestFlag::{self, *},
         },
         meta::{reg_count, CodeMeta, LocalRegCount},
         ops::Instruction::{self, *},
@@ -837,7 +889,7 @@ mod test {
     // #[timeout(5000)]
     fn eq_test_d(lhs: LuaValue, rhs: LuaValue) {
         let mut machine = Machine::new();
-        let expected = EqualityFlag::from_bool(lhs == rhs);
+        let expected = TestFlag::from_bool(lhs == rhs);
         machine.argument_registers.d[0] = lhs;
         machine.argument_registers.d[1] = rhs;
         let block_id = machine.code_blocks.add_top_level_block(CodeBlock {
@@ -853,7 +905,7 @@ mod test {
             ],
         });
         call_block::<Strict<()>>(block_id, &mut machine).unwrap();
-        assert_eq!(machine.equality_flag, expected);
+        assert_eq!(machine.test_flag, expected);
     }
 
     test_instructions_with_meta!(
@@ -868,27 +920,22 @@ mod test {
         |machine: Machine| { assert_eq!(machine.accumulators.i, 1) }
     );
 
-    static CONDITIONAL_JMP_BEHAVIOR: [(
-        fn(JmpLabel) -> Instruction,
-        Option<EqualityFlag>,
-        Option<OrderingFlag>,
-    ); 6] = [
-        (JmpEQ, Some(EQ), None),
-        (JmpNE, Some(NE), None),
-        (JmpLT, Some(NE), Some(LT)),
-        (JmpGT, Some(NE), Some(GT)),
-        (JmpLE, None, Some(LT)),
-        (JmpGE, None, Some(GT)),
+    static CONDITIONAL_JMP_BEHAVIOR: [(fn(JmpLabel) -> Instruction, &[TestFlag]); 6] = [
+        (JmpEQ, &[EQ]),
+        (JmpNE, &[NE]),
+        (JmpLT, &[LT]),
+        (JmpGT, &[GT]),
+        (JmpLE, &[EQ, LT]),
+        (JmpGE, &[EQ, GT]),
     ];
 
-    static FLAGS_PERMUTATION: [(EqualityFlag, OrderingFlag); 4] =
-        [(EQ, LT), (EQ, GT), (NE, LT), (NE, GT)];
+    static FLAGS_PERMUTATION: [TestFlag; 4] = [EQ, NE, LT, GT];
 
     #[test]
     fn conditional_jumps() {
         let mut machine = Machine::new();
-        for (jmp_instr, triggered_eq_flag, triggered_ord_flag) in CONDITIONAL_JMP_BEHAVIOR {
-            for (eq_flag, ord_flag) in FLAGS_PERMUTATION {
+        for (jmp_instr, triggered_flags) in CONDITIONAL_JMP_BEHAVIOR {
+            for flag in FLAGS_PERMUTATION {
                 let block_id = machine.code_blocks.add_top_level_block(CodeBlock {
                     meta: CodeMeta {
                         arg_count: 0.into(),
@@ -898,21 +945,21 @@ mod test {
                     },
                     instructions: vec![ConstI(1), jmp_instr(JmpLabel(0)), ConstI(2), Label, Ret],
                 });
-                machine.equality_flag = eq_flag;
-                machine.ordering_flag = ord_flag;
+                machine.test_flag = flag;
                 call_block::<Strict<()>>(block_id, &mut machine).unwrap();
-                let eq_flag_matches = triggered_eq_flag
-                    .map(|flag| flag == eq_flag)
-                    .unwrap_or(true);
-                let ord_flag_matches = triggered_ord_flag
-                    .map(|flag| flag == ord_flag)
-                    .unwrap_or(true);
-                let expected_value = if eq_flag_matches && ord_flag_matches {
+                let expected_value = if triggered_flags.contains(&flag) {
                     1
                 } else {
                     2
                 };
-                assert_eq!(machine.accumulators.i, expected_value);
+                assert_eq!(
+                    machine.accumulators.i,
+                    expected_value,
+                    "While executing {} with triggered flags: {:?} and actual flag {:?}",
+                    jmp_instr(JmpLabel(0)),
+                    triggered_flags,
+                    flag
+                );
             }
         }
     }
@@ -1278,7 +1325,7 @@ mod test {
             Ret
         ],
         |machine: Machine| {
-            assert_eq!(machine.equality_flag, EqualityFlag::EQ);
+            assert!(machine.test_flag.test_succeeded());
         }
     );
 
@@ -1294,7 +1341,7 @@ mod test {
             Ret
         ],
         |machine: Machine| {
-            assert_eq!(machine.equality_flag, EqualityFlag::NE);
+            assert!(machine.test_flag.test_failed());
         }
     );
 
