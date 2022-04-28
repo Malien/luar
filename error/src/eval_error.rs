@@ -45,6 +45,10 @@ pub enum TypeError<V> {
         member: V,
         of: V,
     },
+    CannotAssignMember {
+        member: V,
+        of: V,
+    },
     Ordering {
         lhs: V,
         rhs: V,
@@ -146,6 +150,9 @@ impl<V: fmt::Display> fmt::Display for TypeError<V> {
             }
             Self::CannotAccessMember { member, of } => {
                 write!(f, "Cannot access member {} of {}", member, of)
+            }
+            Self::CannotAssignMember { member, of } => {
+                write!(f, "Cannot assign to a member {} of {}", member, of)
             }
             Self::Ordering { lhs, rhs, op } => {
                 write!(

@@ -571,3 +571,11 @@ Emit an error which tells the failure to load property with name stored in AS, f
 #### error table_member_lookup XDZ
 
 Emit an error which tells the failure to load member with value stored in AD, from value stored in register XDZ
+
+#### error table_property_assign
+
+Emit an error which tells the failure to store to member with name in AS, of value stored in AD
+
+#### error table_member_assign XDZ
+
+Emit an error which tells the failure to store to member with name in the register XDZ, of value stored in AD

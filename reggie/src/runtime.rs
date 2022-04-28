@@ -4,8 +4,8 @@ use super::{
     ops::Instruction,
 };
 use crate::{
-    ArithmeticError, EvalError, LuaKey, LuaValue, NativeFunction, NativeFunctionKind, TableRef,
-    TableValue, TypeError,
+    ArithmeticError, EvalError, InvalidLuaKey, LuaKey, LuaValue, NativeFunction,
+    NativeFunctionKind, TableRef, TableValue, TypeError,
 };
 use luar_error::ArithmeticOperator;
 use luar_lex::Ident;
@@ -379,7 +379,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 match LuaKey::try_from(machine.accumulators.d.clone()) {
                     Ok(key) => {
                         machine.accumulators.d = machine.accumulators.t.as_mut().unwrap().get(&key);
-                    },
+                    }
                     Err(_) => {
                         machine.accumulators.d = LuaValue::Nil;
                     }
@@ -413,6 +413,58 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                     &frame.local_values.d[reg.0 as usize],
                 )?;
                 *position += 1;
+            }
+            Instruction::AssocRD(reg) => {
+                let value = machine.argument_registers.d[reg.0 as usize].clone();
+                let key = match LuaKey::try_from(machine.accumulators.d.clone()) {
+                    Ok(key) => key,
+                    Err(InvalidLuaKey::Nil) => {
+                        return Err(EvalError::from(TypeError::NilAssign(value)))
+                    }
+                    Err(InvalidLuaKey::NaN) => {
+                        return Err(EvalError::from(TypeError::NaNAssign(value)))
+                    }
+                };
+                machine.accumulators.t.as_mut().unwrap().set(key, value);
+                *position += 1;
+            }
+            Instruction::AssocLD(reg) => {
+                let value = frame.local_values.d[reg.0 as usize].clone();
+                let key = match LuaKey::try_from(machine.accumulators.d.clone()) {
+                    Ok(key) => key,
+                    Err(InvalidLuaKey::Nil) => {
+                        return Err(EvalError::from(TypeError::NilAssign(value)))
+                    }
+                    Err(InvalidLuaKey::NaN) => {
+                        return Err(EvalError::from(TypeError::NaNAssign(value)))
+                    }
+                };
+                machine.accumulators.t.as_mut().unwrap().set(key, value);
+                *position += 1;
+            }
+            Instruction::TablePropertyAssignError => {
+                return Err(EvalError::from(TypeError::CannotAssignProperty {
+                    property: Ident::new(machine.accumulators.s.take().unwrap()),
+                    of: std::mem::replace(&mut machine.accumulators.d, LuaValue::Nil),
+                }))
+            }
+            Instruction::TableMemberAssignErrorR(reg) => {
+                return Err(EvalError::from(TypeError::CannotAssignMember {
+                    member: std::mem::replace(
+                        &mut machine.argument_registers.d[reg.0 as usize],
+                        LuaValue::Nil,
+                    ),
+                    of: std::mem::replace(&mut machine.accumulators.d, LuaValue::Nil),
+                }))
+            }
+            Instruction::TableMemberAssignErrorL(reg) => {
+                return Err(EvalError::from(TypeError::CannotAssignMember {
+                    member: std::mem::replace(
+                        &mut frame.local_values.d[reg.0 as usize],
+                        LuaValue::Nil,
+                    ),
+                    of: std::mem::replace(&mut machine.accumulators.d, LuaValue::Nil),
+                }))
             }
 
             Instruction::LdaRF(_) => todo!(),
@@ -512,8 +564,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::RTShiftRight => todo!(),
             Instruction::RCShiftRight => todo!(),
             Instruction::RUShiftRight => todo!(),
-            Instruction::AssocRD(_) => todo!(),
-            Instruction::AssocLD(_) => todo!(),
         }
     }
 }

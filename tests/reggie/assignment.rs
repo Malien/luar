@@ -1,3 +1,9 @@
+use itertools::Itertools;
+use luar_lex::{Ident, Token};
+use luar_syn::lua_parser;
+use quickcheck::TestResult;
+use reggie::{eval_module, GlobalValues, LuaError, LuaValue, Machine, Strict};
+
 #[quickcheck]
 fn eval_single_assignment(ident: Ident, v1: LuaValue, v2: LuaValue) -> Result<(), LuaError> {
     let module = lua_parser::module(&format!("{} = value", ident))?;
@@ -224,127 +230,3 @@ fn eval_multiple_assignment(
 
 //     Ok(TestResult::passed())
 // }
-
-// #[quickcheck]
-// fn assigning_to_a_table_member(key: LuaKey, value: LuaValue) -> Result<TestResult, LuaError> {
-//     if let LuaKey::Number(num) = key {
-//         if num.as_f64().is_nan() {
-//             return Ok(TestResult::discard());
-//         }
-//     }
-//     let module = lua_parser::module("table[key] = value")?;
-
-//     let table = TableRef::from(TableValue::new());
-//     let mut context = GlobalContext::new();
-//     context.set("table", LuaValue::Table(table.clone()));
-//     context.set("value", value.clone());
-//     context.set("key", LuaValue::from(key.clone()));
-
-//     ast_vm::eval_module(&module, &mut context)?;
-//     assert!(table.get(&key).total_eq(&value));
-//     Ok(TestResult::passed())
-// }
-
-// #[quickcheck]
-// fn assigning_to_existing_member_overrides_it(
-//     key: LuaKey,
-//     prev_value: LuaValue,
-//     value: LuaValue,
-// ) -> Result<TestResult, LuaError> {
-//     let module = lua_parser::module("table[key] = value")?;
-//     if let LuaKey::Number(num) = key {
-//         if num.as_f64().is_nan() {
-//             return Ok(TestResult::discard());
-//         }
-//     }
-
-//     let mut table = TableValue::new();
-//     table.set(key.clone(), prev_value);
-//     let table = TableRef::from(table);
-//     let mut context = GlobalContext::new();
-//     context.set("table", LuaValue::Table(table.clone()));
-//     context.set("value", value.clone());
-//     context.set("key", LuaValue::from(key.clone()));
-
-//     ast_vm::eval_module(&module, &mut context)?;
-//     assert!(table.get(&key).total_eq(&value));
-//     Ok(TestResult::passed())
-// }
-
-// #[quickcheck]
-// fn assigning_to_a_non_indexable_value_is_an_error(
-//     key: LuaKey,
-//     value: LuaValue,
-// ) -> Result<TestResult, LuaError> {
-//     if value.is_table() {
-//         return Ok(TestResult::discard());
-//     }
-
-//     let module = lua_parser::module("value[key] = 42")?;
-//     let mut context = GlobalContext::new();
-//     context.set("key", key.into());
-//     context.set("value", value);
-//     let res = ast_vm::eval_module(&module, &mut context);
-//     assert_type_error!(TypeError::IsNotIndexable(_), res);
-//     Ok(TestResult::passed())
-// }
-
-#[test]
-fn assigning_to_a_nil_member_is_an_error() -> Result<(), LuaError> {
-    let module = lua_parser::module("tbl = {} tbl[nil] = 42")?;
-    let mut machine = Machine::new();
-    let res = eval_module::<Strict<()>>(&module, &mut machine);
-    assert_type_error!(TypeError::NilLookup, res);
-    Ok(())
-}
-
-// #[quickcheck]
-// fn assigning_to_a_property_is_the_same_as_to_a_member_keyed_by_the_string_of_property_name(
-//     NaNLessTable(table): NaNLessTable,
-//     prop: Ident,
-//     value: LuaValue,
-// ) -> Result<(), LuaError> {
-//     let module = lua_parser::module(&format!(
-//         "tbl1[\"{}\"] = value
-//         tbl2.{} = value",
-//         prop, prop
-//     ))?;
-//     let tbl1 = TableRef::from(table.clone());
-//     let tbl2 = TableRef::from(table);
-//     let mut context = GlobalContext::new();
-//     context.set("tbl1", LuaValue::Table(tbl1.clone()));
-//     context.set("tbl2", LuaValue::Table(tbl2.clone()));
-//     context.set("value", value.clone());
-
-//     ast_vm::eval_module(&module, &mut context)?;
-//     drop(context);
-//     let tbl1 = tbl1.try_into_inner().unwrap();
-//     let tbl2 = tbl2.try_into_inner().unwrap();
-//     assert!(tbl1.total_eq(&tbl2));
-
-//     Ok(())
-// }
-
-use itertools::Itertools;
-use luar_error::assert_type_error;
-use luar_lex::{Ident, Token};
-use luar_syn::lua_parser;
-use quickcheck::TestResult;
-use reggie::{LuaValue, LuaError, Machine, eval_module, GlobalValues, Strict, TypeError};
-
-#[quickcheck]
-fn accessing_property_of_a_non_indexable_value_is_an_error(
-    prop: Ident,
-    value: LuaValue,
-) -> Result<TestResult, LuaError> {
-    if value.is_table() {
-        return Ok(TestResult::discard());
-    }
-
-    let module = lua_parser::module(&format!("value.{} = 42", prop))?;
-    let mut machine = Machine::new();
-    machine.global_values.set("value", value);
-    let res = eval_module::<Strict<()>>(&module, &mut machine);
-    assert_type_error!(TypeError::CannotAssignProperty { .. }, res);
-    Ok(TestResult::passed())
-}

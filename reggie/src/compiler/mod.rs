@@ -15,13 +15,15 @@ pub(crate) mod ret;
 pub(crate) mod return_traversal;
 pub(crate) mod statement;
 pub(crate) mod var;
+pub(crate) mod assignment;
 
-pub use expr::*;
-pub use fn_call::*;
+pub(crate) use expr::*;
+pub(crate) use fn_call::*;
 pub use function::*;
 pub use module::*;
-pub use statement::*;
-pub use var::*;
+pub(crate) use statement::*;
+pub(crate) use var::*;
+pub(crate) use assignment::*;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct RegisterAllocator {

@@ -11,7 +11,8 @@ fn repl() -> Result<(), Box<dyn Error>> {
     for line in std::io::stdin().lock().lines() {
         let res = eval_str::<&[LuaValue]>(&line?, &mut machine);
         match res {
-            Ok(values) => println!("{}", values.iter().join("\t")),
+            Ok(values) if values.len() > 0 => println!("{}", values.iter().join("\t")),
+            Ok(_) => {},
             Err(err) => println!("Error: {}", err),
         }
         print!(">>> ");

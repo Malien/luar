@@ -269,6 +269,9 @@ pub enum Instruction {
     TablePropertyLookupError,
     TableMemberLookupErrorR(ArgumentRegisterID),
     TableMemberLookupErrorL(LocalRegisterID),
+    TablePropertyAssignError,
+    TableMemberAssignErrorR(ArgumentRegisterID),
+    TableMemberAssignErrorL(LocalRegisterID),
 }
 
 impl std::fmt::Display for Instruction {
@@ -437,6 +440,13 @@ impl std::fmt::Display for Instruction {
             }
             Instruction::TableMemberLookupErrorL(reg) => {
                 write!(f, "error table_member_lookup LD{}", reg.0)
+            }
+            Instruction::TablePropertyAssignError => write!(f, "error table_property_assign"),
+            Instruction::TableMemberAssignErrorR(reg) => {
+                write!(f, "error table_member_assign RD{}", reg.0)
+            }
+            Instruction::TableMemberAssignErrorL(reg) => {
+                write!(f, "error table_member_assign LD{}", reg.0)
             }
         }
     }
