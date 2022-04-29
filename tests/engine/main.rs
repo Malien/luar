@@ -26,6 +26,7 @@ macro_rules! run_tests {
             tables,
             arithmetic,
             comparison,
+            boolean_ops
         ]);
     };
 }

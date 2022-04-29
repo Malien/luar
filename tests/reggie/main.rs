@@ -13,6 +13,7 @@ mod while_loop;
 mod table_constructor;
 mod table;
 mod comparison;
+mod boolean_ops;
 
 pub fn eq_with_nan(a: f64, b: f64) -> bool {
     if a.is_nan() && b.is_nan() {
@@ -109,10 +110,4 @@ fn not_equals_is_the_negation_of_equality(lhs: LuaValue, rhs: LuaValue) -> Resul
     let res = eval_str("return (not (lhs ~= rhs)) == (lhs == rhs)", &mut machine)?;
     assert_eq!(LuaValue::true_value(), res);
     Ok(())
-}
-
-#[test]
-fn simple_subtraction() {
-    let res: LuaValue = eval_str("return 1 - 2", &mut Machine::new()).unwrap();
-    assert_eq!(res, LuaValue::Int(-1));
 }

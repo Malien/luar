@@ -78,34 +78,13 @@ fn compile_binary_op(
     rhs: &Expression,
     state: &mut LocalScopeCompilationState,
 ) {
-    use Instruction::*;
-
     compile_expr(lhs, state);
-    let lhs_reg = state.reg().alloc(DataType::Dynamic);
-    state.push_instr(StrLD(lhs_reg));
-    compile_expr(rhs, state);
-    let rhs_reg = state.reg().alloc(DataType::Dynamic);
-    state.push_instr(StrLD(rhs_reg));
-    state.push_instr(LdaLD(lhs_reg));
 
-    match op {
-        BinaryOperator::Equals => compile_eq_op(state, rhs_reg, false),
-        BinaryOperator::NotEquals => compile_eq_op(state, rhs_reg, true),
-        BinaryOperator::Plus => state.push_instr(DAddL(rhs_reg)),
-        BinaryOperator::Minus => state.push_instr(DSubL(rhs_reg)),
-        BinaryOperator::Mul => state.push_instr(DMulL(rhs_reg)),
-        BinaryOperator::Div => state.push_instr(DDivL(rhs_reg)),
-
-        BinaryOperator::Less => compile_comparison(rhs_reg, JmpLT, state),
-        BinaryOperator::Greater => compile_comparison(rhs_reg, JmpGT, state),
-        BinaryOperator::LessOrEquals => compile_comparison(rhs_reg, JmpLE, state),
-        BinaryOperator::GreaterOrEquals => compile_comparison(rhs_reg, JmpGE, state),
-
-        op => todo!("Cannot compile use of {} operator yet", op),
+    match categorize_op(op) {
+        BinaryOpType::ShortCircuits(op) => compile_short_circuit_op(op, rhs, state),
+        BinaryOpType::Regular(op) => compile_regular_binary_op(op, rhs, state),
     }
 
-    state.reg().free(DataType::Dynamic);
-    state.reg().free(DataType::Dynamic);
 }
 
 fn compile_comparison(
@@ -125,6 +104,104 @@ fn compile_comparison(
     state.push_instr(ConstI(1));
     state.push_instr(WrapI);
     state.push_label(cont_lbl);
+}
+
+enum ShortCircuitOp {
+    And,
+    Or,
+}
+
+enum RegularOp {
+    Equals,
+    NotEquals,
+    Plus,
+    Minus,
+    Mul,
+    Div,
+    Less,
+    Greater,
+    LessOrEquals,
+    GreaterOrEquals,
+    Concat,
+    Exp,
+}
+
+enum BinaryOpType {
+    ShortCircuits(ShortCircuitOp),
+    Regular(RegularOp),
+}
+
+fn categorize_op(binary_op: BinaryOperator) -> BinaryOpType {
+    use BinaryOpType::*;
+
+    match binary_op {
+        BinaryOperator::And => ShortCircuits(ShortCircuitOp::And),
+        BinaryOperator::Or => ShortCircuits(ShortCircuitOp::Or),
+
+        BinaryOperator::Less => Regular(RegularOp::Less),
+        BinaryOperator::Greater => Regular(RegularOp::Greater),
+        BinaryOperator::LessOrEquals => Regular(RegularOp::LessOrEquals),
+        BinaryOperator::GreaterOrEquals => Regular(RegularOp::GreaterOrEquals),
+        BinaryOperator::NotEquals => Regular(RegularOp::NotEquals),
+        BinaryOperator::Equals => Regular(RegularOp::Equals),
+        BinaryOperator::Concat => Regular(RegularOp::Concat),
+        BinaryOperator::Plus => Regular(RegularOp::Plus),
+        BinaryOperator::Minus => Regular(RegularOp::Minus),
+        BinaryOperator::Mul => Regular(RegularOp::Mul),
+        BinaryOperator::Div => Regular(RegularOp::Div),
+        BinaryOperator::Exp => Regular(RegularOp::Exp),
+    }
+}
+
+fn compile_short_circuit_op(
+    op: ShortCircuitOp,
+    rhs: &Expression,
+    state: &mut LocalScopeCompilationState,
+) {
+    use Instruction::*;
+
+    let jmp_instr = match op {
+        ShortCircuitOp::And => JmpEQ,
+        ShortCircuitOp::Or => JmpNE,
+    };
+
+    let short_circuit_lbl = state.alloc_label();
+    state.push_instr(NilTest);
+    state.push_instr(jmp_instr(short_circuit_lbl));
+    compile_expr(rhs, state);
+    state.push_label(short_circuit_lbl);
+}
+
+fn compile_regular_binary_op(op: RegularOp, rhs: &Expression, state: &mut LocalScopeCompilationState) {
+    use Instruction::*;
+
+    let lhs_reg = state.reg().alloc(DataType::Dynamic);
+    state.push_instr(StrLD(lhs_reg));
+    compile_expr(rhs, state);
+    let rhs_reg = state.reg().alloc(DataType::Dynamic);
+    state.push_instr(StrLD(rhs_reg));
+    state.push_instr(LdaLD(lhs_reg));
+
+    match op {
+        RegularOp::Equals => compile_eq_op(state, rhs_reg, false),
+        RegularOp::NotEquals => compile_eq_op(state, rhs_reg, true),
+        RegularOp::Plus => state.push_instr(DAddL(rhs_reg)),
+        RegularOp::Minus => state.push_instr(DSubL(rhs_reg)),
+        RegularOp::Mul => state.push_instr(DMulL(rhs_reg)),
+        RegularOp::Div => state.push_instr(DDivL(rhs_reg)),
+        RegularOp::Less => compile_comparison(rhs_reg, JmpLT, state),
+        RegularOp::Greater => compile_comparison(rhs_reg, JmpGT, state),
+        RegularOp::LessOrEquals => compile_comparison(rhs_reg, JmpLE, state),
+        RegularOp::GreaterOrEquals => compile_comparison(rhs_reg, JmpGE, state),
+
+        RegularOp::Concat => {
+            todo!("Cannot compile the use of concatenation operator '..' yet")
+        }
+        RegularOp::Exp => todo!("Cannot compile the use of exponentiation operator '^' yet"),
+    }
+
+    state.reg().free(DataType::Dynamic);
+    state.reg().free(DataType::Dynamic);
 }
 
 fn compile_eq_op(
