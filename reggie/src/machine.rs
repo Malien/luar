@@ -7,7 +7,7 @@ use crate::{
     keyed_vec::{keyed_vec, KeyedVec},
     meta::CodeMeta,
     ops::Instruction,
-    LuaValue, TableRef,
+    LuaValue, TableRef, stdlib::define_stdlib,
 };
 
 // const ARG_REG_COUNT: usize = 16;
@@ -301,5 +301,11 @@ impl Machine {
             code_blocks: CodeBlocks::default(),
             stack: vec![],
         }
+    }
+
+    pub fn with_stdlib() -> Self {
+        let mut machine = Self::new();
+        define_stdlib(&mut machine.global_values);
+        machine
     }
 }

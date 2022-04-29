@@ -38,10 +38,10 @@ where
 }
 
 impl NativeFunction {
-    pub fn new<F, Args>(func: F) -> Self
+    pub fn new<'a, F, Args>(func: F) -> Self
     where
         F: FFIFunc<Args> + 'static,
-        Args: FromArgs + 'static,
+        Args: FromArgs<'a> + 'static,
     {
         Self(Rc::new(NativeFunctionKind::Dyn(Box::new(
             NativeFunctionWrapper::new(func),

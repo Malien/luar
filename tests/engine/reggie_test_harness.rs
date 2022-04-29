@@ -1,7 +1,7 @@
 use std::panic::{catch_unwind, resume_unwind};
 
 use luar_syn::lua_parser;
-use reggie::{eval_module, stdlib, LuaValue, Machine, NativeFunction, call_block};
+use reggie::{call_block, eval_module, LuaValue, Machine};
 
 macro_rules! run_lua_test {
     ($group_name: expr, $module_str: expr) => {
@@ -13,11 +13,7 @@ pub(crate) use run_lua_test;
 
 pub fn run_lua_test_impl(module_path: &str, group_name: &str, module_str: &str) {
     let res = catch_unwind(|| {
-        let mut machine = Machine::new();
-        machine.global_values.set(
-            "assert",
-            LuaValue::NativeFunction(NativeFunction::new(stdlib::assert)),
-        );
+        let mut machine = Machine::with_stdlib();
         let module = lua_parser::module(module_str).unwrap();
         let res = eval_module::<()>(&module, &mut machine);
         if let Err(err) = res {
@@ -43,7 +39,7 @@ pub fn run_lua_test_impl(module_path: &str, group_name: &str, module_str: &str) 
                 }
             }
         }
-        
+
         error_occurred
     });
 

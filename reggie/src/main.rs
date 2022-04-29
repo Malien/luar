@@ -5,7 +5,7 @@ use std::error::Error;
 fn repl() -> Result<(), Box<dyn Error>> {
     use std::io::{BufRead, Write};
 
-    let mut machine = Machine::new();
+    let mut machine = Machine::with_stdlib();
     print!(">>> ");
     std::io::stdout().flush()?;
     for line in std::io::stdin().lock().lines() {
@@ -27,7 +27,7 @@ fn eval_file(filename: &str) -> Result<(), Box<dyn Error>> {
     let mut file = std::fs::File::open(filename)?;
     let mut buffer = String::new();
     file.read_to_string(&mut buffer)?;
-    eval_str::<()>(&buffer, &mut Machine::new())?;
+    eval_str::<()>(&buffer, &mut Machine::with_stdlib())?;
     Ok(())
 }
 

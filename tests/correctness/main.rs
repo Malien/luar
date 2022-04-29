@@ -16,17 +16,14 @@ macro_rules! test_case {
         }
 
         mod reggie {
-            use reggie::{eval_str, stdlib, LuaValue, Machine, NativeFunction};
+            use reggie::{eval_str, stdlib::define_stdlib, Machine};
             $(
                 #[test]
                 fn $name() -> Result<(), reggie::LuaError> {
 
                     let test_code = include_str!(concat!("./", stringify!($name), ".test.lua"));
                     let mut machine = Machine::new();
-                    machine.global_values.set(
-                        "assert",
-                        LuaValue::NativeFunction(NativeFunction::new(stdlib::assert)),
-                    );
+                    define_stdlib(&mut machine.global_values);
                     eval_str(test_code, &mut machine)?;
                     Ok(())
                 }

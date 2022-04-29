@@ -16,7 +16,7 @@ pub use table::*;
 pub mod key;
 pub use key::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum LuaValue {
     Nil,
     Int(i32),
@@ -25,6 +25,26 @@ pub enum LuaValue {
     NativeFunction(NativeFunction),
     Function(BlockID),
     Table(TableRef),
+}
+
+fn is_float_intlike(float: f64) -> bool {
+    (float as i32) as f64 == float
+}
+
+impl PartialEq for LuaValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Int(l0), Self::Int(r0)) => l0 == r0,
+            (Self::Int(l0), Self::Float(r0)) if is_float_intlike(*r0) => *l0 == *r0 as i32,
+            (Self::Float(l0), Self::Float(r0)) => l0 == r0,
+            (Self::Float(l0), Self::Int(r0)) if is_float_intlike(*l0) => *l0 as i32 == *r0,
+            (Self::String(l0), Self::String(r0)) => l0 == r0,
+            (Self::NativeFunction(l0), Self::NativeFunction(r0)) => l0 == r0,
+            (Self::Function(l0), Self::Function(r0)) => l0 == r0,
+            (Self::Table(l0), Self::Table(r0)) => l0 == r0,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
 }
 
 impl PartialOrd for LuaValue {
