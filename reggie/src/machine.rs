@@ -14,6 +14,8 @@ use crate::{
 // TODO: Implement ExtR in order to make argument register more likely to be in cache(?)
 const ARG_REG_COUNT: usize = 32;
 
+pub const OPTIMIZE: bool = true;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Enum)]
 pub enum DataType {
     Dynamic,

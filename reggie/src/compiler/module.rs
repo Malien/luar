@@ -5,7 +5,7 @@ use crate::{
     ids::LocalBlockID,
     keyed_vec::KeyedVec,
     machine::CodeBlock,
-    meta::{ArgumentCount, CodeMeta, ReturnCount},
+    meta::{ArgumentCount, CodeMeta, ReturnCount, FunctionKind},
     ops::Instruction,
 };
 
@@ -64,6 +64,7 @@ pub fn compile_module(
                 label_mappings: state.label_alloc.into_mappings(),
                 const_strings: state.strings,
                 debug_name: Some("<module root>".to_owned()),
+                kind: FunctionKind::DeOptimized,
             },
         },
     }

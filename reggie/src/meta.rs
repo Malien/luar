@@ -2,7 +2,7 @@ use std::num::NonZeroU16;
 
 use enum_map::EnumMap;
 
-use crate::{keyed_vec::KeyedVec, ids::{StringID, JmpLabel}, machine::DataType};
+use crate::{keyed_vec::KeyedVec, ids::{StringID, JmpLabel, BlockID}, machine::DataType};
 
 pub type LocalRegCount = EnumMap<DataType, u16>;
 
@@ -143,6 +143,23 @@ impl std::fmt::Display for ReturnCount {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FunctionKind {
+    DeOptimized,
+    GlobalsOptimized {
+        deopt_original: BlockID
+    },
+    DynCallWrapper {
+        of: BlockID
+    }
+}
+
+impl Default for FunctionKind {
+    fn default() -> Self {
+        Self::DeOptimized
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CodeMeta {
     // pub identity: FnID,
@@ -153,5 +170,6 @@ pub struct CodeMeta {
     pub label_mappings: KeyedVec<JmpLabel, u32>,
     pub const_strings: KeyedVec<StringID, String>,
     pub debug_name: Option<String>,
+    pub kind: FunctionKind,
     // pub global_deps:
 }
