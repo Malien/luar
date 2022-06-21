@@ -5,6 +5,10 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "syn"
+path = "src/main.rs"
+
 [features]
 quickcheck = ["dep:quickcheck", "luar_lex/quickcheck", "non_empty/quickcheck", "dep:test_util"]
 
