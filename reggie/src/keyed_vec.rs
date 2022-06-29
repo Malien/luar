@@ -1,4 +1,5 @@
 use std::{
+    f32::consts::E,
     iter::Enumerate,
     marker::PhantomData,
     ops::{Index, IndexMut},
@@ -32,8 +33,23 @@ impl<K, V> KeyedVec<K, V> {
         }
     }
 
-    pub fn values(self) -> std::vec::IntoIter<V> {
+    pub fn into_values(self) -> std::vec::IntoIter<V> {
         self.vec.into_iter()
+    }
+
+    pub fn iter(&self) -> Iter<'_, K, V> {
+        Iter {
+            vec: self.vec.iter().enumerate(),
+            _key: PhantomData,
+        }
+    }
+
+    pub fn keys(&self) -> KeysIter<K> {
+        KeysIter {
+            current: 0,
+            max: self.len(),
+            _key: PhantomData,
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -66,6 +82,19 @@ where
 
     pub fn next_key(&self) -> K {
         self.vec.len().try_into().unwrap()
+    }
+}
+
+impl<K, V> KeyedVec<K, V>
+where
+    K: Into<usize>,
+{
+    pub fn get(&self, key: K) -> Option<&V> {
+        self.vec.get(key.into())
+    }
+
+    pub fn get_mut(&mut self, key: K) -> Option<&mut V> {
+        self.vec.get_mut(key.into())
     }
 }
 
@@ -153,7 +182,104 @@ where
     type Item = (K, &'a V);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.vec.next().map(|(idx, value)| (idx.try_into().unwrap(), value))
+        self.vec
+            .next()
+            .map(|(idx, value)| (idx.try_into().unwrap(), value))
+    }
+}
+
+pub struct IterMut<'a, K, V> {
+    vec: Enumerate<std::slice::IterMut<'a, V>>,
+    _key: PhantomData<K>,
+}
+
+impl<'a, K, V> IntoIterator for &'a mut KeyedVec<K, V>
+where
+    K: TryFrom<usize>,
+    K::Error: std::fmt::Debug,
+{
+    type Item = (K, &'a mut V);
+
+    type IntoIter = IterMut<'a, K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IterMut {
+            vec: self.vec.iter_mut().enumerate(),
+            _key: PhantomData,
+        }
+    }
+}
+
+impl<'a, K, V> Iterator for IterMut<'a, K, V>
+where
+    K: TryFrom<usize>,
+    K::Error: std::fmt::Debug,
+{
+    type Item = (K, &'a mut V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.vec
+            .next()
+            .map(|(idx, value)| (idx.try_into().unwrap(), value))
+    }
+}
+
+pub struct IntoIter<K, V> {
+    vec: Enumerate<std::vec::IntoIter<V>>,
+    _key: PhantomData<K>,
+}
+
+impl<K, V> IntoIterator for KeyedVec<K, V>
+where
+    K: TryFrom<usize>,
+    K::Error: std::fmt::Debug,
+{
+    type Item = (K, V);
+
+    type IntoIter = IntoIter<K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter {
+            vec: self.vec.into_iter().enumerate(),
+            _key: PhantomData,
+        }
+    }
+}
+
+impl<K, V> Iterator for IntoIter<K, V>
+where
+    K: TryFrom<usize>,
+    K::Error: std::fmt::Debug,
+{
+    type Item = (K, V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.vec
+            .next()
+            .map(|(idx, value)| (idx.try_into().unwrap(), value))
+    }
+}
+
+pub struct KeysIter<K> {
+    current: usize,
+    max: usize,
+    _key: PhantomData<K>,
+}
+
+impl<K> Iterator for KeysIter<K>
+where
+    K: TryFrom<usize>,
+    K::Error: std::fmt::Debug,
+{
+    type Item = K;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current == self.max {
+            None
+        } else {
+            self.current += 1;
+            Some(self.current.try_into().unwrap())
+        }
     }
 }
 

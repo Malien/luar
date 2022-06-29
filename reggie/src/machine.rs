@@ -193,7 +193,7 @@ impl CodeBlocks {
         let module_id = self.modules.next_key();
         let top_level_block_id = self.add_block(module.top_level, module_id);
 
-        for block in module.blocks.values() {
+        for block in module.blocks.into_values() {
             let block_id = self.add_block(block, module_id);
             module_blocks.push(block_id);
         }
