@@ -41,8 +41,8 @@ mod test {
         use quickcheck::Arbitrary;
         use test_util::Finite;
 
+        use crate as ast_vm;
         use crate::{
-            ast_vm,
             lang::{GlobalContext, ReturnValue, ScopeHolder},
             util::eq_with_nan,
             ArithmeticError, EvalError, LuaError, TypeError,

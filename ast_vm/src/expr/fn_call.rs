@@ -50,8 +50,8 @@ fn eval_fn_args(
 
 #[cfg(test)]
 mod test {
+    use crate as ast_vm;
     use crate::{
-        ast_vm,
         lang::{GlobalContext, LuaFunction, LuaValue, ReturnValue},
         LuaError, TypeError,
     };

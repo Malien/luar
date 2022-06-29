@@ -24,7 +24,8 @@ pub(crate) fn eval_block(
 
 #[cfg(test)]
 mod test {
-    use crate::{ast_vm, lang::GlobalContext, LuaError};
+    use crate as ast_vm;
+    use crate::{lang::GlobalContext, LuaError};
     use luar_syn::lua_parser;
 
     #[test]

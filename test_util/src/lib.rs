@@ -102,23 +102,3 @@ impl GenExt for Gen {
         Gen::new(std::cmp::min(*QUICKCHECK_RECURSIVE_DEPTH, self.size() - 1))
     }
 }
-
-#[macro_export]
-macro_rules! run_lua_test {
-    ($file: expr, $context: expr) => {{
-        let mut context = $context;
-        let existing_assert = crate::lang::GlobalContext::get(&context, "assert");
-        if existing_assert.is_nil() {
-            crate::lang::GlobalContext::set(
-                &mut context,
-                "assert",
-                crate::lang::LuaValue::function(|_, args| {
-                    crate::stdlib::fns::assert(args).map(crate::lang::ReturnValue::from)
-                }),
-            );
-        }
-        let test_module = ::luar_syn::lua_parser::module(include_str!($file))?;
-        crate::ast_vm::eval_module(&test_module, &mut context)?;
-        Ok(())
-    }};
-}

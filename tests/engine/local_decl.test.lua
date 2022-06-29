@@ -10,6 +10,7 @@ end
 
 
 
+
 foo_too = 69
 
 function _bar_too()
@@ -21,6 +22,7 @@ function local_shadows_global_in_that_scope()
     assert(foo_too == 42)
     assert(_bar_too() == 69)
 end
+
 
 
 

@@ -72,6 +72,10 @@ impl GlobalContext {
     pub fn contains(&self, ident: impl AsRef<str>) -> bool {
         self.global_scope.contains(ident)
     }
+
+    pub fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
+        self.into_iter()
+    }
 }
 
 impl ScopeHolder for GlobalContext {
@@ -113,12 +117,7 @@ impl ScopeHolder for GlobalContext {
 
     fn declare_local(&mut self, scope: usize, ident: impl Into<String>, initial_value: LuaValue) {
         let key = ident.into();
-        if scope != 0 || !self.global_scope.contains(&key) {
-            self.local_scopes[scope]
-                .0
-                .entry(key)
-                .or_insert(initial_value);
-        }
+        self.local_scopes[scope].0.insert(key, initial_value);
     }
 }
 
@@ -174,10 +173,7 @@ impl<'a> ScopeHolder for FunctionContext<'a> {
     }
 
     fn declare_local(&mut self, scope: usize, ident: impl Into<String>, initial_value: LuaValue) {
-        self.scopes[scope]
-            .0
-            .entry(ident.into())
-            .or_insert(initial_value);
+        self.scopes[scope].0.insert(ident.into(), initial_value);
     }
 }
 

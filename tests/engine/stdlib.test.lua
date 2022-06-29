@@ -37,6 +37,4 @@ function floor_floors_numbers()
     assert(floor(42.2) == 42)
     assert(floor(-42.2) == -43)
     assert(floor(69.9) == 69)
-    assert(floor("24") == 24)
-    assert(floor("69.420") == 69)
 end

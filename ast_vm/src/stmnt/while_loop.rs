@@ -1,6 +1,7 @@
 use crate::{
-    ast_vm::{eval_block, eval_expr, ControlFlow},
+    eval_block, eval_expr,
     lang::{LocalScope, ScopeHolder},
+    ControlFlow,
 };
 use luar_syn::WhileLoop;
 
@@ -19,8 +20,8 @@ pub(crate) fn eval_while_loop(
 
 #[cfg(test)]
 mod test {
+    use crate as ast_vm;
     use crate::{
-        ast_vm,
         lang::{GlobalContext, LuaValue, ReturnValue},
         LuaError,
     };

@@ -29,14 +29,13 @@ fn multiple_local_assignment(
 
 #[cfg(test)]
 mod test {
+    use crate as ast_vm;
     use crate::{
-        ast_vm,
         lang::{GlobalContext, LuaValue, ReturnValue},
         LuaError,
     };
     use luar_lex::Ident;
     use luar_syn::lua_parser;
-    use non_empty::ne_vec;
 
     #[quickcheck]
     fn local_decl_does_not_behave_like_global_assignment_in_global_scope(
@@ -52,7 +51,7 @@ mod test {
     }
 
     #[quickcheck]
-    fn redeclaring_local_does_nothing(ident: Ident, value: LuaValue) -> Result<(), LuaError> {
+    fn redeclaring_local_overrides_the_variable(ident: Ident, value: LuaValue) -> Result<(), LuaError> {
         let module = lua_parser::module(&format!(
             "local {} = value
             local {}
@@ -62,12 +61,12 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("value", value.clone());
         let res = ast_vm::eval_module(&module, &mut context)?;
-        assert!(res.assert_single().total_eq(&value));
+        assert_eq!(res.assert_single(), LuaValue::Nil);
         Ok(())
     }
 
     #[quickcheck]
-    fn redeclaring_local_with_new_value_does_nothing(
+    fn redeclaring_local_with_new_value_sets_the_value(
         ident: Ident,
         value1: LuaValue,
         value2: LuaValue,
@@ -79,10 +78,10 @@ mod test {
             ident, ident, ident
         ))?;
         let mut context = GlobalContext::new();
-        context.set("value1", value1.clone());
-        context.set("value2", value2);
+        context.set("value1", value1);
+        context.set("value2", value2.clone());
         let res = ast_vm::eval_module(&module, &mut context)?;
-        assert!(res.assert_single().total_eq(&value1));
+        assert!(res.assert_single().total_eq(&value2));
         Ok(())
     }
 
@@ -138,23 +137,6 @@ mod test {
         let mut context = GlobalContext::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::Nil);
-        Ok(())
-    }
-
-    #[test]
-    fn global_var_cannot_be_redeclared_local() -> Result<(), LuaError> {
-        let module = lua_parser::module(
-            "foo = 69
-            local foo = 42
-            function bar() return foo end
-            return foo, bar()",
-        )?;
-        let mut context = GlobalContext::new();
-        let res = ast_vm::eval_module(&module, &mut context)?;
-        assert_eq!(
-            res,
-            ReturnValue::MultiValue(ne_vec![LuaValue::number(69i32), LuaValue::number(69i32)])
-        );
         Ok(())
     }
 

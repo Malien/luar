@@ -1,6 +1,7 @@
 use crate::{
-    ast_vm::{eval_block, eval_expr, ControlFlow},
-    lang::{LocalScope, ScopeHolder}, EvalError,
+    eval_block, eval_expr,
+    lang::{LocalScope, ScopeHolder},
+    ControlFlow, EvalError,
 };
 use luar_syn::{Conditional, ConditionalTail};
 

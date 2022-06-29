@@ -1,4 +1,7 @@
-use crate::{lang::{LocalScope, ReturnValue, ScopeHolder}, EvalError};
+use crate::{
+    lang::{LocalScope, ReturnValue, ScopeHolder},
+    EvalError,
+};
 use luar_syn::Return;
 use non_empty::NonEmptyVec;
 
@@ -28,8 +31,8 @@ pub(crate) fn eval_ret(
 
 #[cfg(test)]
 mod test {
+    use crate as ast_vm;
     use crate::{
-        ast_vm,
         lang::{GlobalContext, LuaFunction, LuaValue, ReturnValue},
         LuaError,
     };

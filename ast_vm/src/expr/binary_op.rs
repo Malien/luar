@@ -1,5 +1,5 @@
 use crate::{
-    ast_vm::eval_expr,
+    eval_expr,
     lang::{LocalScope, LuaValue, ScopeHolder},
     ArithmeticError, EvalError, TypeError,
 };
@@ -91,8 +91,8 @@ ord_op!(greater_or_equals, >=, OrderingOperator::GreaterOrEquals);
 
 #[cfg(test)]
 mod test {
+    use crate as ast_vm;
     use crate::{
-        ast_vm,
         lang::{GlobalContext, LuaFunction, LuaValue, ReturnValue},
         LuaError,
     };

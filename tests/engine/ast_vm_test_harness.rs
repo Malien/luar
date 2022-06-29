@@ -1,8 +1,6 @@
-use ast_vm::{
-    eval_module,
-    lang::{GlobalContext, LuaValue, ReturnValue},
-    stdlib::fns,
-};
+use std::collections::HashSet;
+
+use ast_vm::{eval_module, lang::LuaValue, stdlib};
 use luar_syn::lua_parser;
 
 macro_rules! run_lua_test {
@@ -14,11 +12,10 @@ macro_rules! run_lua_test {
 pub(crate) use run_lua_test;
 
 pub fn run_lua_test_impl(module_path: &str, group_name: &str, module_str: &str) {
-    let mut context = GlobalContext::new();
-    context.set(
-        "assert",
-        LuaValue::function(move |_, args| fns::assert(args).map(ReturnValue::from)),
-    );
+    let mut context = stdlib::std_context();
+
+    let already_defined_fns: HashSet<_> = context.iter().map(|(a, _)| a).cloned().collect();
+
     let module = lua_parser::module(module_str).unwrap();
     eval_module(&module, &mut context).unwrap();
 
@@ -26,7 +23,7 @@ pub fn run_lua_test_impl(module_path: &str, group_name: &str, module_str: &str) 
         .into_iter()
         .map(|(name, value)| (name.clone(), value.clone()))
         .filter_map(|(name, value)| LuaValue::as_function(value).map(|func| (name, func)))
-        .filter(|(name, _)| *name != "assert" && !name.starts_with('_'))
+        .filter(|(name, _)| !already_defined_fns.contains(name) && !name.starts_with('_'))
         .collect();
     let mut error_occurred = false;
 

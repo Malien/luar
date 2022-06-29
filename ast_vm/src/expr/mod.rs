@@ -43,8 +43,8 @@ pub(crate) fn eval_expr(
 
 #[cfg(test)]
 mod test {
+    use crate as ast_vm;
     use crate::{
-        ast_vm,
         lang::{GlobalContext, ReturnValue},
         LuaError,
     };

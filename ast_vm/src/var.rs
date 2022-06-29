@@ -97,8 +97,8 @@ fn assign_to_value_property(
 
 #[cfg(test)]
 mod test {
+    use crate as ast_vm;
     use crate::{
-        ast_vm,
         lang::{GlobalContext, LuaKey, LuaValue, ReturnValue, TableValue},
         LuaError, TypeError,
     };
