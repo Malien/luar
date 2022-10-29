@@ -9,3 +9,9 @@ The project consists of several crates:
 - `non_empty` a Vec that cannot be empty
 - `test_util` just a few helper structs/functions for testing
 - `tests` integration tests and benchmarks
+
+### Running the thing
+- `cargo run --bin reggie` to launch REPL of register based VM (relevant version)
+- `cargo run --bin reggie <filename>` to execute file in register based VM
+- `cargo run --bin ast_vm` to launch REPL of AST interpretor
+- `cargo run --bin ast_vm <filename` to execute file in AST interpretor
