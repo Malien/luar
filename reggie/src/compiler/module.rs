@@ -5,7 +5,7 @@ use crate::{
     ids::LocalBlockID,
     keyed_vec::KeyedVec,
     machine::CodeBlock,
-    meta::{ArgumentCount, CodeMeta, ReturnCount, FunctionKind},
+    meta::{ArgumentCount, CodeMeta, FunctionKind, ReturnCount},
     ops::Instruction,
 };
 
@@ -93,7 +93,8 @@ fn compile_function_declaration(
             root_scope.push_instr(Instruction::WrapC);
             root_scope.push_instr(Instruction::StrDGl(cell));
         }
-        _ => todo!(),
+        FunctionName::Plain(var) => todo!("Error compiling function declaration of {var}. Compilation of complex table function declaration is not implemented"),
+        FunctionName::Method(base, name) => todo!("Error compiling function declaration of {base}:{name}. Compilation of method function declaration is not implemented"),
     }
 }
 
@@ -119,6 +120,7 @@ fn needs_wrapper(meta: &CodeMeta) -> bool {
 
 #[cfg(test)]
 mod test {
+    use nonzero_ext::nonzero;
     use std::num::NonZeroU16;
 
     use super::compile_module;
@@ -302,22 +304,19 @@ mod test {
             ("return 1", Constant(1)),
             ("return 1,2,3", Constant(3)),
             ("return func()", Unbounded),
-            (
-                "return 1,2,func()",
-                MinBounded(unsafe { NonZeroU16::new_unchecked(2) }),
-            ),
+            ("return 1,2,func()", MinBounded(nonzero!(2u16))),
             ("if nil then return end", Constant(0)),
             (
                 "if nil then return end return 5",
                 Bounded {
                     min: 0,
-                    max: unsafe { NonZeroU16::new_unchecked(1) },
+                    max: nonzero!(1u16),
                 },
             ),
             ("if nil then return 1,2,3 end return func()", Unbounded),
             (
                 "if nil then return 1,2,func() end return 1,func()",
-                MinBounded(unsafe { NonZeroU16::new_unchecked(1) }),
+                MinBounded(nonzero!(1u16)),
             ),
         ];
 

@@ -1,5 +1,4 @@
 use std::{
-    f32::consts::E,
     iter::Enumerate,
     marker::PhantomData,
     ops::{Index, IndexMut},

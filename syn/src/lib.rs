@@ -453,11 +453,9 @@ peg::parser! {
 
         rule exprlist1() -> NonEmptyVec<Expression>
             = head:expression() tail:_exprlist() {
-                let mut tail = tail;
-                tail.push(head);
-                tail.reverse();
-                // SAFETY: I've pushed head into vec
-                unsafe { NonEmptyVec::new_unchecked(tail) }
+                let mut exprlist = NonEmptyVec::new_with_tail(tail, head);
+                exprlist.reverse();
+                exprlist
             }
 
         rule exprlist() -> Vec<Expression>
@@ -490,11 +488,9 @@ peg::parser! {
 
         rule varlist1() -> NonEmptyVec<Var>
             = head:var() tail:_varlist() {
-                let mut tail = tail;
-                tail.push(head);
-                tail.reverse();
-                // SAFETY: I've pushed head into vec
-                unsafe { NonEmptyVec::new_unchecked(tail) }
+                let mut varlist = NonEmptyVec::new_with_tail(tail, head);
+                varlist.reverse();
+                varlist
             }
 
         rule varlist() -> Vec<Var>

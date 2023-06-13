@@ -56,6 +56,11 @@ impl<T> NonEmptyVec<T> {
         NonEmptyVec(vec)
     }
 
+    pub fn new_with_tail(mut vec: Vec<T>, tail: T) -> Self {
+        vec.push(tail);
+        Self(vec)
+    }
+
     pub fn first(&self) -> &'_ T {
         // Can be unwrap_unchecked() but I'm scared tbh.
         self.0.first().unwrap()
@@ -167,6 +172,7 @@ impl<T> From<NonEmptyVec<T>> for Vec<T> {
 #[macro_export]
 macro_rules! ne_vec {
     ($($x:expr),+ $(,)?) => (
+        // SAFETY: This is safe because the macro is only called with at least one argument.
         unsafe { $crate::NonEmptyVec::new_unchecked(vec![$($x),+]) }
     );
 }

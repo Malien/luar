@@ -22,7 +22,7 @@ pub(crate) fn eval_fn_decl(
             });
             assign_to_var(scope, var, LuaValue::Function(function))
         }
-        _ => todo!(),
+        FunctionName::Method(base, name) => todo!("Cannot evaluate method declaration for {base}:{name} yet"),
     }
 }
 

@@ -73,7 +73,7 @@ impl Arbitrary for Declaration {
 mod test {
     use logos::Logos;
     use luar_lex::{Ident, NumberLiteral, Token};
-    use non_empty::NonEmptyVec;
+    use non_empty::ne_vec;
 
     use crate::{expr::Expression, input_parsing_expectation, unspanned_lua_token_parser};
 
@@ -95,7 +95,7 @@ mod test {
         single_declaration,
         "local a",
         Declaration {
-            names: NonEmptyVec::of_single(Ident::new("a")),
+            names: ne_vec![Ident::new("a")],
             initial_values: vec![]
         }
     );
@@ -105,7 +105,7 @@ mod test {
         multiple_declarations,
         "local a, b",
         Declaration {
-            names: unsafe { NonEmptyVec::new_unchecked(vec![Ident::new("a"), Ident::new("b"),]) },
+            names: ne_vec![Ident::new("a"), Ident::new("b")],
             initial_values: vec![]
         }
     );
@@ -122,7 +122,7 @@ mod test {
         single_initialization,
         "local a = 42",
         Declaration {
-            names: NonEmptyVec::of_single(Ident::new("a")),
+            names: ne_vec![Ident::new("a")],
             initial_values: vec![Expression::Number(NumberLiteral(42f64))]
         }
     );
@@ -132,7 +132,7 @@ mod test {
         multiple_initialization,
         "local a, b = 42, 69",
         Declaration {
-            names: unsafe { NonEmptyVec::new_unchecked(vec![Ident::new("a"), Ident::new("b"),]) },
+            names: ne_vec![Ident::new("a"), Ident::new("b")],
             initial_values: vec![
                 Expression::Number(NumberLiteral(42f64)),
                 Expression::Number(NumberLiteral(69f64))

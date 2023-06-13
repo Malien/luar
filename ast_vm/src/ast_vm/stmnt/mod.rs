@@ -22,6 +22,6 @@ pub(crate) fn eval_stmnt(
         FunctionCall(func_call) => eval_fn_call(func_call, scope).map(|_| ControlFlow::Continue),
         If(conditional) => eval_conditional(conditional, scope),
         While(while_loop) => eval_while_loop(while_loop, scope),
-        _ => todo!(),
+        Repeat(repeat_loop) => todo!("Evaluation of statement \"{repeat_loop}\" is not implemented yet"),
     }
 }
