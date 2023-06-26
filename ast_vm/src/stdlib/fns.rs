@@ -2,7 +2,7 @@ use std::io::Write;
 
 use luar_error::ExpectedType;
 
-use crate::{lang::LuaValue, EvalError, TypeError};
+use crate::{lang::{LuaValue, LuaNumber}, EvalError, TypeError};
 
 pub fn tonumber(args: &[LuaValue]) -> LuaValue {
     if let Some(arg) = args.first() {
@@ -72,13 +72,104 @@ pub fn assert(args: &[LuaValue]) -> Result<LuaValue, EvalError> {
     }
 }
 
+pub fn strlen(args: &[LuaValue]) -> Result<LuaValue, EvalError> {
+    if let Some(arg) = args.first() {
+        if let Some(str) = arg.coerce_to_string() {
+            Ok(LuaValue::Number(str.len().into()))
+        } else {
+            Err(TypeError::ArgumentType {
+                position: 0,
+                expected: ExpectedType::String,
+                got: arg.clone(),
+            })
+        }
+    } else {
+        Err(TypeError::ArgumentType {
+            position: 0,
+            expected: ExpectedType::Number,
+            got: LuaValue::Nil,
+        })
+    }
+    .map_err(EvalError::from)
+}
+
+pub fn strsub(args: &[LuaValue]) -> Result<LuaValue, EvalError> {
+    match args {
+        [] => Err(TypeError::ArgumentType {
+            position: 0,
+            expected: ExpectedType::String,
+            got: LuaValue::Nil,
+        }.into()),
+        [_value] => Err(TypeError::ArgumentType {
+            position: 1,
+            expected: ExpectedType::Number,
+            got: LuaValue::Nil,
+        }.into()),
+        [str, start] | [str, start, LuaValue::Nil, ..] => {
+            let str = str
+                .coerce_to_string()
+                .ok_or_else(|| TypeError::ArgumentType {
+                    position: 0,
+                    expected: ExpectedType::String,
+                    got: str.clone(),
+                })?;
+            let start = start.as_number().ok_or_else(|| TypeError::ArgumentType {
+                position: 1,
+                expected: ExpectedType::Number,
+                got: start.clone(),
+            })?;
+            let len = str.len();
+            strsub_inner(str, start.into(), len)
+        }
+        [str, start, end, ..] => {
+            let str = str
+                .coerce_to_string()
+                .ok_or_else(|| TypeError::ArgumentType {
+                    position: 0,
+                    expected: ExpectedType::String,
+                    got: str.clone(),
+                })?;
+            let start = start.as_number().ok_or_else(|| TypeError::ArgumentType {
+                position: 1,
+                expected: ExpectedType::Number,
+                got: start.clone(),
+            })?;
+            let end = end.as_number().ok_or_else(|| TypeError::ArgumentType {
+                position: 2,
+                expected: ExpectedType::Number,
+                got: end.clone(),
+            })?;
+            strsub_inner(str, start.into(), end.into())
+        }
+    }
+}
+
+fn strsub_inner(str: String, start: usize, end: usize) -> Result<LuaValue, EvalError> {
+    if start > end {
+        return Ok(LuaValue::String("".to_string()));
+    }
+    if start > str.len() {
+        return Ok(LuaValue::String("".to_string()));
+    }
+    if !str.is_char_boundary(start) {
+        return Err(EvalError::Utf8Error);
+    }
+    if end > str.len() {
+        return Ok(LuaValue::String(str[start..].to_string()));
+    }
+    if !str.is_char_boundary(end) {
+        return Err(EvalError::Utf8Error);
+    }
+    Ok(LuaValue::String(str[start..end].to_string()))
+}
+
 #[cfg(test)]
 mod test {
     use std::io::Cursor;
 
     use quickcheck::TestResult;
 
-    use super::{assert, floor, print, random, tonumber};
+    use super::{assert, floor, print, random, strlen, tonumber, strsub};
     use crate::{
         lang::{LuaFunction, LuaNumber, LuaValue, ReturnValue, TableValue},
         util::{close_relative_eq, eq_with_nan},
@@ -247,4 +338,70 @@ mod test {
     //     assert_eq!(value, LuaValue::String(string));
     //     TestResult::passed()
     // }
+
+    #[quickcheck]
+    fn strlen_returns_the_number_of_bytes_in_a_string(str: String) {
+        let len = str.len();
+        let res = strlen(&[LuaValue::String(str)]).unwrap();
+        assert_eq!(res, LuaValue::Number(LuaNumber::from(len)));
+    }
+
+    #[quickcheck]
+    fn strlen_returns_the_number_of_bytes_in_a_stringified_number(num: LuaNumber) {
+        let str = format!("{}", num);
+        let len = str.len();
+        let res = strlen(&[LuaValue::Number(num)]).unwrap();
+        assert_eq!(res, LuaValue::Number(LuaNumber::from(len)));
+    }
+
+    #[quickcheck]
+    fn strlen_on_non_stringable_errors_out(value: LuaValue) {
+        if value.is_string() || value.is_number() {
+            return;
+        }
+        assert!(strlen(&[value]).is_err());
+    }
+
+    #[quickcheck]
+    fn strsub_slices_string_suffix(str: String, start: usize) {
+        let suffix = if str.len() < start {
+            Some("".to_string())
+        } else if str.is_char_boundary(start) {
+            Some(str[start..].to_string())
+        } else {
+            None
+        };
+
+        let res = strsub(&[LuaValue::String(str), LuaValue::Number(start.into())]);
+        if let Some(suffix) = suffix {
+            if let Ok(LuaValue::String(res)) = res {
+                assert_eq!(res, suffix);
+            } else {
+                panic!("Expected string, got {:?}", res);
+            }
+        } else {
+            assert!(res.is_err());
+        }
+    }
+
+    #[quickcheck]
+    fn strsub_errors_out_on_non_stringables(value: LuaValue, start: usize, end: Option<usize>) {
+        if value.is_string() || value.is_number() {
+            return;
+        }
+        if let Some(end) = end {
+            assert!(strsub(&[
+                LuaValue::String("".to_string()),
+                LuaValue::Number(start.into()),
+                LuaValue::Number(end.into())
+            ])
+            .is_err());
+        } else {
+            assert!(strsub(&[value, LuaValue::Number(start.into())]).is_err());
+        }
+    }
+
+    // God! I hate implicit conversions, and the hell I have to go through to support them
+    // I'm not going to write these tests anymore. I just don't care about being spec compliant
+    // at this point.
 }

@@ -62,6 +62,24 @@ impl From<u8> for LuaNumber {
     }
 }
 
+impl From<LuaNumber> for f64 {
+    fn from(v: LuaNumber) -> Self {
+        v.0
+    }
+}
+
+impl From<LuaNumber> for usize {
+    fn from(v: LuaNumber) -> Self {
+        v.0 as usize
+    }
+}
+
+impl From<LuaNumber> for u64 {
+    fn from(v: LuaNumber) -> Self {
+        v.0 as u64
+    }
+}
+
 impl std::fmt::Display for LuaNumber {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(&self.0, f)

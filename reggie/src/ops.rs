@@ -427,7 +427,7 @@ impl std::fmt::Display for Instruction {
             Instruction::IToS => write!(f, "I_to_s"),
             Instruction::FToS => write!(f, "F_to_s"),
             Instruction::DToS => write!(f, "D_to_s"),
-            Instruction::StrVC => write!(f, "std_vc"),
+            Instruction::StrVC => write!(f, "str_vc"),
             Instruction::LdaVC => write!(f, "lda_vc"),
             Instruction::Call => write!(f, "call"),
             Instruction::TypedCall => write!(f, "typed_call"),

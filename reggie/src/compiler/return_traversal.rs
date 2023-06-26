@@ -1,6 +1,6 @@
 use std::num::NonZeroU16;
 
-use luar_syn::{Block, Chunk, Expression, FunctionDeclaration, Module, Return, Statement};
+use luar_syn::{Block, Chunk, Expression, FunctionDeclaration, Module, Return, Statement, Conditional, ConditionalTail};
 
 use crate::meta::ReturnCount;
 
@@ -11,7 +11,7 @@ pub fn return_traverse_module(module: &Module) -> ReturnCount {
         .ret
         .as_ref()
         .map(return_traverse_return)
-        .unwrap_or_default();
+        .unwrap_or(ReturnCountState::NotSpecified);
 
     module
         .chunks
@@ -34,7 +34,7 @@ fn return_traverse_block(block: &Block) -> ReturnCountState {
         .ret
         .as_ref()
         .map(return_traverse_return)
-        .unwrap_or_default();
+        .unwrap_or(ReturnCountState::NotSpecified);
 
     block
         .statements
@@ -44,13 +44,24 @@ fn return_traverse_block(block: &Block) -> ReturnCountState {
 }
 
 fn return_traverse_statement(statement: &Statement) -> ReturnCountState {
-    let block = match statement {
-        Statement::While(while_loop) => &while_loop.body,
-        Statement::Repeat(repeat_loop) => &repeat_loop.body,
-        Statement::If(conditional) => &conditional.body,
-        _ => return ReturnCountState::NotSpecified,
+    match statement {
+        Statement::While(while_loop) => return_traverse_block(&while_loop.body),
+        Statement::Repeat(repeat_loop) => return_traverse_block(&repeat_loop.body),
+        Statement::If(conditional) => return_traverse_conditional(conditional),
+        _ => ReturnCountState::NotSpecified,
+    }
+}
+
+fn return_traverse_conditional(conditional: &Conditional) -> ReturnCountState {
+    let body_return_count = return_traverse_block(&conditional.body);
+
+    let tail_return_count = match &conditional.tail {
+        ConditionalTail::End => ReturnCountState::NotSpecified,
+        ConditionalTail::Else(else_body) => return_traverse_block(else_body),
+        ConditionalTail::ElseIf(conditional) => return_traverse_conditional(conditional),
     };
-    return_traverse_block(block)
+
+    return ReturnCountState::combine(body_return_count, tail_return_count);
 }
 
 fn return_traverse_return(ret: &Return) -> ReturnCountState {

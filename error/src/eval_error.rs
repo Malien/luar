@@ -13,6 +13,9 @@ pub enum EvalError<V> {
     AssertionError,
     #[error("IO Error: {0}")]
     IO(std::io::Error),
+
+    #[error("Operation produced invalid utf-8 sequence")]
+    Utf8Error,
 }
 
 impl<V> From<TypeError<V>> for EvalError<V> {
@@ -59,6 +62,7 @@ pub enum TypeError<V> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExpectedType {
     Number,
+    String
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -91,6 +95,7 @@ impl fmt::Display for ExpectedType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ExpectedType::Number => "number",
+            ExpectedType::String => "string",
         }
         .fmt(f)
     }

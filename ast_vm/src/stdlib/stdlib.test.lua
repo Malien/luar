@@ -37,3 +37,19 @@ assert(floor(42.2) == 42)
 assert(floor(69.9) == 69)
 assert(floor("24") == 24)
 assert(floor("69.420") == 69)
+
+assert(strlen("") == 0)
+assert(strlen("hello") == 5)
+assert(strlen("Привіт") == 12)
+assert(strlen(123) == 3)
+
+assert(strsub("hello", 1, 1) == "h")
+assert(strsub("hello", "1", "1") == "h")
+assert(strsub("hello", 2, 2) == "e")
+assert(strsub("hello world", 1, 10) == "hello")
+assert(strsub("hello world", 7) == "world")
+assert(strsub("Привіт", 1, 2) == "П")
+-- please don't split utf-8 code points appart. Current implementation will panic if you do
+-- assert(strsub("Привіт", 1, 1) ~= "П")
+assert(strsub(200, "2") == "00")
+

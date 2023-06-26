@@ -17,6 +17,7 @@ pub(crate) fn define_std_lib(ctx: &mut GlobalContext) {
     define_total_fn(ctx, "random", fns::random);
     define_fn(ctx, "floor", fns::floor);
     define_fn(ctx, "assert", fns::assert);
+    define_fn(ctx, "strlen", fns::strlen);
 }
 
 fn define_fn(
@@ -46,12 +47,15 @@ fn define_total_fn(
 #[cfg(test)]
 mod test {
     use crate::LuaError;
-    use test_util::run_lua_test;
+    use luar_syn::lua_parser;
 
     use super::std_context;
 
     #[test]
     fn lua_test() -> Result<(), LuaError> {
-        run_lua_test!("./stdlib.test.lua", std_context())
+        let mut context = std_context();
+        let test_module = lua_parser::module(include_str!("./stdlib.test.lua"))?;
+        crate::eval_module(&test_module, &mut context)?;
+        Ok(())
     }
 }
