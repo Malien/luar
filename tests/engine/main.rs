@@ -27,7 +27,8 @@ macro_rules! run_tests {
             arithmetic,
             comparison,
             boolean_ops,
-            stdlib
+            stdlib,
+            fn_call
         ]);
     };
 }

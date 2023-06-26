@@ -127,6 +127,14 @@ impl LuaValue {
         }
     }
 
+    pub fn coerce_to_string(&self) -> Option<String> {
+        match self {
+            LuaValue::String(str) => Some(str.clone()),
+            LuaValue::Number(num) => Some(num.to_string()),
+            _ => None,
+        }
+    }
+
     pub fn as_function(self) -> Option<LuaFunction> {
         match self {
             LuaValue::Function(func) => Some(func),

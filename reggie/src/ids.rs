@@ -27,3 +27,4 @@ wrap!(JmpLabel, u16);
 wrap!(BlockID, u32);
 wrap!(LocalBlockID, u16);
 wrap!(ModuleID, u32);
+wrap!(SimpleBlockID, u16);

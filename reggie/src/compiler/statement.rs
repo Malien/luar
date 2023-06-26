@@ -24,7 +24,7 @@ pub fn compile_statement(statement: &Statement, state: &mut LocalScopeCompilatio
         Statement::While(while_loop) => {
             compile_while_loop(while_loop, state);
         }
-        _ => todo!("Compiling statement \"{}\" is not implemented", statement),
+        Statement::Repeat(repeat_loop) => todo!("Compilation of statement \"{repeat_loop}\" is not implemented yet"),
     };
 }
 

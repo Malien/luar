@@ -32,4 +32,4 @@ macro_rules! test_case {
     };
 }
 
-test_case![heapsort, fib_rec, fib_tailrec, fib_loop];
+test_case![heapsort, fib_rec, fib_tailrec, fib_loop, string_packing];

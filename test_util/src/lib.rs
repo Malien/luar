@@ -102,3 +102,4 @@ impl GenExt for Gen {
         Gen::new(std::cmp::min(*QUICKCHECK_RECURSIVE_DEPTH, self.size() - 1))
     }
 }
+

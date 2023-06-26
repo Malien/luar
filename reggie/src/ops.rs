@@ -283,6 +283,64 @@ pub enum Instruction {
     TableMemberAssignErrorL(LocalRegisterID),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BranchCondition {
+    LT,
+    GT,
+    LE,
+    GE,
+    EQ,
+    NE,
+    N,
+    F,
+    I,
+    C,
+    T,
+    U,
+}
+
+impl Instruction {
+    pub fn branch_condition(self) -> Option<(JmpLabel, BranchCondition)> {
+        use BranchCondition::*;
+        use Instruction::*;
+        match self {
+            JmpLT(lbl) => Some((lbl, LT)),
+            JmpGT(lbl) => Some((lbl, GT)),
+            JmpEQ(lbl) => Some((lbl, EQ)),
+            JmpNE(lbl) => Some((lbl, NE)),
+            JmpLE(lbl) => Some((lbl, LE)),
+            JmpGE(lbl) => Some((lbl, GE)),
+            JmpN(lbl) => Some((lbl, N)),
+            JmpF(lbl) => Some((lbl, F)),
+            JmpI(lbl) => Some((lbl, I)),
+            JmpC(lbl) => Some((lbl, C)),
+            JmpT(lbl) => Some((lbl, T)),
+            JmpU(lbl) => Some((lbl, U)),
+            _ => None,
+        }
+    }
+
+    pub fn is_jump(self) -> bool {
+        use Instruction::*;
+        matches!(
+            self,
+            Jmp(_)
+                | JmpLT(_)
+                | JmpGT(_)
+                | JmpEQ(_)
+                | JmpNE(_)
+                | JmpLE(_)
+                | JmpGE(_)
+                | JmpN(_)
+                | JmpF(_)
+                | JmpI(_)
+                | JmpC(_)
+                | JmpT(_)
+                | JmpU(_)
+        )
+    }
+}
+
 impl std::fmt::Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
@@ -369,7 +427,7 @@ impl std::fmt::Display for Instruction {
             Instruction::IToS => write!(f, "I_to_s"),
             Instruction::FToS => write!(f, "F_to_s"),
             Instruction::DToS => write!(f, "D_to_s"),
-            Instruction::StrVC => write!(f, "std_vc"),
+            Instruction::StrVC => write!(f, "str_vc"),
             Instruction::LdaVC => write!(f, "lda_vc"),
             Instruction::Call => write!(f, "call"),
             Instruction::TypedCall => write!(f, "typed_call"),

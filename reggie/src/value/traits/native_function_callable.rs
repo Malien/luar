@@ -20,6 +20,7 @@ impl<'a, F, Args> NativeFunctionCallable for NativeFunctionWrapper<F, Args>
 where
     F: FFIFunc<Args>,
     Args: FromArgs<'a>,
+    F::Output: 'static,
 {
     fn call(
         &self,
@@ -35,8 +36,14 @@ where
         //         &mut argument_registers lives for the duration of the call, meaning it is safe
         //         to use args for the same duration. I mean... There is probably UB somewhere,
         //         but I'm fed up with this!
+        // UPDATE: The problem here is that ReturnRepresentable::to_lua_return takes a &mut to the
+        //         argument_registers, which may be still borrowed by thre return of the FFIFunc.
+        //         This shouldn't be possible, since I've added the requirement for F::Output to be
+        //         'static, which should prohibit FFIFunc::call to return a borrowed value.
+        //         I'm not sure this is enough, but I'm going to try it out.
         let args = Args::from_args(
             unsafe { &mut *(argument_registers as *mut ArgumentRegisters) },
+            // argument_registers,
             value_count,
         );
         let res = self.func.call(args);

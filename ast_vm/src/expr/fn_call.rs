@@ -15,7 +15,7 @@ pub(crate) fn eval_fn_call(
             let fn_value = eval_var(func, scope)?;
             call_value(scope.global_mut(), &fn_value, &args)
         }),
-        FunctionCall::Method { .. } => todo!(),
+        FunctionCall::Method { func,args,method } => todo!("Cannot evaluate method call {func}:{method}{args} yet")
     }
 }
 

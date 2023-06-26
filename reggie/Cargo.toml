@@ -22,6 +22,7 @@ decorum = "0.3"
 enum-map = "2.1"
 num-traits = "0.2"
 libc = "0.2"
+nonzero_ext = "0.3"
 
 [dev-dependencies]
 non_empty = { path = "../non_empty", features = ["quickcheck"] }

@@ -168,7 +168,7 @@ impl quickcheck::Arbitrary for FunctionName {
 mod test {
     use indoc::indoc;
     use luar_lex::Ident;
-    use non_empty::NonEmptyVec;
+    use non_empty::ne_vec;
 
     use crate::{
         assert_parses,
@@ -310,9 +310,7 @@ mod test {
             args: vec![],
             body: Block {
                 statements: vec![Statement::LocalDeclaration(Declaration {
-                    names: unsafe {
-                        NonEmptyVec::new_unchecked(vec![Ident::new("x"), Ident::new("y")])
-                    },
+                    names: ne_vec![Ident::new("x"), Ident::new("y")],
                     initial_values: vec![]
                 })],
                 ret: None

@@ -7,7 +7,7 @@ use crate::{
     },
     ids::{ArgumentRegisterID, LocalBlockID},
     machine::{CodeBlock, DataType},
-    meta::{ArgumentCount, CodeMeta, ReturnCount},
+    meta::{ArgumentCount, CodeMeta, ReturnCount, FunctionKind},
     ops::Instruction,
     GlobalValues,
 };
@@ -42,6 +42,7 @@ pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalVa
         return_count,
         local_count: state.reg_alloc.into_used_register_count(),
         debug_name,
+        kind: FunctionKind::DeOptimized,
     };
 
     CodeBlock {
@@ -254,20 +255,6 @@ mod test {
 
         Ok(())
     }
-
-    // macro_rules! test_compilation {
-    //     ($name: ident, $fn:expr, $meta:expr, $instr:expr) => {
-    //         #[test]
-    //         fn $name() -> Result<(), LuaError> {
-    //             let function = luar_syn::lua_parser::function_declaration($fn)?;
-    //             let CodeBlock { meta, instructions } =
-    //                 compile_function(&function, &mut GlobalValues::default());
-    //             assert_eq!(meta, $meta);
-    //             assert_eq!(instructions, $instr);
-    //             Ok(())
-    //         }
-    //     };
-    // }
 
     #[test]
     fn compile_simple_function() -> Result<(), LuaError> {
