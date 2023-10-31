@@ -28,7 +28,7 @@ pub fn compile_fn_call(call: &FunctionCall, state: &mut LocalScopeCompilationSta
                 state.reg().free_count(DataType::Dynamic, locals.count);
             }
             luar_syn::FunctionCallArgs::Table(table) => todo!(
-                "Cannot compile function calls with tables \"{func} {table}\" as arguments yet"
+                "Cannot compile function calls with tables as arguments yet; in expression \"{func} {table}\""
             ),
         },
         FunctionCall::Method { func, method, args } => {

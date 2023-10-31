@@ -348,14 +348,14 @@ Concatenate string value in AS with value in register XSZ. Put the result into A
 
 #### D_concat_XZ
 
-Concatenate string value in AS with value in XDZ.
+Concatenate string value in AD with value in XDZ.
 
 - X is the type of register (`R`, `ExtR`, `L`)
 - Z is the register's number
 
-Depending on the type of XDZ:
+Depending on the type of XDZ and AD:
 
-- If the type of value in XDZ is a string, it is equivalent to `S_concat_XZ`.
+- If the type of value in XDZ and AD is a string, it is equivalent to `S_concat_XZ`.
 - If the type of value is I or F, convert it to string (equivalent to `I_to_s` and `F_to_s`), and proceed with concatenation of strings.
 - Otherwise raise `string` error
 

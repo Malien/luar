@@ -31,8 +31,6 @@ pub type EvalError = luar_error::EvalError<LuaValue>;
 pub type TypeError = luar_error::TypeError<LuaValue>;
 pub type ArithmeticError = luar_error::ArithmeticError<LuaValue>;
 
-use value::FromReturn;
-
 pub fn eval_str<'a, T: FromReturn<'a>>(
     module_str: &str,
     machine: &'a mut Machine,

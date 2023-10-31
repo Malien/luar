@@ -139,7 +139,7 @@ pub enum Instruction {
 
     // D_concat_XZ
     DConcatR(ArgumentRegisterID),
-    DConcatL(ArgumentRegisterID),
+    DConcatL(LocalRegisterID),
 
     // I_to_s
     IToS,

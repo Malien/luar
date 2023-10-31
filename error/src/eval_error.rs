@@ -57,6 +57,10 @@ pub enum TypeError<V> {
         rhs: V,
         op: Option<OrderingOperator>,
     },
+    StringConcat {
+        lhs: V,
+        rhs: V,
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -176,6 +180,9 @@ impl<V: fmt::Display> fmt::Display for TypeError<V> {
             }
             Self::Ordering { lhs, rhs, op: None } => {
                 write!(f, "Cannot compare {} and {}", lhs, rhs)
+            }
+            Self::StringConcat { lhs, rhs } => {
+                write!(f, "Cannot do a string concatenation of {} and {}", lhs, rhs)
             }
         }
     }

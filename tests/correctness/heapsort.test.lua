@@ -3,9 +3,9 @@
 
 function heapsort(n, ra)
     local j, i, rra
-    local l = floor(n/2) + 1
+    local l = floor(n / 2) + 1
     -- local l = (n//2) + 1
-    local ir = n;
+    local ir = n
     while 1 do
         if l > 1 then
             l = l - 1
@@ -14,7 +14,7 @@ function heapsort(n, ra)
             rra = ra[ir]
             ra[ir] = ra[1]
             ir = ir - 1
-            if (ir == 1) then
+            if ir == 1 then
                 ra[1] = rra
                 return
             end
@@ -22,7 +22,7 @@ function heapsort(n, ra)
         i = l
         j = l * 2
         while j <= ir do
-            if (j < ir) and (ra[j] < ra[j+1]) then
+            if (j < ir) and (ra[j] < ra[j + 1]) then
                 j = j + 1
             end
             if rra < ra[j] then
@@ -50,7 +50,7 @@ end
 function assert_sorted(N, tbl)
     local i = 1
     while i ~= N - 1 do
-        assert(tbl[i] <= tbl[i+1])
+        assert(tbl[i] <= tbl[i + 1])
         i = i + 1
     end
 end
@@ -65,4 +65,3 @@ while i ~= iterations do
     assert_sorted(element_count, tbl)
     i = i + 1
 end
-

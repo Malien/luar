@@ -9,6 +9,60 @@ use luar_error::ArithmeticOperator;
 use luar_lex::Ident;
 use std::{borrow::Borrow, cmp::Ordering};
 
+macro_rules! register_of {
+    ($machine:expr, AD) => {
+        $machine.accumulators.d
+    };
+    ($machine:expr, AI) => {
+        $machine.accumulators.i
+    };
+    ($machine:expr, AF) => {
+        $machine.accumulators.f
+    };
+    ($machine:expr, AS) => {
+        $machine.accumulators.s
+    };
+    ($machine:expr, AC) => {
+        $machine.accumulators.c
+    };
+    ($machine:expr, AT) => {
+        $machine.accumulators.t
+    };
+
+    ($machine:expr, RD, $reg:ident) => {
+        $machine.argument_registers.d[($reg as ArgumentRegisterID).0 as usize]
+    };
+    ($machine:expr, RI, $reg:ident) => {
+        $machine.argument_registers.i[($reg as ArgumentRegisterID).0 as usize]
+    };
+    ($machine:expr, RT, $reg:ident) => {
+        $machine.argument_registers.t[($reg as ArgumentRegisterID).0 as usize]
+    };
+
+    ($machine:expr, RD0) => {
+        $machine.argument_registers.d[0]
+    };
+    ($machine:expr, RD1) => {
+        $machine.argument_registers.d[1]
+    };
+    ($machine:expr, RD2) => {
+        $machine.argument_registers.d[2]
+    };
+    ($machine:expr, RD3) => {
+        $machine.argument_registers.d[3]
+    };
+    ($machine:expr, RD4) => {
+        $machine.argument_registers.d[4]
+    };
+
+    ($machine:expr, RT0) => {
+        $machine.argument_registers.t[0]
+    };
+    ($machine:expr, RT1) => {
+        $machine.argument_registers.t[1]
+    };
+}
+
 pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
     let mut block = &machine.code_blocks[machine.program_counter.block];
     let mut position = &mut machine.program_counter.position;
@@ -16,6 +70,26 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
         .stack
         .last_mut()
         .expect("In order for VM to evaluate code, the stack should not be empty");
+
+    macro_rules! register {
+        (LD, $reg:ident) => {
+            frame.local_values.d[($reg as LocalRegisterID).0 as usize]
+        };
+        (LI, $reg:ident) => {
+            frame.local_values.i[($reg as LocalRegisterID).0 as usize]
+        };
+        (LT, $reg:ident) => {
+            frame.local_values.t[($reg as LocalRegisterID).0 as usize]
+        };
+
+        ($rest:tt) => {
+            register_of!(machine, $rest)
+        };
+        ($first:tt, $rest:tt) => {
+            register_of!(machine, $first, $rest)
+        };
+    }
+
     loop {
         let instr = block.instructions[*position as usize];
         match instr {
@@ -30,87 +104,75 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 }
             }
             Instruction::ConstI(value) => {
-                machine.accumulators.i = value;
+                register!(AI) = value;
                 *position += 1;
             }
             Instruction::WrapI => {
-                machine.accumulators.d = LuaValue::Int(machine.accumulators.i);
+                register!(AD) = LuaValue::Int(register!(AI));
                 *position += 1;
             }
             Instruction::StrRD(reg) => {
-                machine.argument_registers.d[reg.0 as usize] = machine.accumulators.d.clone();
+                register!(RD, reg) = register!(AD).clone();
                 *position += 1;
             }
             Instruction::LdaRD(reg) => {
-                machine.accumulators.d = machine.argument_registers.d[reg.0 as usize].clone();
+                register!(AD) = register!(RD, reg).clone();
                 *position += 1;
             }
             Instruction::StrLD(reg) => {
-                frame.local_values.d[reg.0 as usize] = machine.accumulators.d.clone();
+                register!(LD, reg) = register!(AD).clone();
                 *position += 1;
             }
             Instruction::LdaLD(reg) => {
-                machine.accumulators.d = frame.local_values.d[reg.0 as usize].clone();
+                register!(AD) = register!(LD, reg).clone();
                 *position += 1;
             }
             Instruction::DAddR(reg) => {
-                machine.accumulators.d = add_dyn(
-                    &machine.accumulators.d,
-                    &machine.argument_registers.d[reg.0 as usize],
-                )?;
+                register!(AD) = add_dyn(&register!(AD), &register!(RD, reg))?;
                 *position += 1;
             }
             Instruction::DAddL(reg) => {
-                machine.accumulators.d = add_dyn(
-                    &machine.accumulators.d,
-                    &frame.local_values.d[reg.0 as usize],
-                )?;
+                register!(AD) = add_dyn(&register!(AD), &register!(LD, reg))?;
                 *position += 1;
             }
             Instruction::ConstN => {
-                machine.accumulators.d = LuaValue::Nil;
+                register!(AD) = LuaValue::Nil;
                 *position += 1;
             }
             Instruction::ConstF(value) => {
-                machine.accumulators.f = value;
+                register!(AF) = value;
                 *position += 1;
             }
             Instruction::WrapF => {
-                machine.accumulators.d = LuaValue::Float(machine.accumulators.f);
+                register!(AD) = LuaValue::Float(register!(AF));
                 *position += 1;
             }
             Instruction::ConstS(string_id) => {
-                machine.accumulators.s = Some(block.meta.const_strings[string_id].clone());
+                register!(AS) = Some(block.meta.const_strings[string_id].clone());
                 *position += 1;
             }
             Instruction::WrapS => {
-                machine.accumulators.d =
-                    LuaValue::String(machine.accumulators.s.as_ref().unwrap().clone());
+                register!(AD) = LuaValue::String(register!(AS).as_ref().unwrap().clone());
                 *position += 1;
             }
             Instruction::ConstC(local_block_id) => {
-                machine.accumulators.c =
-                    machine.code_blocks.blocks_of_module(block.module)[local_block_id];
+                register!(AC) = machine.code_blocks.blocks_of_module(block.module)[local_block_id];
                 *position += 1;
             }
             Instruction::WrapC => {
-                machine.accumulators.d = LuaValue::Function(machine.accumulators.c);
+                register!(AD) = LuaValue::Function(register!(AC));
                 *position += 1;
             }
             Instruction::LdaDGl(cell_id) => {
-                machine.accumulators.d = machine.global_values.value_of_cell(cell_id).clone();
+                register!(AD) = machine.global_values.value_of_cell(cell_id).clone();
                 *position += 1;
             }
-            Instruction::EqTestRD(ArgumentRegisterID(reg)) => {
-                machine.test_flag = TestFlag::from_bool(
-                    machine.accumulators.d == machine.argument_registers.d[reg as usize],
-                );
+            Instruction::EqTestRD(reg) => {
+                machine.test_flag = TestFlag::from_bool(register!(AD) == register!(RD, reg));
                 *position += 1;
             }
-            Instruction::EqTestLD(LocalRegisterID(reg)) => {
-                machine.test_flag = TestFlag::from_bool(
-                    machine.accumulators.d == frame.local_values.d[reg as usize],
-                );
+            Instruction::EqTestLD(reg) => {
+                machine.test_flag = TestFlag::from_bool(register!(AD) == register!(LD, reg));
                 *position += 1;
             }
             Instruction::Jmp(jmp_label) => {
@@ -163,16 +225,14 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 }
             }
             Instruction::StrDGl(cell) => {
-                machine
-                    .global_values
-                    .set_cell(cell, machine.accumulators.d.clone());
+                machine.global_values.set_cell(cell, register!(AD).clone());
                 *position += 1;
             }
             Instruction::StrVC => {
-                machine.value_count = machine.accumulators.i.try_into().unwrap();
+                machine.value_count = register!(AI).try_into().unwrap();
                 *position += 1;
             }
-            Instruction::DCall => match machine.accumulators.d.clone() {
+            Instruction::DCall => match register!(AD).clone() {
                 LuaValue::Function(block_id) => {
                     let new_block = &machine.code_blocks[block_id];
                     let new_frame = StackFrame::new(
@@ -204,20 +264,20 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 }
                 _ => {
                     return Err(EvalError::from(TypeError::IsNotCallable(
-                        machine.accumulators.d.clone(),
+                        register!(AD).clone(),
                     )))
                 }
             },
             Instruction::LdaProt(reg) => {
-                machine.accumulators.d = if machine.value_count > reg.0 {
-                    machine.argument_registers.d[reg.0 as usize].clone()
+                register!(AD) = if machine.value_count > reg.0 {
+                    register!(RD, reg).clone()
                 } else {
                     LuaValue::Nil
                 };
                 *position += 1;
             }
             Instruction::TypedCall => {
-                let new_block = &machine.code_blocks[machine.accumulators.c];
+                let new_block = &machine.code_blocks[register!(AC)];
                 let new_frame = StackFrame::new(
                     &new_block.meta,
                     ProgramCounter {
@@ -232,97 +292,88 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                     .expect("New stack frame have just been pushed");
                 block = new_block;
                 *position = 0;
-                machine.program_counter.block = machine.accumulators.c;
+                machine.program_counter.block = register!(AC);
             }
             Instruction::RDShiftRight => {
                 machine
                     .argument_registers
                     .d
-                    .rotate_right((machine.accumulators.i as u16) as usize);
+                    .rotate_right((register!(AI) as u16) as usize);
                 *position += 1;
             }
             Instruction::LdaVC => {
-                machine.accumulators.i = machine.value_count as i32;
+                register!(AI) = machine.value_count as i32;
                 *position += 1;
             }
             Instruction::IAddR(reg) => {
-                machine.accumulators.i += machine.argument_registers.i[reg.0 as usize];
+                register!(AI) += register!(RI, reg);
                 *position += 1;
             }
             Instruction::IAddL(reg) => {
-                machine.accumulators.i += frame.local_values.i[reg.0 as usize];
+                register!(AI) += register!(LI, reg);
                 *position += 1;
             }
             Instruction::StrLI(reg) => {
-                frame.local_values.i[reg.0 as usize] = machine.accumulators.i;
+                register!(LI, reg) = register!(AI);
                 *position += 1;
             }
             Instruction::LdaLI(reg) => {
-                machine.accumulators.i = frame.local_values.i[reg.0 as usize];
+                register!(AI) = register!(LI, reg);
                 *position += 1;
             }
             Instruction::StrRI(reg) => {
-                machine.argument_registers.i[reg.0 as usize] = machine.accumulators.i;
+                register!(RI, reg) = register!(AI);
                 *position += 1;
             }
             Instruction::LdaRI(reg) => {
-                machine.accumulators.i = machine.argument_registers.i[reg.0 as usize];
+                register!(AI) = register!(RI, reg);
                 *position += 1;
             }
             Instruction::NilTest => {
-                machine.test_flag = TestFlag::from_bool(machine.accumulators.d == LuaValue::Nil);
+                machine.test_flag = TestFlag::from_bool(register!(AD) == LuaValue::Nil);
                 *position += 1;
             }
             Instruction::DSubR(reg) => {
-                machine.accumulators.d = sub_dyn(
-                    &machine.accumulators.d,
-                    &machine.argument_registers.d[reg.0 as usize],
-                )?;
+                register!(AD) = sub_dyn(&register!(AD), &register!(RD, reg))?;
                 *position += 1;
             }
             Instruction::DSubL(reg) => {
-                machine.accumulators.d = sub_dyn(
-                    &machine.accumulators.d,
-                    &frame.local_values.d[reg.0 as usize],
-                )?;
+                register!(AD) = sub_dyn(&register!(AD), &register!(LD, reg))?;
                 *position += 1;
             }
             Instruction::NewT => {
-                machine.accumulators.t = Some(TableRef::from(TableValue::new()));
+                register!(AT) = Some(TableRef::from(TableValue::new()));
                 *position += 1;
             }
             Instruction::StrRT(reg) => {
-                machine.argument_registers.t[reg.0 as usize] = machine.accumulators.t.clone();
+                register!(RT, reg) = register!(AT).clone();
                 *position += 1;
             }
             Instruction::LdaRT(reg) => {
-                machine.accumulators.t = machine.argument_registers.t[reg.0 as usize].clone();
+                register!(AT) = register!(RT, reg).clone();
                 *position += 1;
             }
             Instruction::LdaLT(reg) => {
-                machine.accumulators.t = frame.local_values.t[reg.0 as usize].clone();
+                register!(AT) = register!(LT, reg).clone();
                 *position += 1;
             }
             Instruction::StrLT(reg) => {
-                frame.local_values.t[reg.0 as usize] = machine.accumulators.t.clone();
+                register!(LT, reg) = register!(AT).clone();
                 *position += 1;
             }
             Instruction::PushD => {
-                let table = machine.accumulators.t.as_mut().unwrap();
-                table.push(machine.accumulators.d.clone());
+                let table = register!(AT).as_mut().unwrap();
+                table.push(register!(AD).clone());
                 *position += 1;
             }
             Instruction::AssocASD => {
-                let table = machine.accumulators.t.as_mut().unwrap();
-                table.assoc_str(
-                    machine.accumulators.s.as_ref().unwrap(),
-                    machine.accumulators.d.clone(),
-                );
+                let table = register!(AT).as_mut().unwrap();
+                table.assoc_str(register!(AS).as_ref().unwrap(), register!(AD).clone());
                 *position += 1;
             }
             Instruction::CastT => {
-                machine.test_flag = if let LuaValue::Table(ref table) = machine.accumulators.d {
-                    machine.accumulators.t = Some(table.clone());
+                machine.test_flag = if let LuaValue::Table(ref table) = register!(AD) {
+                    register!(AT) = Some(table.clone());
                     TestFlag::EQ
                 } else {
                     TestFlag::NE
@@ -331,84 +382,65 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             }
             Instruction::TablePropertyLookupError => {
                 return Err(EvalError::from(TypeError::CannotAccessProperty {
-                    property: Ident::new(machine.accumulators.s.take().unwrap()),
-                    of: std::mem::replace(&mut machine.accumulators.d, LuaValue::Nil),
+                    property: Ident::new(register!(AS).take().unwrap()),
+                    of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
                 }))
             }
             Instruction::TableMemberLookupErrorR(reg) => {
                 return Err(EvalError::from(TypeError::CannotAccessMember {
-                    member: std::mem::replace(
-                        &mut machine.argument_registers.d[reg.0 as usize],
-                        LuaValue::Nil,
-                    ),
-                    of: std::mem::replace(&mut machine.accumulators.d, LuaValue::Nil),
+                    member: std::mem::replace(&mut register!(RD, reg), LuaValue::Nil),
+                    of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
                 }))
             }
             Instruction::TableMemberLookupErrorL(reg) => {
                 return Err(EvalError::from(TypeError::CannotAccessMember {
-                    member: std::mem::replace(
-                        &mut frame.local_values.d[reg.0 as usize],
-                        LuaValue::Nil,
-                    ),
-                    of: std::mem::replace(&mut machine.accumulators.d, LuaValue::Nil),
+                    member: std::mem::replace(&mut register!(LD, reg), LuaValue::Nil),
+                    of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
                 }))
             }
             Instruction::WrapT => {
-                machine.accumulators.d =
-                    LuaValue::Table(machine.accumulators.t.as_ref().unwrap().clone());
+                register!(AD) = LuaValue::Table(register!(AT).as_ref().unwrap().clone());
                 *position += 1;
             }
             Instruction::LdaAssocAS => {
-                machine.accumulators.d = machine
+                register!(AD) = machine
                     .accumulators
                     .t
                     .as_mut()
                     .unwrap()
-                    .get_str_assoc(machine.accumulators.s.as_ref().unwrap());
+                    .get_str_assoc(register!(AS).as_ref().unwrap());
                 *position += 1;
             }
             Instruction::LdaAssocAD => {
-                match LuaKey::try_from(machine.accumulators.d.clone()) {
+                match LuaKey::try_from(register!(AD).clone()) {
                     Ok(key) => {
-                        machine.accumulators.d = machine.accumulators.t.as_mut().unwrap().get(&key);
+                        register!(AD) = register!(AT).as_mut().unwrap().get(&key);
                     }
                     Err(_) => {
-                        machine.accumulators.d = LuaValue::Nil;
+                        register!(AD) = LuaValue::Nil;
                     }
                 }
                 *position += 1;
             }
             Instruction::DMulR(reg) => {
-                machine.accumulators.d = mul_dyn(
-                    &machine.accumulators.d,
-                    &machine.argument_registers.d[reg.0 as usize],
-                )?;
+                register!(AD) = mul_dyn(&register!(AD), &register!(RD, reg))?;
                 *position += 1;
             }
             Instruction::DMulL(reg) => {
-                machine.accumulators.d = mul_dyn(
-                    &machine.accumulators.d,
-                    &frame.local_values.d[reg.0 as usize],
-                )?;
+                register!(AD) = mul_dyn(&register!(AD), &register!(LD, reg))?;
                 *position += 1;
             }
             Instruction::DDivR(reg) => {
-                machine.accumulators.d = div_dyn(
-                    &machine.accumulators.d,
-                    &machine.argument_registers.d[reg.0 as usize],
-                )?;
+                register!(AD) = div_dyn(&register!(AD), &register!(RD, reg))?;
                 *position += 1;
             }
             Instruction::DDivL(reg) => {
-                machine.accumulators.d = div_dyn(
-                    &machine.accumulators.d,
-                    &frame.local_values.d[reg.0 as usize],
-                )?;
+                register!(AD) = div_dyn(&register!(AD), &register!(LD, reg))?;
                 *position += 1;
             }
             Instruction::AssocRD(reg) => {
-                let value = machine.argument_registers.d[reg.0 as usize].clone();
-                let key = match LuaKey::try_from(machine.accumulators.d.clone()) {
+                let value = register!(RD, reg).clone();
+                let key = match LuaKey::try_from(register!(AD).clone()) {
                     Ok(key) => key,
                     Err(InvalidLuaKey::Nil) => {
                         return Err(EvalError::from(TypeError::NilAssign(value)))
@@ -417,12 +449,12 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                         return Err(EvalError::from(TypeError::NaNAssign(value)))
                     }
                 };
-                machine.accumulators.t.as_mut().unwrap().set(key, value);
+                register!(AT).as_mut().unwrap().set(key, value);
                 *position += 1;
             }
             Instruction::AssocLD(reg) => {
-                let value = frame.local_values.d[reg.0 as usize].clone();
-                let key = match LuaKey::try_from(machine.accumulators.d.clone()) {
+                let value = register!(LD, reg).clone();
+                let key = match LuaKey::try_from(register!(AD).clone()) {
                     Ok(key) => key,
                     Err(InvalidLuaKey::Nil) => {
                         return Err(EvalError::from(TypeError::NilAssign(value)))
@@ -431,48 +463,39 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                         return Err(EvalError::from(TypeError::NaNAssign(value)))
                     }
                 };
-                machine.accumulators.t.as_mut().unwrap().set(key, value);
+                register!(AT).as_mut().unwrap().set(key, value);
                 *position += 1;
             }
             Instruction::TablePropertyAssignError => {
                 return Err(EvalError::from(TypeError::CannotAssignProperty {
-                    property: Ident::new(machine.accumulators.s.take().unwrap()),
-                    of: std::mem::replace(&mut machine.accumulators.d, LuaValue::Nil),
+                    property: Ident::new(register!(AS).take().unwrap()),
+                    of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
                 }))
             }
             Instruction::TableMemberAssignErrorR(reg) => {
                 return Err(EvalError::from(TypeError::CannotAssignMember {
-                    member: std::mem::replace(
-                        &mut machine.argument_registers.d[reg.0 as usize],
-                        LuaValue::Nil,
-                    ),
-                    of: std::mem::replace(&mut machine.accumulators.d, LuaValue::Nil),
+                    member: std::mem::replace(&mut register!(RD, reg), LuaValue::Nil),
+                    of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
                 }))
             }
             Instruction::TableMemberAssignErrorL(reg) => {
                 return Err(EvalError::from(TypeError::CannotAssignMember {
-                    member: std::mem::replace(
-                        &mut frame.local_values.d[reg.0 as usize],
-                        LuaValue::Nil,
-                    ),
-                    of: std::mem::replace(&mut machine.accumulators.d, LuaValue::Nil),
+                    member: std::mem::replace(&mut register!(LD, reg), LuaValue::Nil),
+                    of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
                 }))
             }
             Instruction::NegD => {
-                neg_dyn_accumulator(&mut machine.accumulators.d)?;
+                neg_dyn_accumulator(&mut register!(AD))?;
                 *position += 1;
             }
             Instruction::TestRD(reg) => {
-                let ordering = LuaValue::partial_cmp(
-                    &machine.accumulators.d,
-                    &machine.argument_registers.d[reg.0 as usize],
-                );
+                let ordering = LuaValue::partial_cmp(&register!(AD), &register!(RD, reg));
                 machine.test_flag = cmp_test_flags(ordering);
                 *position += 1;
             }
             Instruction::TestLD(reg) => {
-                let lhs = &mut machine.accumulators.d;
-                let rhs = &mut frame.local_values.d[reg.0 as usize];
+                let lhs = &mut register!(AD);
+                let rhs = &mut register!(LD, reg);
                 if !lhs.is_comparable() || !rhs.is_comparable() {
                     return Err(EvalError::from(TypeError::Ordering {
                         lhs: std::mem::replace(lhs, LuaValue::Nil),
@@ -482,6 +505,14 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 }
                 let ordering = LuaValue::partial_cmp(lhs, rhs);
                 machine.test_flag = cmp_test_flags(ordering);
+                *position += 1;
+            }
+            Instruction::DConcatR(reg) => {
+                register!(AD) = dyn_concat(&register!(AD), &register!(RD, reg))?;
+                *position += 1;
+            }
+            Instruction::DConcatL(reg) => {
+                register!(AD) = dyn_concat(&register!(AD), &register!(LD, reg))?;
                 *position += 1;
             }
 
@@ -531,8 +562,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::IDivL(_) => todo!(),
             Instruction::SConcatR(_) => todo!(),
             Instruction::SConcatL(_) => todo!(),
-            Instruction::DConcatR(_) => todo!(),
-            Instruction::DConcatL(_) => todo!(),
             Instruction::IToS => todo!(),
             Instruction::FToS => todo!(),
             Instruction::DToS => todo!(),
@@ -683,6 +712,38 @@ fn mul_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
     }
 }
 
+macro_rules! dyn_concat_of {
+    ($lhs:expr, $rhs:expr; $(($left_pat:ident, $right_pat:ident),)*) => {
+        match ($lhs, $rhs) {
+            $((LuaValue::$left_pat(lhs), LuaValue::$right_pat(rhs)) =>
+              Some(format!("{lhs}{rhs}"))
+            ,)*
+            _ => None,
+        }
+    };
+}
+
+fn dyn_concat(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
+    dyn_concat_of! {
+        lhs, rhs;
+
+        (Int, Int),
+        (Int, Float),
+        (Int, String),
+        (Float, Int),
+        (Float, Float),
+        (Float, String),
+        (String, Int),
+        (String, Float),
+        (String, String),
+    }
+    .map(LuaValue::String)
+    .ok_or_else(|| TypeError::StringConcat {
+        lhs: lhs.clone(),
+        rhs: rhs.clone(),
+    })
+}
+
 #[cfg(test)]
 mod test {
     use crate::{
@@ -701,7 +762,12 @@ mod test {
     use ntest::timeout;
 
     macro_rules! test_instructions_with_meta {
-        ($name: ident, [$($instr: expr),*$(,)?], $meta: expr, $post_condition: expr) => {
+        (
+            name: $name:ident,
+            code: [$($instr: expr),*$(,)?],
+            meta: $meta:expr,
+            post_condition: $post_condition: expr
+        ) => {
             #[test]
             #[timeout(5000)]
             fn $name() {
@@ -718,33 +784,51 @@ mod test {
     }
 
     macro_rules! test_instructions_with_locals {
-        ($name: ident, [$($instr: expr),*$(,)?], $locals: expr, $post_condition: expr) => {
+        (
+            name: $name: ident,
+            code: [$($instr: expr),*$(,)?],
+            locals: $locals: expr,
+            post_condition: $post_condition: expr
+        ) => {
             test_instructions_with_meta! {
-                $name,
-                [$($instr,)*],
-                CodeMeta {
+                name: $name,
+                code: [$($instr,)*],
+                meta: CodeMeta {
                     arg_count: 0.into(),
                     local_count: $locals,
                     return_count: 0.into(),
                     ..Default::default()
                 },
-                $post_condition
+                post_condition: $post_condition
             }
         };
     }
 
     macro_rules! test_instructions {
         ($name: ident, [$($instr: expr),*$(,)?], $post_condition: expr) => {
-            test_instructions_with_locals! {$name, [$($instr,)*], LocalRegCount::default(), $post_condition}
+            test_instructions_with_locals! {
+                name: $name, 
+                code: [$($instr,)*], 
+                locals: LocalRegCount::default(),
+                post_condition: $post_condition
+            }
+        };
+        (name: $name:ident, code: $code:tt, post_condition: $post_condition: expr) => {
+            test_instructions!($name, $code, $post_condition);
         };
     }
 
     macro_rules! test_instructions_with_strings {
-        ($name: ident, [$($instr: expr),*], [$($strings: expr),*], $post_condition: expr) => {
+        (
+            name: $name: ident,
+            code: [$($instr: expr),*],
+            strings: [$($strings: expr),*],
+            post_condition: $post_condition:expr
+        ) => {
             test_instructions_with_meta! {
-                $name,
-                [$($instr,)*],
-                CodeMeta {
+                name: $name,
+                code: [$($instr,)*],
+                meta: CodeMeta {
                     arg_count: 0.into(),
                     return_count: 0.into(),
                     const_strings: $crate::keyed_vec::keyed_vec![
@@ -752,7 +836,7 @@ mod test {
                     ],
                     ..Default::default()
                 },
-                $post_condition
+                post_condition: $post_condition
             }
         };
     }
@@ -760,22 +844,22 @@ mod test {
     test_instructions!(ret_fn_call, [Ret], |_| {});
 
     test_instructions!(const_i, [ConstI(42), Ret], |machine: Machine| {
-        assert_eq!(machine.accumulators.i, 42);
+        assert_eq!(register_of!(machine, AI), 42);
     });
 
     test_instructions!(wrap_i, [ConstI(42), WrapI, Ret], |machine: Machine| {
-        assert_eq!(machine.accumulators.d, LuaValue::Int(42));
+        assert_eq!(register_of!(machine, AD), LuaValue::Int(42));
     });
 
     test_instructions!(
         str_rd,
         [ConstI(42), WrapI, StrRD(ArgumentRegisterID(0)), Ret],
-        |machine: Machine| { assert_eq!(machine.argument_registers.d[0], LuaValue::Int(42)) }
+        |machine: Machine| { assert_eq!(register_of!(machine, RD0), LuaValue::Int(42)) }
     );
 
-    test_instructions_with_locals!(
-        str_and_lda_ld,
-        [
+    test_instructions_with_locals! {
+        name: str_and_lda_ld,
+        code: [
             ConstI(42),
             WrapI,
             StrLD(LocalRegisterID(0)),
@@ -784,9 +868,9 @@ mod test {
             LdaLD(LocalRegisterID(0)),
             Ret
         ],
-        reg_count! { D: 1 },
-        |machine: Machine| { assert_eq!(machine.accumulators.d, LuaValue::Int(42)) }
-    );
+        locals: reg_count! { D: 1 },
+        post_condition: |machine: Machine| { assert_eq!(register_of!(machine, AD), LuaValue::Int(42)) }
+    }
 
     test_instructions!(
         str_and_lda_rd,
@@ -799,12 +883,12 @@ mod test {
             LdaRD(ArgumentRegisterID(0)),
             Ret
         ],
-        |machine: Machine| { assert_eq!(machine.accumulators.d, LuaValue::Int(42)) }
+        |machine: Machine| { assert_eq!(register_of!(machine, AD), LuaValue::Int(42)) }
     );
 
-    test_instructions_with_locals!(
-        plus_1_and_2_local_regs,
-        [
+    test_instructions_with_locals! {
+        name: plus_1_and_2_local_regs,
+        code: [
             ConstI(1),
             WrapI,
             StrLD(LocalRegisterID(0)),
@@ -814,15 +898,15 @@ mod test {
             StrRD(ArgumentRegisterID(0)),
             Ret,
         ],
-        reg_count! { D: 1 },
-        |machine: Machine| {
-            assert_eq!(machine.argument_registers.d[0].coerce_to_f64(), Some(3.0));
+        locals: reg_count! { D: 1 },
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, RD0).coerce_to_f64(), Some(3.0));
         }
-    );
+    }
 
-    test_instructions_with_locals!(
-        plus_1_and_2_arg_regs,
-        [
+    test_instructions_with_locals! {
+        name: plus_1_and_2_arg_regs,
+        code: [
             ConstI(1),
             WrapI,
             StrRD(ArgumentRegisterID(0)),
@@ -832,39 +916,43 @@ mod test {
             StrRD(ArgumentRegisterID(0)),
             Ret,
         ],
-        reg_count! { D: 1 },
-        |machine: Machine| {
-            assert_eq!(machine.argument_registers.d[0].coerce_to_f64(), Some(3.0));
+        locals: reg_count! { D: 1 },
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, RD0).coerce_to_f64(), Some(3.0));
         }
-    );
+    }
 
     test_instructions!(
         const_n,
         [ConstI(42), WrapI, ConstN, Ret],
-        |machine: Machine| { assert_eq!(machine.argument_registers.d[0], LuaValue::Nil) }
+        |machine: Machine| { assert_eq!(register_of!(machine, RD0), LuaValue::Nil) }
     );
 
     test_instructions!(const_f, [ConstF(42.4), Ret], |machine: Machine| {
-        assert_eq!(machine.accumulators.f, 42.4)
+        assert_eq!(register_of!(machine, AF), 42.4)
     });
 
     test_instructions!(wrap_f, [ConstF(42.4), WrapF, Ret], |machine: Machine| {
-        assert_eq!(machine.accumulators.d, LuaValue::Float(42.4))
+        assert_eq!(register_of!(machine, AD), LuaValue::Float(42.4))
     });
 
-    test_instructions_with_strings!(
-        const_s,
-        [ConstS(StringID(0)), Ret],
-        ["hello"],
-        |machine: Machine| { assert_eq!(machine.accumulators.s, Some("hello".to_owned())) }
-    );
+    test_instructions_with_strings! {
+        name: const_s,
+        code: [ConstS(StringID(0)), Ret],
+        strings: ["hello"],
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, AS), Some("hello".to_owned()))
+        }
+    }
 
-    test_instructions_with_strings!(
-        wrap_s,
-        [ConstS(StringID(0)), WrapS, Ret],
-        ["hello"],
-        |machine: Machine| { assert_eq!(machine.accumulators.d, LuaValue::string("hello")) }
-    );
+    test_instructions_with_strings! {
+        name: wrap_s,
+        code: [ConstS(StringID(0)), WrapS, Ret],
+        strings: ["hello"],
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, AD), LuaValue::string("hello"))
+        }
+    }
 
     #[cfg(feature = "quickcheck")]
     #[quickcheck]
@@ -881,7 +969,7 @@ mod test {
             instructions: vec![LdaDGl(cell_id), Ret],
         });
         call_block::<Strict<()>>(block_id, &mut machine).unwrap();
-        assert!(machine.accumulators.d.total_eq(&value));
+        assert!(register_of!(machine, AD).total_eq(&value));
     }
 
     #[cfg(feature = "quickcheck")]
@@ -890,8 +978,8 @@ mod test {
     fn eq_test_d(lhs: LuaValue, rhs: LuaValue) {
         let mut machine = Machine::new();
         let expected = TestFlag::from_bool(lhs == rhs);
-        machine.argument_registers.d[0] = lhs;
-        machine.argument_registers.d[1] = rhs;
+        register_of!(machine, RD0) = lhs;
+        register_of!(machine, RD1) = rhs;
         let block_id = machine.code_blocks.add_top_level_block(CodeBlock {
             meta: CodeMeta {
                 arg_count: 2.into(),
@@ -908,17 +996,17 @@ mod test {
         assert_eq!(machine.test_flag, expected);
     }
 
-    test_instructions_with_meta!(
-        jmp,
-        [ConstI(1), Jmp(JmpLabel(0)), ConstI(2), Label, Ret],
-        CodeMeta {
+    test_instructions_with_meta! {
+        name: jmp,
+        code: [ConstI(1), Jmp(JmpLabel(0)), ConstI(2), Label, Ret],
+        meta: CodeMeta {
             arg_count: 0.into(),
             label_mappings: keyed_vec![3],
             return_count: 0.into(),
             ..Default::default()
         },
-        |machine: Machine| { assert_eq!(machine.accumulators.i, 1) }
-    );
+        post_condition: |machine: Machine| { assert_eq!(register_of!(machine, AI), 1) }
+    }
 
     static CONDITIONAL_JMP_BEHAVIOR: [(fn(JmpLabel) -> Instruction, &[TestFlag]); 6] = [
         (JmpEQ, &[EQ]),
@@ -953,7 +1041,7 @@ mod test {
                     2
                 };
                 assert_eq!(
-                    machine.accumulators.i,
+                    register_of!(machine, AI),
                     expected_value,
                     "While executing {} with triggered flags: {:?} and actual flag {:?}",
                     jmp_instr(JmpLabel(0)),
@@ -1154,8 +1242,8 @@ mod test {
         let top_level_block = machine.code_blocks.add_module(module);
         call_block::<()>(top_level_block, &mut machine).unwrap();
 
-        let block1_id = machine.accumulators.d.unwrap_lua_function();
-        let block2_id = machine.accumulators.c;
+        let block1_id = register_of!(machine, AD).unwrap_lua_function();
+        let block2_id = register_of!(machine, AC);
 
         assert_eq!(
             machine.code_blocks[block1_id].instructions,
@@ -1167,9 +1255,9 @@ mod test {
         );
     }
 
-    test_instructions!(
-        lda_prot,
-        [
+    test_instructions! {
+        name: lda_prot,
+        code: [
             ConstI(42),
             WrapI,
             StrRD(ArgumentRegisterID(2)),
@@ -1184,11 +1272,11 @@ mod test {
             StrRD(ArgumentRegisterID(1)),
             Ret
         ],
-        |machine: Machine| {
-            assert_eq!(machine.argument_registers.d[0], LuaValue::Int(42));
-            assert_eq!(machine.argument_registers.d[1], LuaValue::Nil);
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, RD0), LuaValue::Int(42));
+            assert_eq!(register_of!(machine, RD1), LuaValue::Nil);
         }
-    );
+    }
 
     #[test]
     fn typed_call() {
@@ -1234,9 +1322,9 @@ mod test {
         assert_eq!(res, LuaValue::Int(69));
     }
 
-    test_instructions!(
-        rd_shift_right,
-        [
+    test_instructions! {
+        name: rd_shift_right,
+        code: [
             ConstI(1),
             WrapI,
             StrRD(ArgumentRegisterID(0)),
@@ -1250,53 +1338,52 @@ mod test {
             RDShiftRight,
             Ret
         ],
-        |machine: Machine| {
-            assert_eq!(machine.argument_registers.d[2], LuaValue::Int(1));
-            assert_eq!(machine.argument_registers.d[3], LuaValue::Int(2));
-            assert_eq!(machine.argument_registers.d[4], LuaValue::Int(3));
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, RD2), LuaValue::Int(1));
+            assert_eq!(register_of!(machine, RD3), LuaValue::Int(2));
+            assert_eq!(register_of!(machine, RD4), LuaValue::Int(3));
         }
-    );
+    }
 
-    test_instructions!(
-        lda_vc,
-        [ConstI(69), StrVC, ConstI(42), LdaVC, Ret],
-        |machine: Machine| {
-            assert_eq!(machine.accumulators.i, 69);
+    test_instructions! {
+        name: lda_vc, code: [ConstI(69), StrVC, ConstI(42), LdaVC, Ret],
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, AI), 69);
         }
-    );
+    }
 
-    test_instructions_with_locals!(
-        str_li_and_lda_li,
-        [
+    test_instructions_with_locals! {
+        name: str_li_and_lda_li,
+        code: [
             ConstI(69),
             StrLI(LocalRegisterID(0)),
             ConstI(42),
             LdaLI(LocalRegisterID(0)),
             Ret
         ],
-        reg_count! { I: 1 },
-        |machine: Machine| {
-            assert_eq!(machine.accumulators.i, 69);
+        locals: reg_count! { I: 1 },
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, AI), 69);
         }
-    );
+    }
 
-    test_instructions!(
-        str_ri_and_lda_ri,
-        [
+    test_instructions! {
+        name: str_ri_and_lda_ri,
+        code: [
             ConstI(69),
             StrRI(ArgumentRegisterID(0)),
             ConstI(42),
             LdaRI(ArgumentRegisterID(0)),
             Ret
         ],
-        |machine: Machine| {
-            assert_eq!(machine.accumulators.i, 69);
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, AI), 69);
         }
-    );
+    }
 
-    test_instructions_with_locals!(
-        i_add,
-        [
+    test_instructions_with_locals! {
+        name: i_add,
+        code: [
             ConstI(68000),
             StrLI(LocalRegisterID(0)),
             ConstI(420),
@@ -1306,15 +1393,15 @@ mod test {
             IAddR(ArgumentRegisterID(0)),
             Ret
         ],
-        reg_count! { I: 1 },
-        |machine: Machine| {
-            assert_eq!(machine.accumulators.i, 69420);
+        locals: reg_count! { I: 1 },
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, AI), 69420);
         }
-    );
+    }
 
-    test_instructions!(
-        nil_test_nil,
-        [
+    test_instructions! {
+        name: nil_test_nil,
+        code: [
             ConstI(1),
             WrapI,
             StrRD(ArgumentRegisterID(0)),
@@ -1324,14 +1411,14 @@ mod test {
             NilTest,
             Ret
         ],
-        |machine: Machine| {
+        post_condition: |machine: Machine| {
             assert!(machine.test_flag.test_succeeded());
         }
-    );
+    }
 
-    test_instructions!(
-        nil_test_non_nill,
-        [
+    test_instructions! {
+        name: nil_test_non_nill,
+        code: [
             ConstI(1),
             WrapI,
             StrRD(ArgumentRegisterID(0)),
@@ -1340,10 +1427,10 @@ mod test {
             NilTest,
             Ret
         ],
-        |machine: Machine| {
+        post_condition: |machine: Machine| {
             assert!(machine.test_flag.test_failed());
         }
-    );
+    }
 
     // D arithmetic functions are such a pain to spec and write test cases for.
     // TODO: write arithmetic tests
@@ -1363,40 +1450,39 @@ mod test {
     //         DSubR(ArgumentRegisterID(0)),
     //         Ret
     //     ],
-    //     LocalRegCount {
-    //         d: 1,
-    //         ..Default::default()
-    //     },
+    //     reg_count! { D: 1, },
     //     |machine: Machine| {
-    //         assert_eq!(machine.accumulators.d, LuaValue::Int(69));
+    //         assert_eq!(register_of!(machine, AD), LuaValue::Int(69));
     //     }
     // );
 
-    test_instructions!(
-        new_and_str_rt,
-        [NewT, StrRT(ArgumentRegisterID(0)), NewT, Ret],
-        |machine: Machine| {
-            assert!(machine.accumulators.t.is_some());
-            assert!(machine.argument_registers.t[0].is_some());
-            assert_ne!(machine.argument_registers.t[0], machine.accumulators.t);
+    test_instructions! {
+        name: new_and_str_rt,
+        code: [NewT, StrRT(ArgumentRegisterID(0)), NewT, Ret],
+        post_condition: |machine: Machine| {
+            assert!(register_of!(machine, AT).is_some());
+            assert!(register_of!(machine, RT0).is_some());
+            assert_ne!(register_of!(machine, RT0), register_of!(machine, AT));
         }
-    );
+    }
 
-    test_instructions!(
-        lda_and_str_rt,
-        [
+    test_instructions! {
+        name: lda_and_str_rt,
+        code: [
             NewT,
             StrRT(ArgumentRegisterID(0)),
             NewT,
             LdaRT(ArgumentRegisterID(0)),
             Ret
         ],
-        |machine: Machine| { assert_eq!(machine.accumulators.t, machine.argument_registers.t[0]) }
-    );
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, AT), register_of!(machine, RT0))
+        }
+    }
 
-    test_instructions_with_locals!(
-        lda_and_str_lt,
-        [
+    test_instructions_with_locals! {
+        name: lda_and_str_lt,
+        code: [
             NewT,
             StrLT(LocalRegisterID(0)),
             StrRT(ArgumentRegisterID(0)),
@@ -1405,10 +1491,81 @@ mod test {
             LdaLT(LocalRegisterID(0)),
             Ret
         ],
-        reg_count! { T: 1 },
-        |machine: Machine| {
-            assert_eq!(machine.accumulators.t, machine.argument_registers.t[0]);
-            assert_ne!(machine.accumulators.t, machine.argument_registers.t[1]);
+        locals: reg_count! { T: 1 },
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, AT), register_of!(machine, RT0));
+            assert_ne!(register_of!(machine, AT), register_of!(machine, RT1));
         }
-    );
+    }
+
+    test_instructions_with_strings! {
+        name: d_concat_r_strings,
+        code: [
+            ConstS(StringID(1)),
+            WrapS,
+            StrRD(ArgumentRegisterID(0)),
+            ConstS(StringID(0)),
+            WrapS,
+            DConcatR(ArgumentRegisterID(0)),
+            Ret
+        ],
+        strings: ["hello", "world"],
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, AD), LuaValue::string("helloworld"))
+        }
+    }
+
+    test_instructions! {
+        name: d_concat_r_numbers,
+        code: [
+            ConstI(42),
+            WrapI,
+            StrRD(ArgumentRegisterID(0)),
+            ConstF(69.288),
+            WrapF,
+            DConcatR(ArgumentRegisterID(0)),
+            Ret
+        ],
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, AD), LuaValue::string("69.28842"))
+        }
+    }
+
+    test_instructions_with_meta! {
+        name: d_concat_l_strings,
+        code: [
+            ConstS(StringID(1)),
+            WrapS,
+            StrLD(LocalRegisterID(0)),
+            ConstS(StringID(0)),
+            WrapS,
+            DConcatL(LocalRegisterID(0)),
+            Ret
+        ],
+        meta: CodeMeta {
+            local_count: reg_count! { D: 1 },
+            const_strings: keyed_vec!["hello".to_owned(), "world".to_owned()],
+            ..Default::default()
+        },
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, AD), LuaValue::string("helloworld"))
+        }
+    }
+
+    test_instructions_with_locals! {
+        name: d_concat_l_numbers,
+        code: [
+            ConstI(42),
+            WrapI,
+            StrLD(LocalRegisterID(0)),
+            ConstF(69.288),
+            WrapF,
+            DConcatL(LocalRegisterID(0)),
+            Ret
+        ],
+        locals: reg_count! { D: 1 },
+        post_condition: |machine: Machine| {
+            assert_eq!(register_of!(machine, AD), LuaValue::string("69.28842"))
+        }
+    }
 }

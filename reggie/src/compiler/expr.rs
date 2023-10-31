@@ -84,7 +84,6 @@ fn compile_binary_op(
         BinaryOpType::ShortCircuits(op) => compile_short_circuit_op(op, rhs, state),
         BinaryOpType::Regular(op) => compile_regular_binary_op(op, rhs, state),
     }
-
 }
 
 fn compile_comparison(
@@ -172,7 +171,12 @@ fn compile_short_circuit_op(
     state.push_label(short_circuit_lbl);
 }
 
-fn compile_regular_binary_op(op: RegularOp, rhs: &Expression, state: &mut LocalScopeCompilationState) {
+fn compile_regular_binary_op(
+    op: RegularOp,
+    rhs: &Expression,
+    state: &mut LocalScopeCompilationState,
+) {
+    // By this point, left hand side has been evaluated and put into accumulator (AD)
     use Instruction::*;
 
     let lhs_reg = state.reg().alloc(DataType::Dynamic);
@@ -182,6 +186,9 @@ fn compile_regular_binary_op(op: RegularOp, rhs: &Expression, state: &mut LocalS
     state.push_instr(StrLD(rhs_reg));
     state.push_instr(LdaLD(lhs_reg));
 
+    // By this point, we have evaluated left hand side, moved it into accumulator (AD),
+    // We have evaluated right hand side, moved it into local dynamic register `rhs_reg`,
+    // The result of binary operation should be in accumulator (AD)
     match op {
         RegularOp::Equals => compile_eq_op(state, rhs_reg, false),
         RegularOp::NotEquals => compile_eq_op(state, rhs_reg, true),
@@ -193,10 +200,8 @@ fn compile_regular_binary_op(op: RegularOp, rhs: &Expression, state: &mut LocalS
         RegularOp::Greater => compile_comparison(rhs_reg, JmpGT, state),
         RegularOp::LessOrEquals => compile_comparison(rhs_reg, JmpLE, state),
         RegularOp::GreaterOrEquals => compile_comparison(rhs_reg, JmpGE, state),
+        RegularOp::Concat => state.push_instr(DConcatL(rhs_reg)),
 
-        RegularOp::Concat => {
-            todo!("Cannot compile the use of concatenation operator '..' yet")
-        }
         RegularOp::Exp => todo!("Cannot compile the use of exponentiation operator '^' yet"),
     }
 
