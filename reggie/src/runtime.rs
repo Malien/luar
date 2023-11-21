@@ -1,3 +1,5 @@
+use crate::trace_execution;
+
 use super::{
     ids::{ArgumentRegisterID, LocalRegisterID},
     machine::{Machine, ProgramCounter, StackFrame, TestFlag},
@@ -95,6 +97,16 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
         match instr {
             Instruction::Ret => {
                 block = &machine.code_blocks[frame.return_addr.block];
+                trace_execution!(
+                    "ret back to {:?} {}",
+                    frame.return_addr.block,
+                    block
+                        .meta
+                        .debug_name
+                        .as_ref()
+                        .map(String::as_str)
+                        .unwrap_or_default()
+                );
                 machine.program_counter = frame.return_addr;
                 position = &mut machine.program_counter.position;
                 machine.stack.pop();
@@ -235,6 +247,15 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             Instruction::DCall => match register!(AD).clone() {
                 LuaValue::Function(block_id) => {
                     let new_block = &machine.code_blocks[block_id];
+                    trace_execution!(
+                        "d_call into {block_id:?} {}",
+                        new_block
+                            .meta
+                            .debug_name
+                            .as_ref()
+                            .map(String::as_str)
+                            .unwrap_or_default()
+                    );
                     let new_frame = StackFrame::new(
                         &new_block.meta,
                         ProgramCounter {
@@ -254,6 +275,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 LuaValue::NativeFunction(NativeFunction(native_fn_kind)) => {
                     match native_fn_kind.borrow() {
                         NativeFunctionKind::Dyn(dyn_fn) => {
+                            trace_execution!("d_call into native function {:p}", dyn_fn as *const _);
                             dyn_fn.call(&mut machine.argument_registers, machine.value_count)?;
                             machine.value_count = dyn_fn.return_count();
                         } // NativeFunctionKind::OverloadSet(_) => {
@@ -262,10 +284,11 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                     };
                     *position += 1;
                 }
-                _ => {
+                _val => {
+                    trace_execution!("d_call {_val}");
                     return Err(EvalError::from(TypeError::IsNotCallable(
                         register!(AD).clone(),
-                    )))
+                    )));
                 }
             },
             Instruction::LdaProt(reg) => {
@@ -278,6 +301,16 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             }
             Instruction::TypedCall => {
                 let new_block = &machine.code_blocks[register!(AC)];
+                trace_execution!(
+                    "typed_call into {:?} {}",
+                    register!(AC),
+                    new_block
+                        .meta
+                        .debug_name
+                        .as_ref()
+                        .map(String::as_str)
+                        .unwrap_or_default()
+                );
                 let new_frame = StackFrame::new(
                     &new_block.meta,
                     ProgramCounter {
@@ -757,7 +790,7 @@ mod test {
         },
         meta::{reg_count, CodeMeta, LocalRegCount},
         ops::Instruction::{self, *},
-        EvalError, LuaValue, NativeFunction, Strict,
+        EvalError, LuaValue, NativeFunction, Strict, TypeError,
     };
     use ntest::timeout;
 
@@ -807,8 +840,8 @@ mod test {
     macro_rules! test_instructions {
         ($name: ident, [$($instr: expr),*$(,)?], $post_condition: expr) => {
             test_instructions_with_locals! {
-                name: $name, 
-                code: [$($instr,)*], 
+                name: $name,
+                code: [$($instr,)*],
                 locals: LocalRegCount::default(),
                 post_condition: $post_condition
             }
@@ -952,6 +985,50 @@ mod test {
         post_condition: |machine: Machine| {
             assert_eq!(register_of!(machine, AD), LuaValue::string("hello"))
         }
+    }
+
+    #[test]
+    fn after_execution_error_machine_stack_is_cleared() {
+        let mut machine = Machine::new();
+
+        let block_id = machine.code_blocks.add_module(CompiledModule {
+            blocks: keyed_vec![
+                CodeBlock {
+                    meta: CodeMeta {
+                        arg_count: 0.into(),
+                        return_count: 0.into(),
+                        local_count: reg_count! { D: 1 },
+                        ..Default::default()
+                    },
+                    instructions: vec![ConstN, DCall, Ret]
+                },
+                CodeBlock {
+                    meta: CodeMeta {
+                        arg_count: 0.into(),
+                        return_count: 0.into(),
+                        ..Default::default()
+                    },
+                    instructions: vec![ConstC(LocalBlockID(0)), TypedCall, Ret]
+                }
+            ],
+            top_level: CodeBlock {
+                meta: CodeMeta {
+                    arg_count: 0.into(),
+                    return_count: 0.into(),
+                    ..Default::default()
+                },
+                instructions: vec![ConstC(LocalBlockID(1)), TypedCall, Ret],
+            },
+        });
+
+        let result = call_block::<()>(block_id, &mut machine);
+        match result {
+            Err(EvalError::TypeError(err)) => {
+                assert_eq!(*err, TypeError::IsNotCallable(LuaValue::Nil))
+            }
+            _ => panic!("Expected ExecutionError, got {:?}", result),
+        }
+        assert_eq!(machine.stack, vec![], "Stack is not empty");
     }
 
     #[cfg(feature = "quickcheck")]
@@ -1147,7 +1224,7 @@ mod test {
         let mut machine = Machine::new();
 
         let function =
-            NativeFunction::new(|| Result::<(), EvalError>::Err(EvalError::AssertionError));
+            NativeFunction::new(|| Result::<(), EvalError>::Err(EvalError::AssertionError(None)));
         let value_cell = machine
             .global_values
             .set("not_a_function", LuaValue::NativeFunction(function));
@@ -1161,7 +1238,7 @@ mod test {
             instructions: vec![LdaDGl(value_cell), ConstI(1), StrVC, DCall, Ret],
         });
         let res = call_block::<()>(block_id, &mut machine);
-        assert!(matches!(res, Err(EvalError::AssertionError)));
+        assert!(matches!(res, Err(EvalError::AssertionError(None))));
     }
 
     #[test]

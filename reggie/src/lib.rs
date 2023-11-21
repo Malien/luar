@@ -11,10 +11,10 @@ pub(crate) mod keyed_vec;
 pub(crate) mod machine;
 pub(crate) mod meta;
 pub(crate) mod ops;
+pub(crate) mod optimizer;
 pub(crate) mod runtime;
 pub mod stdlib;
 pub mod value;
-pub(crate) mod optimizer;
 
 use compiler::CompiledModule;
 pub use global_values::GlobalValues;
@@ -60,6 +60,15 @@ pub fn call_block<'a, T: FromReturn<'a>>(
     machine: &'a mut Machine,
 ) -> Result<T, EvalError> {
     let block = &machine.code_blocks[block_id];
+    trace_execution!(
+        "Calling block from top-level {block_id:?} {}",
+        block
+            .meta
+            .debug_name
+            .as_ref()
+            .map(String::as_str)
+            .unwrap_or_default()
+    );
     let return_count = block.meta.return_count;
     let stack_frame = StackFrame::new(
         &block.meta,
@@ -73,10 +82,27 @@ pub fn call_block<'a, T: FromReturn<'a>>(
         block: block_id,
         position: 0,
     };
-    eval_loop(machine)?;
+    if let Err(err) = eval_loop(machine) {
+        machine.stack.clear();
+        return Err(err);
+    }
     let return_count = match return_count {
         ReturnCount::Constant(count) => count,
         _ => machine.value_count,
     };
     Ok(T::from_machine_state(machine, return_count))
+}
+
+#[macro_export]
+#[cfg(feature = "trace-execution")]
+macro_rules! trace_execution {
+    ($($fmt:expr),*) => {
+        println!($($fmt,)*);
+    };
+}
+
+#[macro_export]
+#[cfg(not(feature = "trace-execution"))]
+macro_rules! trace_execution {
+    ($($fmt:expr),*) => {};
 }

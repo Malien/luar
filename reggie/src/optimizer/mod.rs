@@ -1,3 +1,8 @@
+// This is currently WIP, hence allowing dead code and unused imports.
+// TODO: Remove dead code and unused imports.
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 use crate::{
     compiler::compile_function,
     ids::{ArgumentRegisterID, GlobalCellID, JmpLabel, LocalRegisterID, SimpleBlockID, StringID},

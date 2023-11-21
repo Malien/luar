@@ -121,7 +121,6 @@ fn needs_wrapper(meta: &CodeMeta) -> bool {
 #[cfg(test)]
 mod test {
     use nonzero_ext::nonzero;
-    use std::num::NonZeroU16;
 
     use super::compile_module;
     use crate::{

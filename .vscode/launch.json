@@ -61,6 +61,21 @@
             },
             "args": [],
             "cwd": "${workspaceFolder}"
+        }, {
+            "type": "lldb",
+            "name": "Run: reggie repl",
+            "request": "launch",
+            "cargo":  {
+                "args": [ "build", "--bin", "reggie" ],
+            },
+        }, {
+            "type": "lldb",
+            "name": "Test: engine/reggie/fn_call",
+            "request": "launch",
+            "cargo": {
+                "args": ["build", "--test", "engine"]
+            },
+            "args": ["reggie::fn_call", "--nocapture"]
         }
     ]
 }

@@ -1,16 +1,25 @@
 use luar_error::ExpectedType;
 
-use crate::{EvalError, GlobalValues, LuaValue, NativeFunction, TypeError};
+use crate::{EvalError, GlobalValues, LuaValue, NativeFunction, TypeError, trace_execution};
 
 // fn assert_none() -> Result<(), EvalError> {
 //     Err(EvalError::AssertionError)
 // }
 
-pub fn assert(value: LuaValue) -> Result<(), EvalError> {
+pub fn assert(value: LuaValue, message: LuaValue) -> Result<(), EvalError> {
+    trace_execution!("assert({:?}, {:?})", value, message);
     if value.is_truthy() {
         Ok(())
+    } else if let LuaValue::Nil = message {
+        Err(EvalError::AssertionError(None))
+    } else if let Some(str) = message.coerce_to_string() {
+        Err(EvalError::AssertionError(Some(str)))
     } else {
-        Err(EvalError::AssertionError)
+        Err(EvalError::from(TypeError::ArgumentType {
+            position: 1,
+            expected: ExpectedType::String,
+            got: message,
+        }))
     }
 }
 
@@ -54,6 +63,18 @@ pub fn random() -> LuaValue {
     return LuaValue::Float(float_value);
 }
 
+pub fn lua_type(value: &LuaValue) -> LuaValue {
+    match value {
+        LuaValue::Nil => LuaValue::string("nil"),
+        LuaValue::Int(_) => LuaValue::string("number"),
+        LuaValue::Float(_) => LuaValue::string("number"),
+        LuaValue::String(_) => LuaValue::string("string"),
+        LuaValue::NativeFunction(_) => LuaValue::string("function"),
+        LuaValue::Function(_) => LuaValue::string("function"),
+        LuaValue::Table(_) => LuaValue::string("table"),
+    }
+}
+
 pub fn define_stdlib(global_values: &mut GlobalValues) {
     global_values.set(
         "assert",
@@ -66,5 +87,9 @@ pub fn define_stdlib(global_values: &mut GlobalValues) {
     global_values.set(
         "random",
         LuaValue::NativeFunction(NativeFunction::new(random))
+    );
+    global_values.set(
+        "type",
+        LuaValue::NativeFunction(NativeFunction::new(lua_type))
     );
 }

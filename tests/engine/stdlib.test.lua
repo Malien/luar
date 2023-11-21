@@ -38,3 +38,34 @@ function floor_floors_numbers()
     assert(floor(-42.2) == -43)
     assert(floor(69.9) == 69)
 end
+
+function strlen_returns_length_of_string()
+    assert(strlen ~= nil)
+    assert(strlen("") == 0)
+    assert(strlen("hello") == 5)
+    assert(strlen("hello world") == 11)
+end
+
+function strlen_stringifies_numbers()
+    assert(strlen ~= nil)
+    assert(strlen(42) == 2)
+    assert(strlen(42.2) == 4)
+    assert(strlen(-42.2) == 5)
+    assert(strlen(69.9) == 4)
+end
+
+function type_returns_correct_types()
+    assert(type ~= nil, "type function exists")
+    assert(type(42) == "number", "42 is a number")
+    assert(type(42.2) == "number", "42.2 is a number")
+    assert(type(-42.2) == "number", "-42.2 is a number")
+    assert(type(69.9) == "number", "69.9 is a number")
+    assert(type("hello") == "string", "'hello' is a string")
+    assert(type("") == "string", "'' is a string")
+    assert(type(nil) == "nil", "nil is nil")
+    assert(type({}) == "table", "{} is a table")
+    assert(type({1, 2, 3}) == "table", "{1, 2, 3} is a table")
+    assert(type({foo = 42}) == "table", "{foo = 42} is a table")
+    assert(type(type) == "function", "type is a function")
+    assert(type(type_returns_correct_types) == "function", "type_returns_correct_types is a function")
+end

@@ -14,7 +14,7 @@ macro_rules! fib_bench {
                 );
 
                 b.iter(|| {
-                    ::ast_vm::ast_vm::eval_module(&module, &mut context).unwrap();
+                    ::ast_vm::eval_module(&module, &mut context).unwrap();
                 });
             }
 

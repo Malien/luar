@@ -2,7 +2,7 @@ use std::io::Write;
 
 use luar_error::ExpectedType;
 
-use crate::{lang::{LuaValue, LuaNumber}, EvalError, TypeError};
+use crate::{lang::LuaValue, EvalError, TypeError};
 
 pub fn tonumber(args: &[LuaValue]) -> LuaValue {
     if let Some(arg) = args.first() {
@@ -67,7 +67,10 @@ pub fn floor(args: &[LuaValue]) -> Result<LuaValue, EvalError> {
 
 pub fn assert(args: &[LuaValue]) -> Result<LuaValue, EvalError> {
     match args.first() {
-        None | Some(LuaValue::Nil) => Err(EvalError::AssertionError),
+        None | Some(LuaValue::Nil) => {
+            let message = args.get(1).and_then(LuaValue::coerce_to_string);
+            Err(EvalError::AssertionError(message))
+        }
         _ => Ok(LuaValue::Nil),
     }
 }
@@ -99,12 +102,14 @@ pub fn strsub(args: &[LuaValue]) -> Result<LuaValue, EvalError> {
             position: 0,
             expected: ExpectedType::String,
             got: LuaValue::Nil,
-        }.into()),
+        }
+        .into()),
         [_value] => Err(TypeError::ArgumentType {
             position: 1,
             expected: ExpectedType::Number,
             got: LuaValue::Nil,
-        }.into()),
+        }
+        .into()),
         [str, start] | [str, start, LuaValue::Nil, ..] => {
             let str = str
                 .coerce_to_string()
@@ -163,13 +168,24 @@ fn strsub_inner(str: String, start: usize, end: usize) -> Result<LuaValue, EvalE
     Ok(LuaValue::String(str[start..end].to_string()))
 }
 
+pub fn lua_type(args: &[LuaValue]) -> LuaValue {
+    let val = args.first().unwrap_or(&LuaValue::Nil);
+    LuaValue::string(match val {
+        LuaValue::Nil => "nil",
+        LuaValue::Number(_) => "number",
+        LuaValue::String(_) => "string",
+        LuaValue::Function(_) => "function",
+        LuaValue::Table(_) => "table",
+    })
+}
+
 #[cfg(test)]
 mod test {
     use std::io::Cursor;
 
     use quickcheck::TestResult;
 
-    use super::{assert, floor, print, random, strlen, tonumber, strsub};
+    use super::{assert, floor, print, random, strlen, strsub, tonumber};
     use crate::{
         lang::{LuaFunction, LuaNumber, LuaValue, ReturnValue, TableValue},
         util::{close_relative_eq, eq_with_nan},
@@ -311,10 +327,10 @@ mod test {
 
     #[test]
     fn asserting_falsy_value_produces_error() {
-        assert!(matches!(assert(&[]), Err(EvalError::AssertionError)));
+        assert!(matches!(assert(&[]), Err(EvalError::AssertionError(None))));
         assert!(matches!(
             assert(&[LuaValue::Nil]),
-            Err(EvalError::AssertionError)
+            Err(EvalError::AssertionError(None))
         ));
     }
 

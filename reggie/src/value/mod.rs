@@ -110,6 +110,15 @@ impl LuaValue {
         }
     }
 
+    pub fn coerce_to_string(&self) -> Option<String> {
+        match self {
+            Self::Int(int) => Some(int.to_string()),
+            Self::Float(float) => Some(float.to_string()),
+            Self::String(str) => Some(str.clone()),
+            _ => None,
+        }
+    }
+
     pub fn is_table(&self) -> bool {
         matches!(self, Self::Table(_))
     }

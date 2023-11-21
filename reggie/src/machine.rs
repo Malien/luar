@@ -14,7 +14,7 @@ use crate::{
 // TODO: Implement ExtR in order to make argument register more likely to be in cache(?)
 const ARG_REG_COUNT: usize = 32;
 
-pub const OPTIMIZE: bool = true;
+// pub const OPTIMIZE: bool = true;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Enum)]
 pub enum DataType {
@@ -145,6 +145,7 @@ impl std::fmt::Display for CodeBlock {
     }
 }
 
+#[derive(Debug)]
 pub struct ModuleAssociatedBlock {
     pub module: ModuleID,
     pub meta: CodeMeta,
@@ -221,6 +222,7 @@ impl CodeBlocks {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct LocalValues {
     pub f: Vec<f64>,
     pub i: Vec<i32>,
@@ -241,6 +243,7 @@ impl LocalValues {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct StackFrame {
     pub return_addr: ProgramCounter,
     pub local_values: LocalValues,

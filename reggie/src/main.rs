@@ -32,7 +32,6 @@ fn eval_file(filename: &str) -> Result<(), Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    println!("sizeof(LuaValue) = {}", std::mem::size_of::<LuaValue>());
     if let Some(filename) = std::env::args().skip(1).next() {
         eval_file(&filename)
     } else {

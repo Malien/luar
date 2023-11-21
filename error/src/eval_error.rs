@@ -7,15 +7,22 @@ use luar_lex::Ident;
 
 #[derive(Debug, thiserror::Error)]
 pub enum EvalError<V> {
-    #[error("{0}")]
     TypeError(Box<TypeError<V>>),
-    #[error("Assertion failed")]
-    AssertionError,
-    #[error("IO Error: {0}")]
+    AssertionError(Option<String>),
     IO(std::io::Error),
-
-    #[error("Operation produced invalid utf-8 sequence")]
     Utf8Error,
+}
+
+impl<V: fmt::Display> fmt::Display for EvalError<V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TypeError(err) => err.fmt(f),
+            Self::AssertionError(Some(msg)) => write!(f, "Assertion failed: {}", msg),
+            Self::AssertionError(None) => write!(f, "Assertion failed"),
+            Self::IO(err) => write!(f, "IO Error: {}", err),
+            Self::Utf8Error => write!(f, "Operation produced invalid utf-8 sequence"),
+        }
+    }
 }
 
 impl<V> From<TypeError<V>> for EvalError<V> {

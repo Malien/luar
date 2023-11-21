@@ -1,0 +1,39 @@
+---
+source: lex/src/token.rs
+expression: tokens
+---
+[
+    Number(
+        NumberLiteral(
+            40000000000.0,
+        ),
+    ),
+    Number(
+        NumberLiteral(
+            1.5000000000000002e-8,
+        ),
+    ),
+    Number(
+        NumberLiteral(
+            500000000.0,
+        ),
+    ),
+    Minus,
+    Number(
+        NumberLiteral(
+            60000000.0,
+        ),
+    ),
+    Minus,
+    Number(
+        NumberLiteral(
+            5.24e-7,
+        ),
+    ),
+    Plus,
+    Number(
+        NumberLiteral(
+            8.0,
+        ),
+    ),
+]

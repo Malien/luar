@@ -18,6 +18,8 @@ pub(crate) fn define_std_lib(ctx: &mut GlobalContext) {
     define_fn(ctx, "floor", fns::floor);
     define_fn(ctx, "assert", fns::assert);
     define_fn(ctx, "strlen", fns::strlen);
+    define_fn(ctx, "strsub", fns::strsub);
+    define_total_fn(ctx, "type", fns::lua_type);
 }
 
 fn define_fn(

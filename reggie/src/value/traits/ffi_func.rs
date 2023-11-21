@@ -29,3 +29,15 @@ where
         (self)(arg0)
     }
 }
+
+impl<Func, A0, A1, Ret> FFIFunc<(A0, A1)> for Func
+where 
+    Func: Fn(A0, A1) -> Ret,
+    Ret: ReturnRepresentable,
+{
+    // type Args = (A0, A1);
+    type Output = Ret;
+    fn call(&self, (arg0, arg1): (A0, A1)) -> Ret {
+        (self)(arg0, arg1)
+    }
+}

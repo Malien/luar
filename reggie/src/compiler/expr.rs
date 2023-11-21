@@ -228,6 +228,7 @@ fn compile_eq_op(
     state.push_label(cont_lbl);
 }
 
+/// Constructs a table, and stores it in the accumulator (AD)
 pub fn compile_table_constructor(table: &TableConstructor, state: &mut LocalScopeCompilationState) {
     use Instruction::*;
 

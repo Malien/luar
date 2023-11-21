@@ -105,7 +105,7 @@ pub enum Token {
     #[regex(r"[_a-zA-Z][_a-zA-Z0-9]*", |str| Ident::new(str.slice()))]
     Ident(Ident),
     #[regex(
-        "(\"(?:[^\"'\\\\]|\\\\.)*\")|('(?:[^\"'\\\\]|\\\\.)*')",
+        r#"("(?:[^"\\]|\\.)*")|('(?:[^'\\]|\\.)*')"#,
         |token| token.slice().parse()
     )]
     String(StringLiteral),
@@ -178,66 +178,66 @@ impl std::fmt::Display for Token {
     }
 }
 
-#[cfg(test)]
 #[cfg(feature = "quickcheck")]
-mod tests {
-    use std::unreachable;
+use quickcheck::Arbitrary;
 
-    use super::Token;
-    use logos::Logos;
-    use quickcheck::Arbitrary;
-
-    impl Arbitrary for Token {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let idx = u8::arbitrary(g) % 44;
-            match idx {
-                0 => Token::And,
-                1 => Token::Do,
-                3 => Token::Else,
-                4 => Token::ElseIf,
-                5 => Token::End,
-                6 => Token::Function,
-                7 => Token::If,
-                8 => Token::Local,
-                9 => Token::Nil,
-                10 => Token::Not,
-                11 => Token::Or,
-                12 => Token::Repeat,
-                13 => Token::Return,
-                14 => Token::Until,
-                15 => Token::Then,
-                16 => Token::While,
-                17 => Token::Equals,
-                18 => Token::NotEquals,
-                19 => Token::LessOrEquals,
-                20 => Token::GreaterOrEquals,
-                21 => Token::Greater,
-                22 => Token::Less,
-                23 => Token::Assignment,
-                24 => Token::Concat,
-                25 => Token::Plus,
-                26 => Token::Minus,
-                27 => Token::Mul,
-                28 => Token::Div,
-                29 => Token::Mod,
-                30 => Token::Exp,
-                31 => Token::OpenRoundBracket,
-                32 => Token::CloseRoundBracket,
-                33 => Token::OpenSquareBracket,
-                34 => Token::CloseSquareBracket,
-                35 => Token::OpenSquigglyBracket,
-                36 => Token::CloseSquigglyBracket,
-                37 => Token::Colon,
-                38 => Token::Dot,
-                39 => Token::Comma,
-                40 => Token::Semicolon,
-                41 => Token::Ident(Arbitrary::arbitrary(g)),
-                42 => Token::String(Arbitrary::arbitrary(g)),
-                43 => Token::Number(Arbitrary::arbitrary(g)),
-                _ => unreachable!(),
-            }
+#[cfg(feature = "quickcheck")]
+impl Arbitrary for Token {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let idx = u8::arbitrary(g) % 44;
+        match idx {
+            0 => Token::And,
+            1 => Token::Do,
+            3 => Token::Else,
+            4 => Token::ElseIf,
+            5 => Token::End,
+            6 => Token::Function,
+            7 => Token::If,
+            8 => Token::Local,
+            9 => Token::Nil,
+            10 => Token::Not,
+            11 => Token::Or,
+            12 => Token::Repeat,
+            13 => Token::Return,
+            14 => Token::Until,
+            15 => Token::Then,
+            16 => Token::While,
+            17 => Token::Equals,
+            18 => Token::NotEquals,
+            19 => Token::LessOrEquals,
+            20 => Token::GreaterOrEquals,
+            21 => Token::Greater,
+            22 => Token::Less,
+            23 => Token::Assignment,
+            24 => Token::Concat,
+            25 => Token::Plus,
+            26 => Token::Minus,
+            27 => Token::Mul,
+            28 => Token::Div,
+            29 => Token::Mod,
+            30 => Token::Exp,
+            31 => Token::OpenRoundBracket,
+            32 => Token::CloseRoundBracket,
+            33 => Token::OpenSquareBracket,
+            34 => Token::CloseSquareBracket,
+            35 => Token::OpenSquigglyBracket,
+            36 => Token::CloseSquigglyBracket,
+            37 => Token::Colon,
+            38 => Token::Dot,
+            39 => Token::Comma,
+            40 => Token::Semicolon,
+            41 => Token::Ident(Arbitrary::arbitrary(g)),
+            42 => Token::String(Arbitrary::arbitrary(g)),
+            43 => Token::Number(Arbitrary::arbitrary(g)),
+            _ => std::unreachable!(),
         }
     }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use logos::Logos;
 
     macro_rules! assert_tokens {
         ($name:ident, $text:tt) => {
@@ -282,9 +282,16 @@ mod tests {
         "
     );
 
-    assert_tokens!(string_literal, "\"hello world \\n \\\"nope\\\"\"");
+    assert_tokens!(string_literal, r#"  "hello world \n \"nope\""   "#);
+    assert_tokens!(
+        string_literal_with_mixed_quotes,
+        r#" 'hello world \n "nope"' "how 'bout this one?" "#
+    );
 
     assert_tokens!(simple_number, "4 1000 10000000000000000 -60 +728");
+    
+    // NOTE: prefix plus and minus are no longer "baked into" the number literal
+    //       they are separate tokens
     assert_tokens!(
         fractional_number,
         "4.23 .23 4. -4.67 -.25 -8. +.24 +5. +4.27, -.1234567890123456789"

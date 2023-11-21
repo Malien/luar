@@ -1,6 +1,6 @@
 use luar_syn::FunctionCall;
 
-use crate::{ids::ArgumentRegisterID, machine::DataType, ops::Instruction};
+use crate::{ids::ArgumentRegisterID, machine::DataType, ops::Instruction, compiler::compile_table_constructor};
 
 use super::{compile_expr, compile_var_lookup, LocalScopeCompilationState};
 
@@ -27,9 +27,14 @@ pub fn compile_fn_call(call: &FunctionCall, state: &mut LocalScopeCompilationSta
                 state.push_instr(DCall);
                 state.reg().free_count(DataType::Dynamic, locals.count);
             }
-            luar_syn::FunctionCallArgs::Table(table) => todo!(
-                "Cannot compile function calls with tables as arguments yet; in expression \"{func} {table}\""
-            ),
+            luar_syn::FunctionCallArgs::Table(table) => {
+                compile_table_constructor(table, state);
+                state.push_instr(StrRD(ArgumentRegisterID(0)));
+                state.push_instr(ConstI(1));
+                state.push_instr(StrVC);
+                compile_var_lookup(func, state);
+                state.push_instr(DCall);
+            }
         },
         FunctionCall::Method { func, method, args } => {
             todo!("Cannot compile method call {func}:{method}{args} yet")

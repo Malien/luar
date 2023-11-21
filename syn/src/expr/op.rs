@@ -105,7 +105,7 @@ impl Arbitrary for BinaryOperator {
 }
 
 #[cfg(test)]
-pub mod test {
+mod test {
     use crate::unspanned_lua_token_parser;
 
     use indoc::indoc;
