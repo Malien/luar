@@ -20,9 +20,9 @@
 
 function random_produces_values_from_0_to_1()
     assert(random ~= nil)
-    i = 1
+    local i = 1
     while i ~= 1000 do
-        res = random()
+        local res = random()
         assert(res >= 0)
         assert(res <= 1)
         i = i + 1

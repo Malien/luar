@@ -18,7 +18,7 @@ pub fn print_stdout(args: &[LuaValue]) -> Result<LuaValue, EvalError> {
     print(&mut std::io::stdout(), args)
 }
 
-pub fn print<W: Write>(writer: &mut W, args: &[LuaValue]) -> Result<LuaValue, EvalError> {
+pub fn print(writer: &mut impl Write, args: &[LuaValue]) -> Result<LuaValue, EvalError> {
     for arg in args {
         let res = match arg {
             LuaValue::Nil => writer.write("nil\n".as_bytes()).map(|_| ()),

@@ -27,7 +27,7 @@ fn flooring_unconvertible_values_is_an_error() {
         LuaValue::Nil,
         LuaValue::string("hello"),
         LuaValue::Table(TableRef::from(TableValue::new())),
-        LuaValue::NativeFunction(NativeFunction::new(|| ())),
+        LuaValue::native_function(|| ()),
     ];
     for value in unsupported {
         assert!(floor(&value).is_err())

@@ -1,11 +1,11 @@
 function pack_string(input)
-  local i = 0
+  local i = 1
   local len = strlen(input)
   local counts = {}
   local order = {}
   local unique_chars = 0
 
-  while i < len do
+  while i <= len do
     local char_str = strsub(input, i, i)
     local count = counts[char_str]
     if count == nil then
@@ -15,6 +15,7 @@ function pack_string(input)
     else
       counts[char_str] = count + 1
     end
+    i = i + 1
   end
 
   i = 0

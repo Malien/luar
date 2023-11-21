@@ -1,7 +1,7 @@
 use crate::{
     machine::ArgumentRegisters,
     signature::{ArgumentType, FunctionSignatureList},
-    EvalError, LuaValue,
+    EvalError, LuaValue, TypeError,
 };
 
 pub trait ReturnRepresentable {
@@ -59,6 +59,22 @@ where
     }
     fn to_lua_return(self, argument_registers: &mut ArgumentRegisters) -> Result<(), EvalError> {
         self.and_then(|value| value.to_lua_return(argument_registers))
+    }
+    fn return_count() -> u16 {
+        T::return_count()
+    }
+}
+
+impl<T> ReturnRepresentable for Result<T, TypeError>
+where
+    T: ReturnRepresentable,
+{
+    fn returns() -> FunctionSignatureList {
+        T::returns()
+    }
+    fn to_lua_return(self, argument_registers: &mut ArgumentRegisters) -> Result<(), EvalError> {
+        self.map_err(EvalError::from)
+            .and_then(|value| value.to_lua_return(argument_registers))
     }
     fn return_count() -> u16 {
         T::return_count()

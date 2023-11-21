@@ -93,6 +93,14 @@ impl LuaValue {
         Self::String(string.into())
     }
 
+    pub fn native_function<'a, F, Args>(func: F) -> Self
+    where
+        F: FFIFunc<Args> + 'static,
+        Args: FromArgs<'a> + 'static,
+    {
+        Self::NativeFunction(NativeFunction::new(func))
+    }
+
     pub fn coerce_to_f64(&self) -> Option<f64> {
         match self {
             Self::Int(int) => Some(*int as f64),
@@ -117,6 +125,18 @@ impl LuaValue {
             Self::String(str) => Some(str.clone()),
             _ => None,
         }
+    }
+
+    pub fn is_string(&self) -> bool {
+        matches!(self, Self::String(_))
+    }
+
+    pub fn is_int(&self) -> bool {
+        matches!(self, Self::Int(_))
+    }
+
+    pub fn is_float(&self) -> bool {
+        matches!(self, Self::Float(_))
     }
 
     pub fn is_table(&self) -> bool {

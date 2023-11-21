@@ -38,7 +38,8 @@ pub(crate) fn binary_op_eval(
         Minus => binary_number_op(lhs, rhs, ArithmeticOperator::Sub, std::ops::Sub::sub),
         Mul => binary_number_op(lhs, rhs, ArithmeticOperator::Mul, std::ops::Mul::mul),
         Div => binary_number_op(lhs, rhs, ArithmeticOperator::Div, std::ops::Div::div),
-        Exp | Concat => todo!(),
+        Exp => todo!("No support for ^ operator yet."),
+        Concat => todo!("No support for .. operator yet."),
         And | Or | Equals | NotEquals => unreachable!(),
     }
     .map_err(EvalError::from)
