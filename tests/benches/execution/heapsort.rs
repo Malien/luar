@@ -1,7 +1,7 @@
 use criterion::{Bencher, BenchmarkId, Criterion};
 use luar_syn::lua_parser;
 
-static BENCH_FILE: &'static str = include_str!(concat!("../lua_benches/heapsort.lua"));
+static BENCH_FILE: &'static str = include_str!("../lua_benches/heapsort.lua");
 
 fn random_ast_vm_tbl(size: usize) -> ast_vm::lang::TableValue {
     let mut table = ast_vm::lang::TableValue::new();
