@@ -407,7 +407,7 @@ mod test {
         }
         if let Some(end) = end {
             assert!(strsub(&[
-                LuaValue::String("".to_string()),
+                value,
                 LuaValue::Number(start.into()),
                 LuaValue::Number(end.into())
             ])
