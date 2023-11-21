@@ -24,3 +24,4 @@ impl<'a, const N: u16> FromArgsPart<'a, N> for &'a LuaValue {
         &LuaValue::Nil
     }
 }
+

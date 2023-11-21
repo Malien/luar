@@ -19,13 +19,14 @@ macro_rules! test_case {
             use reggie::{eval_str, stdlib::define_stdlib, Machine};
             $(
                 #[test]
-                fn $name() -> Result<(), reggie::LuaError> {
+                fn $name() {
 
                     let test_code = include_str!(concat!("./", stringify!($name), ".test.lua"));
                     let mut machine = Machine::new();
                     define_stdlib(&mut machine.global_values);
-                    eval_str(test_code, &mut machine)?;
-                    Ok(())
+                    if let Err(error) = eval_str::<()>(test_code, &mut machine) {
+                        panic!("{}", error);
+                    }
                 }
             )*
         }

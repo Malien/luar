@@ -69,3 +69,12 @@ function type_returns_correct_types()
     assert(type(type) == "function", "type is a function")
     assert(type(type_returns_correct_types) == "function", "type_returns_correct_types is a function")
 end
+
+function strsub_slices_in_correct_places()
+    assert(strsub ~= nil, "strsub function exists")
+    assert(strsub("", 1) == "", 'strsub("", 1)')
+    assert(strsub("hello", -20) == "hello", 'strsub("hello", -20)')
+    assert(strsub("hello", -20, 20) == "hello", 'strsub("hello", -20, 20)')
+    assert(strsub("hello", 1) == "hello", 'strsub("hello", 1)')
+    assert(strsub("hello", 1, 1) == "h", 'strsub("hello", 1, 1)')
+end

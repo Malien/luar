@@ -101,10 +101,36 @@ impl LuaValue {
         Self::NativeFunction(NativeFunction::new(func))
     }
 
+    pub fn int<T>(int: T) -> Self
+    where
+        T: TryInto<i32>,
+        T::Error: std::fmt::Debug,
+    {
+        Self::Int(int.try_into().unwrap())
+    }
+
     pub fn coerce_to_f64(&self) -> Option<f64> {
         match self {
             Self::Int(int) => Some(*int as f64),
             Self::Float(float) => Some(*float),
+            Self::String(str) => str.parse().ok(),
+            _ => None,
+        }
+    }
+
+    pub fn coerce_to_i32(&self) -> Option<i32> {
+        match self {
+            Self::Int(int) => Some(*int),
+            Self::Float(float) => Some(*float as i32),
+            Self::String(str) => str.parse().ok(),
+            _ => None,
+        }
+    }
+
+    pub fn coerce_to_usize(&self) -> Option<usize> {
+        match self {
+            Self::Int(int) => Some(*int as usize),
+            Self::Float(float) => Some(*float as usize),
             Self::String(str) => str.parse().ok(),
             _ => None,
         }

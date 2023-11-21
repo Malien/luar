@@ -1,4 +1,4 @@
-use crate::{machine::ArgumentRegisters, FromArgsPart};
+use crate::{machine::ArgumentRegisters, FromArgsPart, LuaValue};
 
 pub trait FromArgs<'a> {
     fn from_args(argument_registers: &'a ArgumentRegisters, arg_count: u16) -> Self;
@@ -7,6 +7,12 @@ pub trait FromArgs<'a> {
 impl<'a> FromArgs<'a> for () {
     fn from_args(_: &'a ArgumentRegisters, _: u16) -> Self {
         ()
+    }
+}
+
+impl<'a> FromArgs<'a> for (&'a [LuaValue],) {
+    fn from_args(argument_registers: &'a ArgumentRegisters, arg_count: u16) -> Self {
+        (&argument_registers.d[..arg_count as usize],)
     }
 }
 
@@ -35,26 +41,26 @@ macro_rules! impl_from_args_tuple {
     };
 }
 
-impl_from_args_tuple! { 
+impl_from_args_tuple! {
     0 => (A, [A-])
 }
-impl_from_args_tuple! { 
+impl_from_args_tuple! {
     0 => (A, [A-B-]),
     1 => (B, [A+B-]),
 }
-impl_from_args_tuple! { 
+impl_from_args_tuple! {
     0 => (A, [A-B-C-]),
     1 => (B, [A+B-C-]),
     2 => (C, [A+B+C-]),
 }
-impl_from_args_tuple! { 
+impl_from_args_tuple! {
     0 => (A, [A-B-C-D-]),
     1 => (B, [A+B-C-D-]),
     2 => (C, [A+B+C-D-]),
     3 => (D, [A+B+C+D-]),
 }
 
-// impl<'a, T> FromArgs<'a> for (T,) 
+// impl<'a, T> FromArgs<'a> for (T,)
 // where
 //     T: FromArgsPart<'a, 0>
 // {

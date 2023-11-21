@@ -1,3 +1,6 @@
+strsub = strsub or string.sub
+strlen = strlen or string.len
+
 function pack_string(input)
   local i = 1
   local len = strlen(input)
@@ -33,8 +36,15 @@ function pack_string(input)
   return result
 end
 
-assert(pack_string("") == "")
-assert(pack_string("A") == "A")
-assert(pack_string("ABA") == "AAB")
-assert(pack_string("ABCD") == "ABCD")
-assert(pack_string("ABCDABACDBE") == "AAABBBCCDDE")
+function test(input, expected)
+    local result = pack_string(input)
+    if result ~= expected then
+        assert(nil, 'Expected pack_string("' .. input .. '") to be "' .. expected .. '" but got "' .. result .. '"')
+    end
+end
+
+test("", "")
+test("A", "A")
+test("ABA", "AAB")
+test("ABCD", "ABCD")
+test("ABCDABACDBE", "AAABBBCCDDE")

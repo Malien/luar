@@ -6,38 +6,29 @@ pub trait FFIFunc<Args> {
     fn call(&self, args: Args) -> Self::Output;
 }
 
-impl<Func, Ret> FFIFunc<()> for Func
-where
-    Func: Fn() -> Ret,
-    Ret: ReturnRepresentable,
-{
-    // type Args = ();
-    type Output = Ret;
-    fn call(&self, (): ()) -> Ret {
-        (self)()
+macro_rules! ffi_func_impl {
+    ($([$($arg:tt),*]);*$(;)?) => {
+        $(
+            impl<Func, $($arg,)* Ret> FFIFunc<( $($arg,)* )> for Func
+            where 
+                Func: Fn($($arg),*) -> Ret,
+                Ret: ReturnRepresentable,
+            {
+                // type Args = ( $($arg,)* );
+                type Output = Ret;
+                #[allow(non_snake_case)]
+                fn call(&self, ( $($arg,)* ): ( $($arg,)* )) -> Ret {
+                    (self)( $($arg),* )
+                }
+            }
+        )*
     }
 }
 
-impl<Func, Arg, Ret> FFIFunc<(Arg,)> for Func
-where
-    Func: Fn(Arg) -> Ret,
-    Ret: ReturnRepresentable,
-{
-    // type Args = (Arg,);
-    type Output = Ret;
-    fn call(&self, (arg0,): (Arg,)) -> Ret {
-        (self)(arg0)
-    }
+ffi_func_impl! {
+    [];
+    [A0];
+    [A0, A1];
+    [A0, A1, A2];
 }
 
-impl<Func, A0, A1, Ret> FFIFunc<(A0, A1)> for Func
-where 
-    Func: Fn(A0, A1) -> Ret,
-    Ret: ReturnRepresentable,
-{
-    // type Args = (A0, A1);
-    type Output = Ret;
-    fn call(&self, (arg0, arg1): (A0, A1)) -> Ret {
-        (self)(arg0, arg1)
-    }
-}
