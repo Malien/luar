@@ -124,7 +124,7 @@ pub fn strsub(args: &[LuaValue]) -> Result<LuaValue, EvalError> {
                 got: start.clone(),
             })?;
             let len = str.len();
-            strsub_inner(str, start.into(), len)
+            strsub_inner(str, start.into(), len as isize)
         }
         [str, start, end, ..] => {
             let str = str
@@ -149,23 +149,22 @@ pub fn strsub(args: &[LuaValue]) -> Result<LuaValue, EvalError> {
     }
 }
 
-fn strsub_inner(str: String, start: usize, end: usize) -> Result<LuaValue, EvalError> {
-    if start > end {
-        return Ok(LuaValue::String("".to_string()));
+fn strsub_inner(str: String, start: isize, end: isize) -> Result<LuaValue, EvalError> {
+    if str.is_empty() {
+        return Ok(LuaValue::String(str));
     }
-    if start > str.len() {
-        return Ok(LuaValue::String("".to_string()));
-    }
-    if !str.is_char_boundary(start) {
+    let start = if start < 1 { 1 } else { start as usize };
+    let start = if start > str.len() { str.len() } else { start };
+    let end = if end < start as isize { start } else { end as usize };
+    let end = if end > str.len() { str.len() } else { end };
+
+    if !str.is_char_boundary(start - 1) {
         return Err(EvalError::Utf8Error);
-    }
-    if end > str.len() {
-        return Ok(LuaValue::String(str[start..].to_string()));
     }
     if !str.is_char_boundary(end) {
         return Err(EvalError::Utf8Error);
     }
-    Ok(LuaValue::String(str[start..end].to_string()))
+    Ok(LuaValue::String(str[start - 1..end].to_string()))
 }
 
 pub fn lua_type(args: &[LuaValue]) -> LuaValue {

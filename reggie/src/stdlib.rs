@@ -6,10 +6,6 @@ use std::{
 
 use crate::{trace_execution, EvalError, GlobalValues, LuaValue, TypeError};
 
-// fn assert_none() -> Result<(), EvalError> {
-//     Err(EvalError::AssertionError)
-// }
-
 pub fn assert(value: LuaValue, message: LuaValue) -> Result<(), EvalError> {
     trace_execution!("assert({:?}, {:?})", value, message);
     if value.is_truthy() {
@@ -26,13 +22,6 @@ pub fn assert(value: LuaValue, message: LuaValue) -> Result<(), EvalError> {
         }))
     }
 }
-
-// pub fn assert_overload_set() -> OverloadSet {
-//     OverloadSet::new(vec![
-//         OverloadRule::from(assert_none as fn() -> Result<(), EvalError>),
-//         OverloadRule::from(assert as fn(LuaValue) -> Result<(), EvalError>),
-//     ])
-// }
 
 fn is_within_int_range(float: f64) -> bool {
     float >= i32::MIN as f64 && float < i32::MAX as f64 + 1.0

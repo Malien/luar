@@ -74,6 +74,12 @@ impl From<LuaNumber> for usize {
     }
 }
 
+impl From<LuaNumber> for isize {
+    fn from(v: LuaNumber) -> Self {
+        v.0 as isize
+    }
+}
+
 impl From<LuaNumber> for u64 {
     fn from(v: LuaNumber) -> Self {
         v.0 as u64
