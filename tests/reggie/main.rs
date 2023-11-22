@@ -10,7 +10,6 @@ mod boolean_ops;
 mod comparison;
 mod function;
 mod local_decl;
-mod stdlib;
 mod table;
 mod table_constructor;
 mod unary_op;

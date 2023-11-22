@@ -1,7 +1,8 @@
 use luar_error::ExpectedType;
 use std::{
     cmp::{max, min},
-    io::{self, Write}, rc::Rc,
+    io::{self, Write},
+    rc::Rc,
 };
 
 use crate::{trace_execution, EvalError, GlobalValues, LuaValue, TypeError};
@@ -165,13 +166,25 @@ pub fn define_stdlib(global_values: &mut GlobalValues) {
 }
 
 #[cfg(test)]
-#[cfg(feature = "quickcheck")]
 mod test {
-    use std::{io::Cursor, rc::Rc};
+    use std::io::Cursor;
 
-    use crate::NativeFunction;
+    use crate::{TableRef, TableValue};
 
     use super::*;
+
+    #[test]
+    fn flooring_unconvertible_values_is_an_error() {
+        let unsupported = [
+            LuaValue::Nil,
+            LuaValue::string("hello"),
+            LuaValue::Table(TableRef::from(TableValue::new())),
+            LuaValue::native_function(|| ()),
+        ];
+        for value in unsupported {
+            assert!(floor(&value).is_err())
+        }
+    }
 
     #[test]
     fn printing_with_no_args_prints_newline() {
@@ -188,6 +201,20 @@ mod test {
         assert_eq!(res, "nil\n");
     }
 
+    #[cfg(feature = "quickcheck")]
+    #[quickcheck]
+    fn floor_floor_numbers(num: f64) {
+        use crate::eq_with_nan::eq_with_nan;
+
+        let res = floor(&LuaValue::Float(num)).unwrap();
+
+        assert!(eq_with_nan(res.number_as_f64().unwrap(), num.floor()));
+
+        let res = floor(&LuaValue::String(format!("{}", num))).unwrap();
+        assert!(eq_with_nan(res.number_as_f64().unwrap(), num.floor()));
+    }
+
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn printing_string_prints_its_value(str: String) {
         let mut buf = Cursor::new(Vec::new());
@@ -196,6 +223,7 @@ mod test {
         assert_eq!(res, format!("{}\n", str));
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn printing_int_prints_string_repr(num: i32) {
         let mut buf = Cursor::new(Vec::new());
@@ -204,6 +232,7 @@ mod test {
         assert_eq!(res, format!("{}\n", num));
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn printing_float_prints_string_repr(num: f64) {
         let mut buf = Cursor::new(Vec::new());
@@ -212,8 +241,12 @@ mod test {
         assert_eq!(res, format!("{}\n", num));
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn printing_function_prints_it_address() {
+        use std::rc::Rc;
+        use crate::NativeFunction;
+
         let func = NativeFunction::new(|| ());
         let addr = Rc::as_ptr(&func.0);
         let mut buf = Cursor::new(Vec::new());
@@ -222,6 +255,7 @@ mod test {
         assert_eq!(res, format!("function: {:p}\n", addr));
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn multiple_values_are_printed_separated_by_tabs(values: Vec<LuaValue>) {
         let mut buf = Cursor::new(Vec::new());
@@ -235,11 +269,14 @@ mod test {
                 *expected_buf.get_mut().last_mut().unwrap() = b'\t';
                 print(&mut expected_buf, std::slice::from_ref(&value)).unwrap();
             }
+            let expected_str = String::from_utf8(expected_buf.into_inner()).unwrap();
+            assert_eq!(res_str, expected_str);
+        } else {
+            assert_eq!(res_str, "\n");
         }
-        let expected_str = String::from_utf8(expected_buf.into_inner()).unwrap();
-        assert_eq!(res_str, expected_str);
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn strlen_returns_the_number_of_bytes_in_a_string(str: String) {
         let len = str.len();
@@ -247,6 +284,7 @@ mod test {
         assert_eq!(res, LuaValue::Int(len as i32));
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn strlen_returns_the_number_of_bytes_in_a_stringified_int(num: i32) {
         let str = format!("{}", num);
@@ -255,6 +293,7 @@ mod test {
         assert_eq!(res, LuaValue::Int(len as i32));
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn strlen_returns_the_number_of_bytes_in_a_stringified_float(num: f64) {
         let str = format!("{}", num);
@@ -263,6 +302,7 @@ mod test {
         assert_eq!(res, LuaValue::Int(len as i32));
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn strlen_on_non_stringable_errors_out(value: LuaValue) {
         if value.is_string() || value.is_int() || value.is_float() {
@@ -271,6 +311,7 @@ mod test {
         assert!(strlen(&value).is_err());
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn strsub_slices_string_suffix(str: String, start: i32) {
         let suffix_start = if start <= 1 {
@@ -291,6 +332,7 @@ mod test {
         assert_eq!(res, Ok(expected_suffix));
     }
 
+    #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn strsub_errors_out_on_non_stringables(value: LuaValue, start: u16, end: Option<u16>) {
         if value.is_string() || value.is_int() || value.is_float() {

@@ -154,7 +154,7 @@ fn strsub_inner(str: String, start: isize, end: isize) -> Result<LuaValue, EvalE
         return Ok(LuaValue::String(str));
     }
     let start = if start < 1 { 1 } else { start as usize };
-    let start = if start > str.len() { str.len() } else { start };
+    let start = if start > str.len() { str.len() + 1 } else { start };
     let end = if end < start as isize { start } else { end as usize };
     let end = if end > str.len() { str.len() } else { end };
 
@@ -333,27 +333,6 @@ mod test {
         ));
     }
 
-    // #[test]
-    // fn format_errors_when_no_format_string_is_passed() {
-    //     let res = format(&[]);
-    //     assert!(res.is_err());
-    // }
-
-    // #[quickcheck]
-    // fn formatting_string_without_escapes_results_in_the_same_string(string: String) -> TestResult {
-    //     if let Some(_) = string
-    //         .matches("%c|%d|%E|%e|%f|%g|%i|%o|%u|%X|%x|%q|%s")
-    //         .next()
-    //     {
-    //         return TestResult::discard();
-    //     }
-    //     let res = format(&[LuaValue::String(string.clone())]);
-    //     assert!(res.is_ok());
-    //     let value = res.unwrap();
-    //     assert_eq!(value, LuaValue::String(string));
-    //     TestResult::passed()
-    // }
-
     #[quickcheck]
     fn strlen_returns_the_number_of_bytes_in_a_string(str: String) {
         let len = str.len();
@@ -379,23 +358,25 @@ mod test {
 
     #[quickcheck]
     fn strsub_slices_string_suffix(str: String, start: usize) {
-        let suffix = if str.len() < start {
-            Some("".to_string())
-        } else if str.is_char_boundary(start) {
-            Some(str[start..].to_string())
+        let suffix_start = if start <= 1 {
+            0
+        } else if start as usize >= str.len() + 1 {
+            str.len()
         } else {
-            None
+            start as usize - 1
         };
 
-        let res = strsub(&[LuaValue::String(str), LuaValue::Number(start.into())]);
-        if let Some(suffix) = suffix {
-            if let Ok(LuaValue::String(res)) = res {
-                assert_eq!(res, suffix);
-            } else {
-                panic!("Expected string, got {:?}", res);
-            }
+        let expected_suffix = LuaValue::string(&str[suffix_start..]);
+
+        let res = strsub(&[
+            LuaValue::String(str),
+            LuaValue::number(start),
+            LuaValue::Nil,
+        ]);
+        if let Ok(res) = res {
+            assert_eq!(res, expected_suffix);
         } else {
-            assert!(res.is_err());
+            panic!("Expected string, got {:?}", res);
         }
     }
 
