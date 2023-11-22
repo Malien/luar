@@ -46,7 +46,7 @@ impl std::fmt::Display for DataType {
 pub struct ArgumentRegisters {
     pub f: [f64; ARG_REG_COUNT],
     pub i: [i32; ARG_REG_COUNT],
-    pub s: [Option<LuaString>; ARG_REG_COUNT],
+    pub s: [LuaString; ARG_REG_COUNT],
     pub t: [Option<TableRef>; ARG_REG_COUNT],
     pub d: [LuaValue; ARG_REG_COUNT],
 }
@@ -54,7 +54,7 @@ pub struct ArgumentRegisters {
 pub struct Accumulators {
     pub f: f64,
     pub i: i32,
-    pub s: Option<LuaString>,
+    pub s: LuaString,
     pub c: BlockID,
     pub t: Option<TableRef>,
     pub d: LuaValue,
@@ -283,7 +283,7 @@ impl Machine {
             accumulators: Accumulators {
                 f: 0.0,
                 i: 0,
-                s: None,
+                s: LuaString::default(),
                 c: dummy_block_id,
                 t: None,
                 d: LuaValue::Nil,
@@ -298,7 +298,7 @@ impl Machine {
             argument_registers: ArgumentRegisters {
                 f: [0.0; ARG_REG_COUNT],
                 i: [0; ARG_REG_COUNT],
-                s: [(); ARG_REG_COUNT].map(|_| None),
+                s: [(); ARG_REG_COUNT].map(|_| LuaString::default()),
                 t: [(); ARG_REG_COUNT].map(|_| None),
                 d: [(); ARG_REG_COUNT].map(|_| LuaValue::Nil),
             },

@@ -158,11 +158,11 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 *position += 1;
             }
             Instruction::ConstS(string_id) => {
-                register!(AS) = Some(block.meta.const_strings[string_id].clone());
+                register!(AS) = block.meta.const_strings[string_id].clone();
                 *position += 1;
             }
             Instruction::WrapS => {
-                register!(AD) = LuaValue::String(register!(AS).as_ref().unwrap().clone());
+                register!(AD) = LuaValue::String(register!(AS).clone());
                 *position += 1;
             }
             Instruction::ConstC(local_block_id) => {
@@ -399,7 +399,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             }
             Instruction::AssocASD => {
                 let table = register!(AT).as_mut().unwrap();
-                table.assoc_str(register!(AS).clone().unwrap(), register!(AD).clone());
+                table.assoc_str(register!(AS).clone(), register!(AD).clone());
                 *position += 1;
             }
             Instruction::CastT => {
@@ -413,7 +413,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             }
             Instruction::TablePropertyLookupError => {
                 return Err(EvalError::from(TypeError::CannotAccessProperty {
-                    property: register!(AS).take().unwrap(),
+                    property: register!(AS).clone(),
                     of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
                 }))
             }
@@ -439,7 +439,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                     .t
                     .as_mut()
                     .unwrap()
-                    .get_str_assoc(register!(AS).clone().unwrap());
+                    .get_str_assoc(register!(AS).clone());
                 *position += 1;
             }
             Instruction::LdaAssocAD => {
@@ -499,7 +499,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             }
             Instruction::TablePropertyAssignError => {
                 return Err(EvalError::from(TypeError::CannotAssignProperty {
-                    property: register!(AS).take().unwrap(),
+                    property: register!(AS).clone(),
                     of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
                 }))
             }
@@ -972,7 +972,7 @@ mod test {
         code: [ConstS(StringID(0)), Ret],
         strings: ["hello"],
         post_condition: |machine: Machine| {
-            assert_eq!(register_of!(machine, AS), Some("hello".into()))
+            assert_eq!(register_of!(machine, AS), "hello".into())
         }
     }
 

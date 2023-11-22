@@ -15,7 +15,7 @@ enum LuaValue {
 #[repr(packed(4))]
 pub struct LuaString {
     len: u32, 
-    block: NonNull<StrBlockHeader>
+    block: [u8; 8],
 }
 
 
