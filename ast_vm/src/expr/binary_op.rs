@@ -39,7 +39,7 @@ pub(crate) fn binary_op_eval(
         Mul => binary_number_op(lhs, rhs, ArithmeticOperator::Mul, std::ops::Mul::mul),
         Div => binary_number_op(lhs, rhs, ArithmeticOperator::Div, std::ops::Div::div),
         Exp => todo!("No support for ^ operator yet."),
-        Concat => todo!("No support for .. operator yet."),
+        Concat => concat(lhs, rhs),
         And | Or | Equals | NotEquals => unreachable!(),
     }
     .map_err(EvalError::from)
@@ -89,6 +89,24 @@ ord_op!(less_than, <, OrderingOperator::Less);
 ord_op!(greater_than, >, OrderingOperator::Greater);
 ord_op!(less_or_equals, <=, OrderingOperator::LessOrEquals);
 ord_op!(greater_or_equals, >=, OrderingOperator::GreaterOrEquals);
+
+fn concat(lhs: LuaValue, rhs: LuaValue) -> Result<LuaValue, TypeError> {
+    match (&lhs, &rhs) {
+        (LuaValue::String(lhs), LuaValue::String(rhs)) => {
+            Ok(LuaValue::String(format!("{lhs}{rhs}")))
+        }
+        (LuaValue::Number(lhs), LuaValue::String(rhs)) => {
+            Ok(LuaValue::String(format!("{lhs}{rhs}")))
+        }
+        (LuaValue::String(lhs), LuaValue::Number(rhs)) => {
+            Ok(LuaValue::String(format!("{lhs}{rhs}")))
+        }
+        (LuaValue::Number(lhs), LuaValue::Number(rhs)) => {
+            Ok(LuaValue::String(format!("{lhs}{rhs}")))
+        }
+        _ => Err(TypeError::StringConcat { lhs, rhs }),
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -460,5 +478,21 @@ mod test {
         assert!(res.is_err());
 
         Ok(TestResult::passed())
+    }
+
+    #[quickcheck]
+    fn concat(lhs: LuaValue, rhs: LuaValue) {
+        let module = lua_parser::module("return lhs .. rhs").unwrap();
+        let mut context = GlobalContext::new();
+        context.set("lhs", lhs.clone());
+        context.set("rhs", rhs.clone());
+
+        let res = ast_vm::eval_module(&module, &mut context);
+        if let (Some(lhs), Some(rhs)) = (lhs.coerce_to_string(), rhs.coerce_to_string()) {
+            let res = res.unwrap();
+            assert!(res.total_eq(&ReturnValue::string(lhs + &rhs)));
+        } else {
+            assert!(res.is_err());
+        }
     }
 }

@@ -6,15 +6,15 @@ use quickcheck::TestResult;
 use reggie::{eval_module, eval_str, value::Strict, LuaError, LuaValue, Machine};
 
 mod assignment;
+mod boolean_ops;
+mod comparison;
 mod function;
 mod local_decl;
+mod stdlib;
+mod table;
+mod table_constructor;
 mod unary_op;
 mod while_loop;
-mod table_constructor;
-mod table;
-mod comparison;
-mod boolean_ops;
-mod stdlib;
 
 pub fn eq_with_nan(a: f64, b: f64) -> bool {
     if a.is_nan() && b.is_nan() {
@@ -111,4 +111,19 @@ fn not_equals_is_the_negation_of_equality(lhs: LuaValue, rhs: LuaValue) -> Resul
     let res = eval_str("return (not (lhs ~= rhs)) == (lhs == rhs)", &mut machine)?;
     assert_eq!(LuaValue::true_value(), res);
     Ok(())
+}
+
+#[quickcheck]
+fn concat(lhs: LuaValue, rhs: LuaValue) {
+    let mut machine = Machine::new();
+    machine.global_values.set("lhs", lhs.clone());
+    machine.global_values.set("rhs", rhs.clone());
+
+    let res = eval_str::<LuaValue>("return lhs .. rhs", &mut machine);
+    if let (Some(lhs), Some(rhs)) = (lhs.coerce_to_string(), rhs.coerce_to_string()) {
+        let res = res.unwrap();
+        assert!(res.total_eq(&LuaValue::String(lhs + &rhs)));
+    } else {
+        assert!(res.is_err());
+    }
 }
