@@ -1,8 +1,8 @@
-use std::{alloc::Layout, fmt, hash::Hash, marker::PhantomData, mem::size_of, slice};
+use std::{alloc::Layout, fmt, hash::Hash, marker::PhantomData, mem::size_of};
 
 use luar_lex::Ident;
 
-const INLINE_BUFFER_SIZE: usize = std::mem::size_of::<*const ()>();
+const INLINE_BUFFER_SIZE: usize = 8;
 
 #[repr(packed)]
 pub struct LuaString {
@@ -28,7 +28,7 @@ union SSOStorage {
 }
 
 #[repr(C)]
-struct StrBlock {
+struct SharedString {
     /// Number of outstanding references to this allocation, minus one.
     /// If refcount is zero, you are responsible for deallocating them.
     /// Sharing StrBlock between threads is not safe, since refcount
@@ -65,6 +65,7 @@ impl From<&str> for LuaString {
 
         if len <= INLINE_BUFFER_SIZE as u32 {
             let mut inline_data = [0; INLINE_BUFFER_SIZE];
+            // SAFETY: inline_data is a valid UTF-8 string, since it is a valid &str.
             inline_data[..str.len()].copy_from_slice(str.as_bytes());
             return Self {
                 len,
@@ -87,7 +88,9 @@ impl From<&str> for LuaString {
         //
         //         Data at allocation is uninitialized, but no matter, we write
         //         to it immediately afterwards.
-        let block_ptr = unsafe {
+        //
+        //         Copied data is valid UTF-8, since it is a valid &str.
+        let shared_str_ptr = unsafe {
             let allocation_size = len as usize + size_of::<usize>();
             // SAFETY:
             //       * `align` is not zero
@@ -97,22 +100,21 @@ impl From<&str> for LuaString {
             //          less than or equal to `isize::MAX`).
             let allocation =
                 std::alloc::alloc(Layout::from_size_align_unchecked(allocation_size, 1));
-            let slice = slice::from_raw_parts_mut(allocation, len as usize);
-            let block_ptr = slice as *mut [u8] as *mut StrBlock;
-            let str_block = &mut *block_ptr;
-            str_block.refcount = 0;
-            str_block
+            let shared_str_ptr = from_raw_parts(allocation as *mut (), len);
+            let shared_str = &mut *shared_str_ptr;
+            shared_str.refcount = 0;
+            shared_str
                 .data
                 .as_bytes_mut()
                 .copy_from_slice(str.as_bytes());
-            block_ptr
+            shared_str_ptr
         };
 
         Self {
             len,
             _unused: PhantomData,
             ptr_or_inline_data: SSOStorage {
-                heap_allocation: block_ptr as *mut (),
+                heap_allocation: shared_str_ptr as *mut (),
             },
         }
     }
@@ -136,6 +138,13 @@ impl From<Ident> for LuaString {
     }
 }
 
+/// Until we have std::ptr::from_raw_parts this is a workaround for
+/// creating fat pointers to ?Sized structs
+unsafe fn from_raw_parts(base: *mut (), len: u32) -> *mut SharedString {
+    let slice = std::slice::from_raw_parts_mut(base, len as usize);
+    slice as *mut [()] as *mut SharedString
+}
+
 impl Drop for LuaString {
     fn drop(&mut self) {
         if self.len > INLINE_BUFFER_SIZE as u32 {
@@ -152,22 +161,19 @@ impl Drop for LuaString {
             //         Decresing refcount is safe, since LuaString cannot be shared
             //         between threads.
             unsafe {
-                let ptr = self.ptr_or_inline_data.heap_allocation;
-                // Until we have std::ptr::from_raw_parts this is a workaround for
-                // creating fat pointers to ?Sized structs
-                let slice = std::slice::from_raw_parts_mut(ptr, self.len as usize);
-                let block_ptr = slice as *mut [()] as *mut StrBlock;
-                let block = &mut *block_ptr;
+                let shared_str_ptr =
+                    from_raw_parts(self.ptr_or_inline_data.heap_allocation, self.len);
+                let shared_str = &mut *shared_str_ptr;
 
-                if block.refcount == 0 {
+                if shared_str.refcount == 0 {
                     // No need to call Drop, since StrBlock is trivially dropable.
                     let layout = Layout::from_size_align_unchecked(
                         size_of::<usize>() + self.len as usize,
                         1,
                     );
-                    std::alloc::dealloc(block_ptr as *mut u8, layout)
+                    std::alloc::dealloc(shared_str_ptr as *mut u8, layout)
                 } else {
-                    block.refcount -= 1;
+                    shared_str.refcount -= 1;
                 }
             }
         }
@@ -188,13 +194,10 @@ impl AsRef<str> for LuaString {
                 let byte_slice = &self.ptr_or_inline_data.inline_data[..self.len as usize];
                 std::str::from_utf8_unchecked(byte_slice)
             } else {
-                let block_ptr = self.ptr_or_inline_data.heap_allocation;
-                // Until we have std::ptr::from_raw_parts this is a workaround for
-                // creating fat pointers to ?Sized structs
-                let slice = std::slice::from_raw_parts(block_ptr, self.len as usize);
-                let block_ptr = slice as *const [()] as *const StrBlock;
-                let block = &*block_ptr;
-                &block.data
+                let shared_str_ptr =
+                    from_raw_parts(self.ptr_or_inline_data.heap_allocation, self.len);
+                let shared_str = &*shared_str_ptr;
+                &shared_str.data
             }
         }
     }
@@ -242,6 +245,7 @@ impl Hash for LuaString {
 impl Clone for LuaString {
     fn clone(&self) -> Self {
         if self.len > INLINE_BUFFER_SIZE as u32 {
+            // Bump the refcount of shared string.
             // SAFETY: Everything that is longer than INLINE_BUFFER_SIZE bytes is
             //         stored inline. Otherwise self.ptr_or_inline_data contains a
             //         pointer to a valid allocation of StrBlock, allocated by std::alloc.
@@ -252,10 +256,9 @@ impl Clone for LuaString {
             //         between threads.
             unsafe {
                 let ptr = self.ptr_or_inline_data.heap_allocation;
-                let slice = std::slice::from_raw_parts_mut(ptr, self.len as usize);
-                let block_ptr = slice as *mut [()] as *mut StrBlock;
-                let block = &mut *block_ptr;
-                block.refcount += 1;
+                let shared_str_ptr = from_raw_parts(ptr, self.len);
+                let shared_str = &mut *shared_str_ptr;
+                shared_str.refcount += 1;
             }
         }
 
