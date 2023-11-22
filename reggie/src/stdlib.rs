@@ -1,11 +1,10 @@
-use luar_error::ExpectedType;
 use std::{
     cmp::{max, min},
     io::{self, Write},
     rc::Rc,
 };
 
-use crate::{trace_execution, EvalError, GlobalValues, LuaValue, TypeError};
+use crate::{trace_execution, EvalError, ExpectedType, GlobalValues, LuaValue, TypeError};
 
 pub fn assert(value: LuaValue, message: LuaValue) -> Result<(), EvalError> {
     trace_execution!("assert({:?}, {:?})", value, message);
@@ -204,13 +203,13 @@ mod test {
     #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn floor_floor_numbers(num: f64) {
-        use crate::eq_with_nan::eq_with_nan;
+        use crate::{eq_with_nan::eq_with_nan, lua_format};
 
         let res = floor(&LuaValue::Float(num)).unwrap();
 
         assert!(eq_with_nan(res.number_as_f64().unwrap(), num.floor()));
 
-        let res = floor(&LuaValue::String(format!("{}", num))).unwrap();
+        let res = floor(&LuaValue::String(lua_format!("{num}"))).unwrap();
         assert!(eq_with_nan(res.number_as_f64().unwrap(), num.floor()));
     }
 
@@ -218,7 +217,7 @@ mod test {
     #[quickcheck]
     fn printing_string_prints_its_value(str: String) {
         let mut buf = Cursor::new(Vec::new());
-        print(&mut buf, &[LuaValue::String(str.clone())]).unwrap();
+        print(&mut buf, &[LuaValue::string(&str)]).unwrap();
         let res = String::from_utf8(buf.into_inner()).unwrap();
         assert_eq!(res, format!("{}\n", str));
     }
@@ -244,8 +243,8 @@ mod test {
     #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn printing_function_prints_it_address() {
-        use std::rc::Rc;
         use crate::NativeFunction;
+        use std::rc::Rc;
 
         let func = NativeFunction::new(|| ());
         let addr = Rc::as_ptr(&func.0);
@@ -278,7 +277,7 @@ mod test {
 
     #[cfg(feature = "quickcheck")]
     #[quickcheck]
-    fn strlen_returns_the_number_of_bytes_in_a_string(str: String) {
+    fn strlen_returns_the_number_of_bytes_in_a_string(str: crate::LuaString) {
         let len = str.len();
         let res = strlen(&LuaValue::String(str)).unwrap();
         assert_eq!(res, LuaValue::Int(len as i32));
@@ -325,7 +324,7 @@ mod test {
         let expected_suffix = LuaValue::string(&str[suffix_start..]);
 
         let res = strsub(
-            &LuaValue::String(str),
+            &LuaValue::string(str),
             &LuaValue::Int(start as i32),
             &LuaValue::Nil,
         );

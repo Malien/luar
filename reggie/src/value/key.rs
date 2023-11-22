@@ -1,14 +1,14 @@
 use decorum::NotNan;
 use num_traits::FromPrimitive;
 
-use crate::{ids::BlockID, LuaValue, NativeFunction, TableRef};
+use crate::{ids::BlockID, LuaString, LuaValue, NativeFunction, TableRef};
 
 // No nills allowed
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum LuaKey {
     Int(i32),
     Float(NotNan<f64>),
-    String(String),
+    String(LuaString),
     NativeFunction(NativeFunction),
     Function(BlockID),
     Table(TableRef),
@@ -18,6 +18,12 @@ pub enum LuaKey {
 pub enum InvalidLuaKey {
     Nil,
     NaN,
+}
+
+impl LuaKey {
+    pub fn string(str: impl Into<LuaString>) -> Self {
+        Self::String(str.into())
+    }
 }
 
 impl TryFrom<LuaValue> for LuaKey {
@@ -69,7 +75,7 @@ impl quickcheck::Arbitrary for LuaKey {
         match u8::arbitrary(g) % 4 {
             0 => LuaKey::Int(with_thread_gen(i32::arbitrary)),
             1 => LuaKey::Float(with_thread_gen(arbitrary_non_nan_f64)),
-            2 => LuaKey::String(with_thread_gen(String::arbitrary)),
+            2 => LuaKey::String(with_thread_gen(LuaString::arbitrary)),
             3 => LuaKey::Table(TableRef::arbitrary(&mut g.next_iter())),
             _ => unreachable!(),
         }

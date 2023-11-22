@@ -95,7 +95,7 @@ pub fn compile_store(var: &Var, state: &mut LocalScopeCompilationState) {
         }
         Var::PropertyAccess { from, property } => {
             let reg = state.reg().alloc(DataType::Dynamic);
-            let property_id = state.alloc_string(property.as_ref().into());
+            let property_id = state.alloc_string(property.as_ref());
             let is_table_lbl = state.alloc_label();
 
             state.push_instr(StrLD(reg));

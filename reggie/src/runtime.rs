@@ -1,4 +1,4 @@
-use crate::trace_execution;
+use crate::{trace_execution, lua_format, ArithmeticOperator};
 
 use super::{
     ids::{ArgumentRegisterID, LocalRegisterID},
@@ -7,8 +7,6 @@ use super::{
     ArithmeticError, EvalError, InvalidLuaKey, LuaKey, LuaValue, NativeFunction,
     NativeFunctionKind, TableRef, TableValue, TypeError,
 };
-use luar_error::ArithmeticOperator;
-use luar_lex::Ident;
 use std::{borrow::Borrow, cmp::Ordering};
 
 macro_rules! register_of {
@@ -401,7 +399,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             }
             Instruction::AssocASD => {
                 let table = register!(AT).as_mut().unwrap();
-                table.assoc_str(register!(AS).as_ref().unwrap(), register!(AD).clone());
+                table.assoc_str(register!(AS).clone().unwrap(), register!(AD).clone());
                 *position += 1;
             }
             Instruction::CastT => {
@@ -415,7 +413,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             }
             Instruction::TablePropertyLookupError => {
                 return Err(EvalError::from(TypeError::CannotAccessProperty {
-                    property: Ident::new(register!(AS).take().unwrap()),
+                    property: register!(AS).take().unwrap(),
                     of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
                 }))
             }
@@ -441,7 +439,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                     .t
                     .as_mut()
                     .unwrap()
-                    .get_str_assoc(register!(AS).as_ref().unwrap());
+                    .get_str_assoc(register!(AS).clone().unwrap());
                 *position += 1;
             }
             Instruction::LdaAssocAD => {
@@ -501,7 +499,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
             }
             Instruction::TablePropertyAssignError => {
                 return Err(EvalError::from(TypeError::CannotAssignProperty {
-                    property: Ident::new(register!(AS).take().unwrap()),
+                    property: register!(AS).take().unwrap(),
                     of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
                 }))
             }
@@ -749,7 +747,7 @@ macro_rules! dyn_concat_of {
     ($lhs:expr, $rhs:expr; $(($left_pat:ident, $right_pat:ident),)*) => {
         match ($lhs, $rhs) {
             $((LuaValue::$left_pat(lhs), LuaValue::$right_pat(rhs)) =>
-              Some(format!("{lhs}{rhs}"))
+              Some(lua_format!("{lhs}{rhs}"))
             ,)*
             _ => None,
         }
@@ -865,7 +863,7 @@ mod test {
                     arg_count: 0.into(),
                     return_count: 0.into(),
                     const_strings: $crate::keyed_vec::keyed_vec![
-                        $($strings.to_owned(),)*
+                        $($strings.into(),)*
                     ],
                     ..Default::default()
                 },
@@ -974,7 +972,7 @@ mod test {
         code: [ConstS(StringID(0)), Ret],
         strings: ["hello"],
         post_condition: |machine: Machine| {
-            assert_eq!(register_of!(machine, AS), Some("hello".to_owned()))
+            assert_eq!(register_of!(machine, AS), Some("hello".into()))
         }
     }
 
@@ -1164,6 +1162,8 @@ mod test {
     #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn d_call_on_uncallable(value: LuaValue) -> quickcheck::TestResult {
+        use crate::assert_type_error;
+
         if value.is_function() {
             return quickcheck::TestResult::discard();
         }
@@ -1182,7 +1182,7 @@ mod test {
         });
         let res = call_block::<()>(block_id, &mut machine);
 
-        luar_error::assert_type_error!(luar_error::TypeError::IsNotCallable(_), res);
+        assert_type_error!(TypeError::IsNotCallable(_), res);
         quickcheck::TestResult::passed()
     }
 
@@ -1621,7 +1621,7 @@ mod test {
         ],
         meta: CodeMeta {
             local_count: reg_count! { D: 1 },
-            const_strings: keyed_vec!["hello".to_owned(), "world".to_owned()],
+            const_strings: keyed_vec!["hello".into(), "world".into()],
             ..Default::default()
         },
         post_condition: |machine: Machine| {

@@ -4,7 +4,7 @@ use super::{
     ops::Instruction,
     GlobalValues,
 };
-use crate::{ids::ArgumentRegisterID, keyed_vec::KeyedVec, machine::DataType, meta::{self, ReturnCount}};
+use crate::{ids::ArgumentRegisterID, keyed_vec::KeyedVec, machine::DataType, meta::{self, ReturnCount}, LuaString};
 use std::{collections::HashMap, num::NonZeroU16};
 
 pub(crate) mod expr;
@@ -292,7 +292,7 @@ pub struct FunctionCompilationState<'a> {
     global_values: &'a mut GlobalValues,
     reg_alloc: RegisterAllocator,
     label_alloc: LabelAllocator,
-    strings: KeyedVec<StringID, String>,
+    strings: KeyedVec<StringID, LuaString>,
     instructions: Vec<Instruction>,
     arguments: ArgumentScope,
     scope_vars: Vec<LocalScope>,
@@ -353,7 +353,7 @@ impl<'a, 'b> LocalScopeCompilationState<'a, 'b> {
         &mut self.func_state.reg_alloc
     }
 
-    pub fn strings(&mut self) -> &mut KeyedVec<StringID, String> {
+    pub fn strings(&mut self) -> &mut KeyedVec<StringID, LuaString> {
         &mut self.func_state.strings
     }
 
@@ -361,9 +361,9 @@ impl<'a, 'b> LocalScopeCompilationState<'a, 'b> {
         self.func_state.instructions.push(instr)
     }
 
-    pub fn alloc_string(&mut self, str: String) -> StringID {
+    pub fn alloc_string(&mut self, str: impl Into<LuaString>) -> StringID {
         let str_idx = self.strings().len();
-        self.strings().push(str);
+        self.strings().push(str.into());
         StringID(str_idx.try_into().unwrap())
     }
 

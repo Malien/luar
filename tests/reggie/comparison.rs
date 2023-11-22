@@ -56,7 +56,7 @@ fn comparing_strings_and_numbers_coerces_numbers_to_strings(
     {
         machine
             .global_values
-            .set("a", LuaValue::String(str.clone()));
+            .set("a", LuaValue::string(&str));
         machine.global_values.set("b", LuaValue::Float(num));
         let lhs = &str;
         let rhs = &format!("{}", num);
@@ -73,7 +73,7 @@ fn comparing_strings_and_numbers_coerces_numbers_to_strings(
         machine.global_values.set("a", LuaValue::Float(num));
         machine
             .global_values
-            .set("b", LuaValue::String(str.clone()));
+            .set("b", LuaValue::string(&str));
         let lhs = &format!("{}", num);
         let rhs = &str;
         let expected = (

@@ -2,7 +2,7 @@ use std::num::NonZeroU16;
 
 use enum_map::EnumMap;
 
-use crate::{keyed_vec::KeyedVec, ids::{StringID, JmpLabel, BlockID}, machine::DataType};
+use crate::{keyed_vec::KeyedVec, ids::{StringID, JmpLabel, BlockID}, machine::DataType, LuaString};
 
 pub type LocalRegCount = EnumMap<DataType, u16>;
 
@@ -168,7 +168,7 @@ pub struct CodeMeta {
     pub local_count: LocalRegCount,
     pub return_count: ReturnCount,
     pub label_mappings: KeyedVec<JmpLabel, u32>,
-    pub const_strings: KeyedVec<StringID, String>,
+    pub const_strings: KeyedVec<StringID, LuaString>,
     pub debug_name: Option<String>,
     pub kind: FunctionKind,
     // pub global_deps:

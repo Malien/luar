@@ -91,7 +91,7 @@ fn key_value_pairs_constructor_creates_table_with_corresponding_key_value_associ
 
     let mut expected = TableValue::new();
     for (key, value) in values {
-        expected.set(LuaKey::String(key.into()), value)
+        expected.set(LuaKey::string(key), value)
     }
     drop(machine);
 

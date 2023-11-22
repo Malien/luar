@@ -180,7 +180,7 @@ mod test {
         );
         assert_eq!(
             compiled_module.top_level.meta.const_strings,
-            keyed_vec!["hello".to_string()]
+            keyed_vec!["hello".into()]
         );
 
         use Instruction::*;

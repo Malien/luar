@@ -21,7 +21,7 @@ fn bench_reggie(b: &mut Bencher, i: &usize) {
             let compiled_module =
                 reggie::compiler::compile_module(&module, &mut machine.global_values);
             let block = machine.code_blocks.add_module(compiled_module);
-            let input = reggie::LuaValue::String(random_ascii_string(*i));
+            let input = reggie::LuaValue::string(random_ascii_string(*i));
             machine.global_values.set("INPUT", input);
             (block, machine)
         },

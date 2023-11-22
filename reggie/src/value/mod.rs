@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, rc::Rc};
 
-use crate::{eq_with_nan::eq_with_nan, ids::BlockID};
+use crate::{eq_with_nan::eq_with_nan, ids::BlockID, lua_format};
 
 pub mod native_function;
 pub use native_function::*;
@@ -16,12 +16,15 @@ pub use table::*;
 pub mod key;
 pub use key::*;
 
+pub mod string;
+pub use string::*;
+
 #[derive(Debug, Clone)]
 pub enum LuaValue {
     Nil,
     Int(i32),
     Float(f64),
-    String(String),
+    String(LuaString),
     NativeFunction(NativeFunction),
     Function(BlockID),
     Table(TableRef),
@@ -58,20 +61,18 @@ impl PartialOrd for LuaValue {
             // TODO: either remove ability to compare numbers and strings,
             //       or provide a version where intermediate string is not being allocated
             (LuaValue::Int(lhs), LuaValue::String(rhs)) => {
-                String::partial_cmp(&lhs.to_string(), rhs)
+                str::partial_cmp(&lhs.to_string(), rhs.as_ref())
             }
             (LuaValue::Float(lhs), LuaValue::Int(rhs)) => f64::partial_cmp(lhs, &(*rhs as f64)),
             (LuaValue::Float(lhs), LuaValue::Float(rhs)) => f64::partial_cmp(lhs, rhs),
             (LuaValue::Float(lhs), LuaValue::String(rhs)) => {
-                String::partial_cmp(&lhs.to_string(), rhs)
+                str::partial_cmp(&lhs.to_string(), &rhs)
             }
-            (LuaValue::String(lhs), LuaValue::Int(rhs)) => {
-                String::partial_cmp(lhs, &rhs.to_string())
-            }
+            (LuaValue::String(lhs), LuaValue::Int(rhs)) => str::partial_cmp(&lhs, &rhs.to_string()),
             (LuaValue::String(lhs), LuaValue::Float(rhs)) => {
-                String::partial_cmp(lhs, &rhs.to_string())
+                str::partial_cmp(&lhs, &rhs.to_string())
             }
-            (LuaValue::String(lhs), LuaValue::String(rhs)) => String::partial_cmp(lhs, rhs),
+            (LuaValue::String(lhs), LuaValue::String(rhs)) => str::partial_cmp(lhs, rhs),
             (LuaValue::NativeFunction(lhs), LuaValue::NativeFunction(rhs)) if lhs == rhs => {
                 Some(Equal)
             }
@@ -89,7 +90,7 @@ impl Default for LuaValue {
 }
 
 impl LuaValue {
-    pub fn string(string: impl Into<String>) -> Self {
+    pub fn string(string: impl Into<LuaString>) -> Self {
         Self::String(string.into())
     }
 
@@ -144,10 +145,10 @@ impl LuaValue {
         }
     }
 
-    pub fn coerce_to_string(&self) -> Option<String> {
+    pub fn coerce_to_string(&self) -> Option<LuaString> {
         match self {
-            Self::Int(int) => Some(int.to_string()),
-            Self::Float(float) => Some(float.to_string()),
+            Self::Int(int) => Some(lua_format!("{int}")),
+            Self::Float(float) => Some(lua_format!("{float}")),
             Self::String(str) => Some(str.clone()),
             _ => None,
         }
@@ -272,7 +273,7 @@ impl quickcheck::Arbitrary for LuaValue {
             0 => LuaValue::Nil,
             1 => LuaValue::Int(with_thread_gen(i32::arbitrary)),
             2 => LuaValue::Float(with_thread_gen(f64::arbitrary)),
-            3 => LuaValue::String(with_thread_gen(String::arbitrary)),
+            3 => LuaValue::String(with_thread_gen(LuaString::arbitrary)),
             4 => LuaValue::Table(TableRef::arbitrary(&mut g.next_iter())),
             _ => unreachable!(),
         }

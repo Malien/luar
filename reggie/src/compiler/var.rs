@@ -40,7 +40,7 @@ fn compile_property_lookup(from: &Var, property: &Ident, state: &mut LocalScopeC
     use crate::ops::Instruction::*;
 
     compile_var_lookup(from, state);
-    let property_id = state.alloc_string(property.as_ref().into());
+    let property_id = state.alloc_string(property.as_ref());
     let is_table_lbl = state.alloc_label();
     state.push_instr(ConstS(property_id));
     state.push_instr(CastT);

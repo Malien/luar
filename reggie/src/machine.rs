@@ -7,7 +7,7 @@ use crate::{
     keyed_vec::{keyed_vec, KeyedVec},
     meta::CodeMeta,
     ops::Instruction,
-    LuaValue, TableRef, stdlib::define_stdlib,
+    LuaValue, TableRef, stdlib::define_stdlib, LuaString,
 };
 
 // const ARG_REG_COUNT: usize = 16;
@@ -46,7 +46,7 @@ impl std::fmt::Display for DataType {
 pub struct ArgumentRegisters {
     pub f: [f64; ARG_REG_COUNT],
     pub i: [i32; ARG_REG_COUNT],
-    pub s: [Option<String>; ARG_REG_COUNT],
+    pub s: [Option<LuaString>; ARG_REG_COUNT],
     pub t: [Option<TableRef>; ARG_REG_COUNT],
     pub d: [LuaValue; ARG_REG_COUNT],
 }
@@ -54,7 +54,7 @@ pub struct ArgumentRegisters {
 pub struct Accumulators {
     pub f: f64,
     pub i: i32,
-    pub s: Option<String>,
+    pub s: Option<LuaString>,
     pub c: BlockID,
     pub t: Option<TableRef>,
     pub d: LuaValue,
@@ -226,7 +226,7 @@ impl CodeBlocks {
 pub struct LocalValues {
     pub f: Vec<f64>,
     pub i: Vec<i32>,
-    pub s: Vec<Option<String>>,
+    pub s: Vec<Option<LuaString>>,
     pub t: Vec<Option<TableRef>>,
     pub d: Vec<LuaValue>,
 }

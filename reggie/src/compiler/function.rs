@@ -191,7 +191,7 @@ mod test {
             meta,
             CodeMeta {
                 arg_count: 0.into(),
-                const_strings: keyed_vec!["hello".to_string()],
+                const_strings: keyed_vec!["hello".into()],
                 return_count: 1.into(),
                 debug_name: Some("foo".to_owned()),
                 ..Default::default()

@@ -3,7 +3,7 @@ extern crate quickcheck_macros;
 
 use luar_lex::{NumberLiteral, StringLiteral, Token};
 use quickcheck::TestResult;
-use reggie::{eval_module, eval_str, value::Strict, LuaError, LuaValue, Machine};
+use reggie::{eval_module, eval_str, lua_format, value::Strict, LuaError, LuaValue, Machine};
 
 mod assignment;
 mod boolean_ops;
@@ -63,14 +63,13 @@ fn eval_number_literal(num: f64) -> Result<TestResult, LuaError> {
 fn eval_string_literal(str: String) -> Result<(), LuaError> {
     use luar_syn::unspanned_lua_token_parser;
 
-    let module = unspanned_lua_token_parser::module([
-        Token::Return,
-        Token::String(StringLiteral(str.clone())),
-    ])?;
+    let expected_value = LuaValue::string(&str);
+    let module =
+        unspanned_lua_token_parser::module([Token::Return, Token::String(StringLiteral(str))])?;
     let mut context = Machine::new();
     assert_eq!(
         eval_module::<Strict<&LuaValue>>(&module, &mut context)?.0,
-        &LuaValue::String(str)
+        &expected_value
     );
     Ok(())
 }
@@ -121,7 +120,7 @@ fn concat(lhs: LuaValue, rhs: LuaValue) {
     let res = eval_str::<LuaValue>("return lhs .. rhs", &mut machine);
     if let (Some(lhs), Some(rhs)) = (lhs.coerce_to_string(), rhs.coerce_to_string()) {
         let res = res.unwrap();
-        assert!(res.total_eq(&LuaValue::String(lhs + &rhs)));
+        assert!(res.total_eq(&LuaValue::String(lua_format!("{lhs}{rhs}"))));
     } else {
         assert!(res.is_err());
     }

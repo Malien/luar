@@ -512,7 +512,6 @@ dependencies = [
  "criterion",
  "itertools",
  "libc",
- "luar_error",
  "luar_lex",
  "luar_syn",
  "mlua",
@@ -906,7 +905,6 @@ dependencies = [
  "enum-map",
  "itertools",
  "libc",
- "luar_error",
  "luar_lex",
  "luar_syn",
  "non_empty",
@@ -916,6 +914,7 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "test_util",
+ "thiserror",
 ]
 
 [[package]]

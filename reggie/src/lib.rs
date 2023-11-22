@@ -26,10 +26,8 @@ use meta::ReturnCount;
 use runtime::eval_loop;
 pub use value::*;
 
-pub type LuaError = luar_error::LuaError<LuaValue>;
-pub type EvalError = luar_error::EvalError<LuaValue>;
-pub type TypeError = luar_error::TypeError<LuaValue>;
-pub type ArithmeticError = luar_error::ArithmeticError<LuaValue>;
+pub mod error;
+pub use error::*;
 
 pub fn eval_str<'a, T: FromReturn<'a>>(
     module_str: &str,

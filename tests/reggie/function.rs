@@ -1,12 +1,11 @@
 use std::{cell::RefCell, rc::Rc};
 
 use itertools::Itertools;
-use luar_error::assert_type_error;
 use luar_lex::Ident;
 use luar_syn::lua_parser;
 use non_empty::NonEmptyVec;
 use quickcheck::TestResult;
-use reggie::{eval_module, LuaError, LuaValue, Machine, NativeFunction, Strict, TypeError, call_block};
+use reggie::{eval_module, LuaError, LuaValue, Machine, NativeFunction, Strict, TypeError, call_block, assert_type_error};
 
 #[test]
 fn eval_fn_call() -> Result<(), LuaError> {

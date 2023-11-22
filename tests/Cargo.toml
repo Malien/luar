@@ -25,7 +25,6 @@ path = "./reggie/main.rs"
 ast_vm = { path = "../ast_vm" }
 reggie = { path = "../reggie", features = ["quickcheck"] }
 luar_lex = { path = "../lex", features = ["quickcheck"] }
-luar_error = { path = "../error" }
 luar_syn = { path = "../syn" }
 non_empty = { path = "../non_empty", features = ["quickcheck"] }
 itertools = "0.10"
