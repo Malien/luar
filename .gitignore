@@ -2,3 +2,4 @@
 .DS_Store
 /.luarc.json
 value_size
+dump.asm

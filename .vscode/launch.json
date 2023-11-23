@@ -76,6 +76,14 @@
                 "args": ["build", "--test", "engine"]
             },
             "args": ["reggie::fn_call", "--nocapture"]
+        }, {
+            "type": "lldb",
+            "name": "Test: engine/reggie",
+            "request": "launch",
+            "cargo": {
+                "args": ["build", "--test", "engine"]
+            },
+            "args": ["reggie", "--nocapture"]
         }
     ]
 }

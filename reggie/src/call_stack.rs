@@ -4,13 +4,12 @@ use enum_map::{enum_map, EnumMap};
 
 use crate::{
     ids::{BlockID, LocalRegisterID},
-    keyed_vec::KeyedVec,
-    machine::{CodeBlock, DataType, ProgramCounter},
+    machine::{CodeBlocks, DataType, ProgramCounter},
     meta::{CodeMeta, LocalRegCount},
     LuaString, LuaValue, NativeFunction, TableRef,
 };
 
-pub struct ExecutionStack {
+pub struct CallStack {
     stack: Vec<u8>,
     #[cfg(debug_assertions)]
     frame_sizes: Vec<usize>,
@@ -19,6 +18,11 @@ pub struct ExecutionStack {
 pub struct FrameHandle<'a, 'b> {
     frame: &'a mut StackFrame,
     meta: &'b CodeMeta,
+}
+
+pub struct ReleaseHandle<'a> {
+    frame: *mut StackFrame,
+    meta: &'a CodeMeta,
 }
 
 /// Stack frame layout:
@@ -94,8 +98,24 @@ unsafe fn deinit_locals<T>(
     return base;
 }
 
-impl ExecutionStack {
-    fn push<'a: 'b, 'b>(&'a mut self, meta: &'a CodeMeta) -> FrameHandle<'a, 'b> {
+pub const INITIAL_STACK_SIZE: usize = 1 * 1024 * 1024; // 1 Meg
+
+impl Default for CallStack {
+    fn default() -> Self {
+        Self {
+            stack: Vec::with_capacity(INITIAL_STACK_SIZE),
+            #[cfg(debug_assertions)]
+            frame_sizes: Vec::new(),
+        }
+    }
+}
+
+impl CallStack {
+    pub fn push<'a, 'b>(
+        &'a mut self,
+        meta: &'b CodeMeta,
+        return_addr: ProgramCounter,
+    ) -> FrameHandle<'a, 'b> {
         let frame_size = stack_frame_size(meta);
         // SAFETY: We just allocated enough space for the frame. Access to the locals
         //         should be aligned... hopefully. I don't know what I'm doing.
@@ -123,22 +143,26 @@ impl ExecutionStack {
             //           There is a test for this.
             //         Drop of local values is called on stack pop, clear, and Machine drop.
             //         Dropping uncleared stack will panic.
-            self.stack
-                .extend(std::iter::repeat(0).take(frame_size.aligned));
+            self.stack.resize(self.stack.len() + frame_size.aligned, 0);
 
             let frame_ptr = from_raw_parts(base_ptr, frame_size.locals);
             &mut *frame_ptr
         };
+        frame.return_addr = AlignedPC(return_addr);
 
         FrameHandle { frame, meta }
     }
 
-    fn pop<'a>(&'a mut self, handle: FrameHandle<'a, '_>) {
-        let frame_size = size_of_val::<StackFrame>(&handle.frame);
+    /// SAFETY: handle should be of the same CodeBlock as the one that was used to create the top frame.
+    pub unsafe fn pop(&mut self, handle: ReleaseHandle) {
+        let frame_size = size_of_val::<StackFrame>(unsafe { &*handle.frame });
         debug_assert!(self.stack.len() >= frame_size);
-        debug_assert!(self.frame_sizes.pop() == Some(frame_size));
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(self.frame_sizes.pop() == Some(frame_size));
+        }
 
-        let base_ptr = self.stack.as_mut_ptr();
+        let base_ptr = unsafe { &mut *handle.frame }.locals.as_mut_ptr();
         let count = &handle.meta.local_count;
         // SAFETY: base_ptr points to the beginning of the correct lua type in the locals.
         //         Order is the same as in the enum_map, and by proxy, as in the StackFrame.
@@ -148,8 +172,9 @@ impl ExecutionStack {
             let base_ptr = deinit_locals::<f64>(base_ptr, DataType::Float, count);
             let base_ptr = deinit_locals::<LuaString>(base_ptr, DataType::String, count);
             let base_ptr = deinit_locals::<BlockID>(base_ptr, DataType::Function, count);
-            let base_ptr = deinit_locals::<NativeFunction>(base_ptr, DataType::NativeFunction, count);
-            deinit_locals::<TableRef>(base_ptr, DataType::Table, count);
+            let base_ptr =
+                deinit_locals::<Option<NativeFunction>>(base_ptr, DataType::NativeFunction, count);
+            deinit_locals::<Option<TableRef>>(base_ptr, DataType::Table, count);
         }
 
         // SAFETY: frame_size is the exact size of allocated StackFrame, since it includes the size
@@ -157,8 +182,8 @@ impl ExecutionStack {
         self.stack.truncate(self.stack.len() - frame_size);
     }
 
-    // SAFETY: meta should be of the same CodeBlock as the one that was used to create the top frame.
-    unsafe fn restore<'a: 'b, 'b>(&'a mut self, meta: &'a CodeMeta) -> FrameHandle<'a, 'b> {
+    /// SAFETY: meta should be of the same CodeBlock as the one that was used to create the top frame.
+    pub unsafe fn restore<'a, 'b>(&'a mut self, meta: &'b CodeMeta) -> FrameHandle<'a, 'b> {
         let frame_size = stack_frame_size(meta);
         // SAFETY: We just allocated enough space for the frame. Access to the locals
         //         should be aligned... hopefully. I don't know what I'm doing.
@@ -182,40 +207,42 @@ impl ExecutionStack {
     /// are used to retrieve the meta of the function in the stack. Meta is required to determine
     /// stack frame sizes. There should be a starting point, since the stack is never empty. That's
     /// why it is required to pass the meta of the top-level function.
-    fn clear<'a, 'b>(
-        &'b mut self,
-        mut last_meta: &'a CodeMeta,
-        code_blocks: &'a KeyedVec<BlockID, CodeBlock>,
-    ) {
-        let frame_size = stack_frame_size(last_meta);
-        debug_assert!(self.stack.len() >= frame_size.aligned);
-        // This guy lives for as long as the stack is not popped.
-        let frame: &'b mut StackFrame = unsafe {
-            // base_ptr is always aligned, since I manually allign every frame.
-            let base_ptr = self
-                .stack
-                .as_mut_ptr()
-                .add(self.stack.len() - frame_size.aligned);
-            let frame_ptr = from_raw_parts(base_ptr, frame_size.locals);
-            &mut *frame_ptr
-        };
-
+    pub fn clear<'a, 'b>(&'b mut self, mut last_meta: &'a CodeMeta, code_blocks: &'a CodeBlocks) {
         loop {
-            let handle = FrameHandle {
-                frame,
+            let frame_size = stack_frame_size(last_meta);
+            debug_assert!(self.stack.len() >= frame_size.aligned);
+            // This guy lives for as long as the stack is not popped.
+            let frame: &'b mut StackFrame = unsafe {
+                // base_ptr is always aligned, since I manually allign every frame.
+                let base_ptr = self
+                    .stack
+                    .as_mut_ptr()
+                    .add(self.stack.len() - frame_size.aligned);
+                let frame_ptr = from_raw_parts(base_ptr, frame_size.locals);
+                &mut *frame_ptr
+            };
+
+            // SAFETY: This handle sits right on top of the stack
+            let handle = ReleaseHandle {
+                frame: frame as *mut StackFrame,
                 meta: last_meta,
             };
             if frame_size.aligned == self.stack.len() {
-                self.pop(handle);
+                unsafe { self.pop(handle) };
                 break;
             }
-            let next_meta = &code_blocks[handle.frame.return_addr.0.block].meta;
-            self.pop(handle);
+            let next_meta = &code_blocks[frame.return_addr.0.block].meta;
+            unsafe { self.pop(handle) };
             last_meta = next_meta;
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.stack.is_empty()
+    }
 }
 
+#[derive(Debug)]
 struct FrameSize {
     locals: usize,
     aligned: usize,
@@ -242,7 +269,7 @@ fn stack_frame_size(meta: &CodeMeta) -> FrameSize {
     };
 }
 
-impl Drop for ExecutionStack {
+impl Drop for CallStack {
     fn drop(&mut self) {
         if self.stack.len() > 0 {
             panic!("ExecutionStack was not cleared before drop. This will lead to memory leaks.");
@@ -253,7 +280,14 @@ impl Drop for ExecutionStack {
 /// SAFETY: Only in debug builds, will there be a panic if the register is out of bounds.
 ///         Otherwise, UB galore. Sorry, not sorry, for not marking these methods as unsafe.
 impl<'a, 'b> FrameHandle<'a, 'b> {
-    fn get_dyn(&mut self, LocalRegisterID(reg): LocalRegisterID) -> &mut LuaValue {
+    pub fn release(self) -> ReleaseHandle<'b> {
+        ReleaseHandle {
+            frame: self.frame,
+            meta: self.meta,
+        }
+    }
+
+    pub fn get_dyn(&mut self, LocalRegisterID(reg): LocalRegisterID) -> &mut LuaValue {
         debug_assert!(self.meta.local_count[DataType::Dynamic] > reg);
         // SAFETY: The space for locals is calculated correctly from function's meta.
         //         The pointer is aligned, since the frame is aligned.
@@ -264,27 +298,27 @@ impl<'a, 'b> FrameHandle<'a, 'b> {
         }
     }
 
-    fn get_int(&mut self, reg: LocalRegisterID) -> &mut i32 {
+    pub fn get_int(&mut self, reg: LocalRegisterID) -> &mut i32 {
         self.get_of_type(DataType::Int, reg)
     }
 
-    fn get_float(&mut self, reg: LocalRegisterID) -> &mut f64 {
+    pub fn get_float(&mut self, reg: LocalRegisterID) -> &mut f64 {
         self.get_of_type(DataType::Float, reg)
     }
 
-    fn get_string(&mut self, reg: LocalRegisterID) -> &mut LuaString {
+    pub fn get_string(&mut self, reg: LocalRegisterID) -> &mut LuaString {
         self.get_of_type(DataType::String, reg)
     }
 
-    fn get_function(&mut self, reg: LocalRegisterID) -> &mut BlockID {
+    pub fn get_function(&mut self, reg: LocalRegisterID) -> &mut BlockID {
         self.get_of_type(DataType::Function, reg)
     }
 
-    fn get_native_function(&mut self, reg: LocalRegisterID) -> &mut NativeFunction {
+    pub fn get_native_function(&mut self, reg: LocalRegisterID) -> &mut Option<NativeFunction> {
         self.get_of_type(DataType::NativeFunction, reg)
     }
 
-    fn get_table(&mut self, reg: LocalRegisterID) -> &mut TableRef {
+    pub fn get_table(&mut self, reg: LocalRegisterID) -> &mut Option<TableRef> {
         self.get_of_type(DataType::Table, reg)
     }
 
@@ -315,6 +349,10 @@ impl<'a, 'b> FrameHandle<'a, 'b> {
             }
         }
         unreachable!("enum_map always contains all of the DataType variants");
+    }
+
+    pub fn return_addr(&self) -> ProgramCounter {
+        self.frame.return_addr.0
     }
 }
 

@@ -1,8 +1,8 @@
-use crate::{trace_execution, lua_format, ArithmeticOperator};
+use crate::{ids::BlockID, lua_format, trace_execution, ArithmeticOperator};
 
 use super::{
     ids::{ArgumentRegisterID, LocalRegisterID},
-    machine::{Machine, ProgramCounter, StackFrame, TestFlag},
+    machine::{Machine, ProgramCounter, TestFlag},
     ops::Instruction,
     ArithmeticError, EvalError, InvalidLuaKey, LuaKey, LuaValue, NativeFunction,
     NativeFunctionKind, TableRef, TableValue, TypeError,
@@ -63,23 +63,31 @@ macro_rules! register_of {
     };
 }
 
-pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
+pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), EvalError> {
+    machine.program_counter = ProgramCounter {
+        block: block_id,
+        position: 0,
+    };
+
     let mut block = &machine.code_blocks[machine.program_counter.block];
     let mut position = &mut machine.program_counter.position;
-    let mut frame = machine
-        .stack
-        .last_mut()
-        .expect("In order for VM to evaluate code, the stack should not be empty");
+    let mut frame = machine.stack.push(
+        &block.meta,
+        ProgramCounter {
+            block: block_id,
+            position: 0,
+        },
+    );
 
     macro_rules! register {
         (LD, $reg:ident) => {
-            frame.local_values.d[($reg as LocalRegisterID).0 as usize]
+            frame.get_dyn($reg as LocalRegisterID)
         };
         (LI, $reg:ident) => {
-            frame.local_values.i[($reg as LocalRegisterID).0 as usize]
+            frame.get_int($reg as LocalRegisterID)
         };
         (LT, $reg:ident) => {
-            frame.local_values.t[($reg as LocalRegisterID).0 as usize]
+            frame.get_table($reg as LocalRegisterID)
         };
 
         ($rest:tt) => {
@@ -94,7 +102,19 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
         let instr = block.instructions[*position as usize];
         match instr {
             Instruction::Ret => {
-                block = &machine.code_blocks[frame.return_addr.block];
+                machine.program_counter = frame.return_addr();
+                position = &mut machine.program_counter.position;
+
+                let release_handle = frame.release();
+                unsafe { machine.stack.pop(release_handle) };
+                if machine.stack.is_empty() {
+                    return Ok(());
+                }
+                block = &machine.code_blocks[machine.program_counter.block];
+                // SAFETY: We keep track of the stack frames, and guarantee
+                //         first-come first-serve ordering of stack frames.
+                frame = unsafe { machine.stack.restore(&block.meta) };
+
                 trace_execution!(
                     "ret back to {:?} {}",
                     frame.return_addr.block,
@@ -105,13 +125,6 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                         .map(String::as_str)
                         .unwrap_or_default()
                 );
-                machine.program_counter = frame.return_addr;
-                position = &mut machine.program_counter.position;
-                machine.stack.pop();
-                match machine.stack.last_mut() {
-                    Some(new_frame) => frame = new_frame,
-                    None => return Ok(()),
-                }
             }
             Instruction::ConstI(value) => {
                 register!(AI) = value;
@@ -130,7 +143,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 *position += 1;
             }
             Instruction::StrLD(reg) => {
-                register!(LD, reg) = register!(AD).clone();
+                *register!(LD, reg) = register!(AD).clone();
                 *position += 1;
             }
             Instruction::LdaLD(reg) => {
@@ -182,7 +195,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 *position += 1;
             }
             Instruction::EqTestLD(reg) => {
-                machine.test_flag = TestFlag::from_bool(register!(AD) == register!(LD, reg));
+                machine.test_flag = TestFlag::from_bool(&mut register!(AD) == register!(LD, reg));
                 *position += 1;
             }
             Instruction::Jmp(jmp_label) => {
@@ -254,18 +267,13 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                             .map(String::as_str)
                             .unwrap_or_default()
                     );
-                    let new_frame = StackFrame::new(
+                    frame = machine.stack.push(
                         &new_block.meta,
                         ProgramCounter {
                             position: *position + 1,
                             block: machine.program_counter.block,
                         },
                     );
-                    machine.stack.push(new_frame);
-                    frame = machine
-                        .stack
-                        .last_mut()
-                        .expect("New stack frame have just been pushed");
                     block = new_block;
                     *position = 0;
                     machine.program_counter.block = block_id;
@@ -273,7 +281,10 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 LuaValue::NativeFunction(NativeFunction(native_fn_kind)) => {
                     match native_fn_kind.borrow() {
                         NativeFunctionKind::Dyn(dyn_fn) => {
-                            trace_execution!("d_call into native function {:p}", dyn_fn as *const _);
+                            trace_execution!(
+                                "d_call into native function {:p}",
+                                dyn_fn as *const _
+                            );
                             dyn_fn.call(&mut machine.argument_registers, machine.value_count)?;
                             machine.value_count = dyn_fn.return_count();
                         } // NativeFunctionKind::OverloadSet(_) => {
@@ -309,18 +320,13 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                         .map(String::as_str)
                         .unwrap_or_default()
                 );
-                let new_frame = StackFrame::new(
+                frame = machine.stack.push(
                     &new_block.meta,
                     ProgramCounter {
                         position: *position + 1,
                         block: machine.program_counter.block,
                     },
                 );
-                machine.stack.push(new_frame);
-                frame = machine
-                    .stack
-                    .last_mut()
-                    .expect("New stack frame have just been pushed");
                 block = new_block;
                 *position = 0;
                 machine.program_counter.block = register!(AC);
@@ -341,15 +347,15 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 *position += 1;
             }
             Instruction::IAddL(reg) => {
-                register!(AI) += register!(LI, reg);
+                register!(AI) += *register!(LI, reg);
                 *position += 1;
             }
             Instruction::StrLI(reg) => {
-                register!(LI, reg) = register!(AI);
+                *register!(LI, reg) = register!(AI);
                 *position += 1;
             }
             Instruction::LdaLI(reg) => {
-                register!(AI) = register!(LI, reg);
+                register!(AI) = *register!(LI, reg);
                 *position += 1;
             }
             Instruction::StrRI(reg) => {
@@ -389,7 +395,7 @@ pub fn eval_loop(machine: &mut Machine) -> Result<(), EvalError> {
                 *position += 1;
             }
             Instruction::StrLT(reg) => {
-                register!(LT, reg) = register!(AT).clone();
+                *register!(LT, reg) = register!(AT).clone();
                 *position += 1;
             }
             Instruction::PushD => {
@@ -1026,7 +1032,7 @@ mod test {
             }
             _ => panic!("Expected ExecutionError, got {:?}", result),
         }
-        assert_eq!(machine.stack, vec![], "Stack is not empty");
+        assert!(machine.stack.is_empty(), "Stack is not empty");
     }
 
     #[cfg(feature = "quickcheck")]

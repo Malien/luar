@@ -7,7 +7,7 @@ use crate::{
     keyed_vec::{keyed_vec, KeyedVec},
     meta::CodeMeta,
     ops::Instruction,
-    LuaValue, TableRef, stdlib::define_stdlib, LuaString,
+    LuaValue, TableRef, stdlib::define_stdlib, LuaString, call_stack::CallStack,
 };
 
 // const ARG_REG_COUNT: usize = 16;
@@ -222,42 +222,6 @@ impl CodeBlocks {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct LocalValues {
-    pub f: Vec<f64>,
-    pub i: Vec<i32>,
-    pub s: Vec<Option<LuaString>>,
-    pub t: Vec<Option<TableRef>>,
-    pub d: Vec<LuaValue>,
-}
-
-impl LocalValues {
-    pub fn new(meta: &CodeMeta) -> Self {
-        Self {
-            f: vec![0.0; meta.local_count[DataType::Float] as usize],
-            i: vec![0; meta.local_count[DataType::Int] as usize],
-            s: vec![None; meta.local_count[DataType::String] as usize],
-            t: vec![None; meta.local_count[DataType::Table] as usize],
-            d: vec![LuaValue::Nil; meta.local_count[DataType::Dynamic] as usize],
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct StackFrame {
-    pub return_addr: ProgramCounter,
-    pub local_values: LocalValues,
-}
-
-impl StackFrame {
-    pub fn new(meta: &CodeMeta, return_addr: ProgramCounter) -> Self {
-        StackFrame {
-            return_addr,
-            local_values: LocalValues::new(meta),
-        }
-    }
-}
-
 pub struct Machine {
     pub accumulators: Accumulators,
     pub program_counter: ProgramCounter,
@@ -267,7 +231,7 @@ pub struct Machine {
     pub argument_registers: ArgumentRegisters,
     pub global_values: GlobalValues,
     pub code_blocks: CodeBlocks,
-    pub stack: Vec<StackFrame>,
+    pub stack: CallStack,
 }
 
 impl Machine {
@@ -304,7 +268,7 @@ impl Machine {
             },
             global_values: GlobalValues::default(),
             code_blocks: CodeBlocks::default(),
-            stack: vec![],
+            stack: CallStack::default(),
         }
     }
 

@@ -15,16 +15,13 @@ pub(crate) mod optimizer;
 pub(crate) mod runtime;
 pub mod stdlib;
 pub mod value;
-pub(crate) mod execution_stack;
+pub(crate) mod call_stack;
 
 use compiler::CompiledModule;
 pub use global_values::GlobalValues;
 use ids::BlockID;
 pub use machine::Machine;
-use machine::ProgramCounter;
-use machine::StackFrame;
 use meta::ReturnCount;
-use runtime::eval_loop;
 pub use value::*;
 
 pub mod error;
@@ -69,20 +66,13 @@ pub fn call_block<'a, T: FromReturn<'a>>(
             .unwrap_or_default()
     );
     let return_count = block.meta.return_count;
-    let stack_frame = StackFrame::new(
-        &block.meta,
-        ProgramCounter {
-            block: BlockID(0),
-            position: 0,
-        },
-    );
-    machine.stack.push(stack_frame);
-    machine.program_counter = ProgramCounter {
-        block: block_id,
-        position: 0,
-    };
-    if let Err(err) = eval_loop(machine) {
-        machine.stack.clear();
+
+    if let Err(err) = runtime::execute(machine, block_id) {
+        if !machine.stack.is_empty() {
+            let last_fn = machine.program_counter.block;
+            let last_fn = &machine.code_blocks[last_fn];
+            machine.stack.clear(&last_fn.meta, &machine.code_blocks);
+        }
         return Err(err);
     }
     let return_count = match return_count {
