@@ -972,7 +972,7 @@ mod test {
         code: [ConstS(StringID(0)), Ret],
         strings: ["hello"],
         post_condition: |machine: Machine| {
-            assert_eq!(register_of!(machine, AS), "hello".into())
+            assert_eq!(register_of!(machine, AS), "hello")
         }
     }
 

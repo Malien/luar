@@ -270,6 +270,27 @@ impl Clone for LuaString {
     }
 }
 
+impl PartialEq<&str> for LuaString {
+    fn eq(&self, &other: &&str) -> bool {
+        self.as_ref() == other
+    }
+}
+impl PartialOrd<&str> for LuaString {
+    fn partial_cmp(&self, &other: &&str) -> Option<std::cmp::Ordering> {
+        self.as_ref().partial_cmp(other)
+    }
+}
+impl PartialEq<String> for LuaString {
+    fn eq(&self, other: &String) -> bool {
+        self.as_ref() == other.as_str()
+    }
+}
+impl PartialOrd<String> for LuaString {
+    fn partial_cmp(&self, other: &String) -> Option<std::cmp::Ordering> {
+        self.as_ref().partial_cmp(other.as_str())
+    }
+}
+
 #[cfg(feature = "quickcheck")]
 impl quickcheck::Arbitrary for LuaString {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {

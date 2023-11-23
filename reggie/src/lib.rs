@@ -15,6 +15,7 @@ pub(crate) mod optimizer;
 pub(crate) mod runtime;
 pub mod stdlib;
 pub mod value;
+pub(crate) mod execution_stack;
 
 use compiler::CompiledModule;
 pub use global_values::GlobalValues;
