@@ -1,0 +1,99 @@
+---
+source: ast_vm/src/opt/compiler.rs
+expression: module
+---
+Module {
+    chunks: [
+        Statement(
+            LocalDeclaration(
+                Declaration {
+                    names: NonEmptyVec(
+                        [
+                            LocalValueID(
+                                0,
+                            ),
+                        ],
+                    ),
+                    initial_values: [
+                        Number(
+                            NumberLiteral(
+                                1.0,
+                            ),
+                        ),
+                    ],
+                },
+            ),
+        ),
+        Statement(
+            LocalDeclaration(
+                Declaration {
+                    names: NonEmptyVec(
+                        [
+                            LocalValueID(
+                                1,
+                            ),
+                        ],
+                    ),
+                    initial_values: [
+                        Number(
+                            NumberLiteral(
+                                2.0,
+                            ),
+                        ),
+                    ],
+                },
+            ),
+        ),
+        Statement(
+            LocalDeclaration(
+                Declaration {
+                    names: NonEmptyVec(
+                        [
+                            LocalValueID(
+                                2,
+                            ),
+                        ],
+                    ),
+                    initial_values: [
+                        BinaryOperator {
+                            lhs: Variable(
+                                Named(
+                                    Local(
+                                        LocalValueID(
+                                            0,
+                                        ),
+                                    ),
+                                ),
+                            ),
+                            op: Plus,
+                            rhs: Variable(
+                                Named(
+                                    Local(
+                                        LocalValueID(
+                                            1,
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        },
+                    ],
+                },
+            ),
+        ),
+    ],
+    ret: Some(
+        Return(
+            [
+                Variable(
+                    Named(
+                        Local(
+                            LocalValueID(
+                                2,
+                            ),
+                        ),
+                    ),
+                ),
+            ],
+        ),
+    ),
+}

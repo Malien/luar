@@ -282,10 +282,9 @@ where
     }
 }
 
+#[macro_export]
 macro_rules! keyed_vec {
     ($($expr:expr),*$(,)?) => {
-        $crate::keyed_vec::KeyedVec::from_vec(vec![$($expr),*])
+        $crate::KeyedVec::from_vec(vec![$($expr),*])
     };
 }
-
-pub(crate) use keyed_vec;

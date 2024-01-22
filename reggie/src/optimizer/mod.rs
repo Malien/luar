@@ -6,11 +6,11 @@
 use crate::{
     compiler::compile_function,
     ids::{ArgumentRegisterID, GlobalCellID, JmpLabel, LocalRegisterID, SimpleBlockID, StringID},
-    keyed_vec::KeyedVec,
     machine::CodeBlock,
     ops::{BranchCondition, Instruction},
     GlobalValues,
 };
+use keyed_vec::KeyedVec;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BlockExit {

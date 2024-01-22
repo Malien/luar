@@ -2,7 +2,12 @@ use std::num::NonZeroU16;
 
 use enum_map::EnumMap;
 
-use crate::{keyed_vec::KeyedVec, ids::{StringID, JmpLabel, BlockID}, machine::DataType, LuaString};
+use crate::{
+    ids::{BlockID, JmpLabel, StringID},
+    machine::DataType,
+    LuaString,
+};
+use keyed_vec::KeyedVec;
 
 pub type LocalRegCount = EnumMap<DataType, u16>;
 
@@ -21,13 +26,27 @@ pub(crate) use reg_count;
 
 #[cfg(test)]
 macro_rules! reg_type {
-    (D) => { $crate::machine::DataType::Dynamic };
-    (I) => { $crate::machine::DataType::Int };
-    (F) => { $crate::machine::DataType::Float };
-    (S) => { $crate::machine::DataType::String };
-    (C) => { $crate::machine::DataType::Function };
-    (A) => { $crate::machine::DataType::NativeFunction };
-    (T) => { $crate::machine::DataType::Table };
+    (D) => {
+        $crate::machine::DataType::Dynamic
+    };
+    (I) => {
+        $crate::machine::DataType::Int
+    };
+    (F) => {
+        $crate::machine::DataType::Float
+    };
+    (S) => {
+        $crate::machine::DataType::String
+    };
+    (C) => {
+        $crate::machine::DataType::Function
+    };
+    (A) => {
+        $crate::machine::DataType::NativeFunction
+    };
+    (T) => {
+        $crate::machine::DataType::Table
+    };
 }
 
 #[cfg(test)]
@@ -66,8 +85,8 @@ impl std::fmt::Display for ArgumentCount {
                     write!(f, ", D")?;
                 }
                 write!(f, ")")?;
-            },
-            Self::Unknown => write!(f, "(?)")?
+            }
+            Self::Unknown => write!(f, "(?)")?,
         };
         Ok(())
     }
@@ -110,7 +129,7 @@ impl std::fmt::Display for ReturnCount {
                     write!(f, ", D")?;
                 }
                 write!(f, ", ?)")?;
-            },
+            }
             ReturnCount::Bounded { min, max } => {
                 write!(f, "(")?;
                 if min > 0 {
@@ -126,7 +145,7 @@ impl std::fmt::Display for ReturnCount {
                     write!(f, ", D?")?;
                 }
                 write!(f, ")")?;
-            },
+            }
             ReturnCount::Constant(count) => {
                 write!(f, "(")?;
                 if count > 0 {
@@ -136,7 +155,7 @@ impl std::fmt::Display for ReturnCount {
                     write!(f, ", D")?;
                 }
                 write!(f, ")")?;
-            },
+            }
         }
 
         Ok(())
@@ -146,12 +165,8 @@ impl std::fmt::Display for ReturnCount {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FunctionKind {
     DeOptimized,
-    GlobalsOptimized {
-        deopt_original: BlockID
-    },
-    DynCallWrapper {
-        of: BlockID
-    }
+    GlobalsOptimized { deopt_original: BlockID },
+    DynCallWrapper { of: BlockID },
 }
 
 impl Default for FunctionKind {

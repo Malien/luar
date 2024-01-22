@@ -4,11 +4,11 @@ use crate::{
     compiler::CompiledModule,
     global_values::GlobalValues,
     ids::{BlockID, LocalBlockID, ModuleID},
-    keyed_vec::{keyed_vec, KeyedVec},
     meta::CodeMeta,
     ops::Instruction,
     LuaValue, TableRef, stdlib::define_stdlib, LuaString, call_stack::CallStack,
 };
+use keyed_vec::{keyed_vec, KeyedVec};
 
 // const ARG_REG_COUNT: usize = 16;
 // TODO: Implement ExtR in order to make argument register more likely to be in cache(?)

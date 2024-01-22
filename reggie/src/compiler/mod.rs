@@ -4,8 +4,9 @@ use super::{
     ops::Instruction,
     GlobalValues,
 };
-use crate::{ids::ArgumentRegisterID, keyed_vec::KeyedVec, machine::DataType, meta::{self, ReturnCount}, LuaString};
+use crate::{ids::ArgumentRegisterID, machine::DataType, meta::{self, ReturnCount}, LuaString};
 use std::{collections::HashMap, num::NonZeroU16};
+use keyed_vec::KeyedVec;
 
 pub(crate) mod expr;
 pub(crate) mod fn_call;

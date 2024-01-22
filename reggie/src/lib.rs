@@ -7,7 +7,6 @@ pub mod compiler;
 pub(crate) mod eq_with_nan;
 pub mod global_values;
 pub(crate) mod ids;
-pub(crate) mod keyed_vec;
 pub(crate) mod machine;
 pub(crate) mod meta;
 pub(crate) mod ops;

@@ -1,4 +1,8 @@
-use std::{fmt, ops::{Deref, DerefMut}, num::NonZeroUsize};
+use std::{
+    fmt,
+    num::NonZeroUsize,
+    ops::{Deref, DerefMut},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NonEmptyVec<T>(Vec<T>);
@@ -101,6 +105,16 @@ impl<T> NonEmptyVec<T> {
     pub fn len(&self) -> NonZeroUsize {
         // Can be new_unchecked
         NonZeroUsize::new(self.0.len()).unwrap()
+    }
+
+    pub fn map<U>(self, f: impl FnMut(T) -> U) -> NonEmptyVec<U> {
+        // SAFETY: Length is known to be non-zero, since self is a NonEmptyVec.
+        unsafe { NonEmptyVec::from_iter_unchecked(self.into_iter().map(f)) }
+    }
+
+    pub fn map_ref<U>(&self, f: impl FnMut(&T) -> U) -> NonEmptyVec<U> {
+        // SAFETY: Length is known to be non-zero, since self is a NonEmptyVec.
+        unsafe { NonEmptyVec::from_iter_unchecked(self.iter().map(f)) }
     }
 }
 

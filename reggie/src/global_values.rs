@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use crate::{LuaValue, keyed_vec::KeyedVec, ids::GlobalCellID};
+use crate::{LuaValue, ids::GlobalCellID};
+use keyed_vec::KeyedVec;
 
 #[derive(Debug, Clone)]
 pub struct GlobalValueCell {

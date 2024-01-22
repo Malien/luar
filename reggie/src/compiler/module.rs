@@ -3,11 +3,11 @@ use luar_syn::{Chunk, FunctionName, Return, Var};
 use crate::{
     global_values::GlobalValues,
     ids::LocalBlockID,
-    keyed_vec::KeyedVec,
     machine::CodeBlock,
     meta::{ArgumentCount, CodeMeta, FunctionKind, ReturnCount},
     ops::Instruction,
 };
+use keyed_vec::KeyedVec;
 
 use super::{
     compile_dyn_wrapper, compile_function, compile_statement, ret::compile_ret,

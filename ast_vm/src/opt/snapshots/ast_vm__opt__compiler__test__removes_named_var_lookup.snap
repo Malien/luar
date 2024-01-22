@@ -1,0 +1,408 @@
+---
+source: ast_vm/src/opt/compiler.rs
+expression: module
+---
+Module {
+    chunks: [
+        Statement(
+            Assignment(
+                Assignment {
+                    names: NonEmptyVec(
+                        [
+                            Named(
+                                Global(
+                                    GlobalValueID(
+                                        0,
+                                    ),
+                                ),
+                            ),
+                        ],
+                    ),
+                    values: NonEmptyVec(
+                        [
+                            Number(
+                                NumberLiteral(
+                                    1.0,
+                                ),
+                            ),
+                        ],
+                    ),
+                },
+            ),
+        ),
+        Statement(
+            LocalDeclaration(
+                Declaration {
+                    names: NonEmptyVec(
+                        [
+                            LocalValueID(
+                                0,
+                            ),
+                        ],
+                    ),
+                    initial_values: [],
+                },
+            ),
+        ),
+        Statement(
+            LocalDeclaration(
+                Declaration {
+                    names: NonEmptyVec(
+                        [
+                            LocalValueID(
+                                1,
+                            ),
+                            LocalValueID(
+                                2,
+                            ),
+                        ],
+                    ),
+                    initial_values: [
+                        Number(
+                            NumberLiteral(
+                                2.0,
+                            ),
+                        ),
+                        TableConstructor(
+                            TableConstructor {
+                                lfield: [
+                                    Variable(
+                                        Named(
+                                            Global(
+                                                GlobalValueID(
+                                                    0,
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                    Variable(
+                                        Named(
+                                            Local(
+                                                LocalValueID(
+                                                    0,
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ],
+                                ffield: [
+                                    (
+                                        Ident(
+                                            "bar",
+                                        ),
+                                        Variable(
+                                            Named(
+                                                Local(
+                                                    LocalValueID(
+                                                        0,
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ],
+                            },
+                        ),
+                    ],
+                },
+            ),
+        ),
+        FnDecl(
+            FunctionDeclaration {
+                name: Method(
+                    Named(
+                        Local(
+                            LocalValueID(
+                                2,
+                            ),
+                        ),
+                    ),
+                    Ident(
+                        "foo",
+                    ),
+                ),
+                args: [
+                    LocalValueID(
+                        0,
+                    ),
+                    LocalValueID(
+                        1,
+                    ),
+                    LocalValueID(
+                        2,
+                    ),
+                ],
+                body: Block {
+                    statements: [
+                        If(
+                            Conditional {
+                                condition: Variable(
+                                    Named(
+                                        Local(
+                                            LocalValueID(
+                                                0,
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                                body: Block {
+                                    statements: [],
+                                    ret: Some(
+                                        Return(
+                                            [
+                                                BinaryOperator {
+                                                    lhs: Variable(
+                                                        Named(
+                                                            Global(
+                                                                GlobalValueID(
+                                                                    0,
+                                                                ),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                    op: Plus,
+                                                    rhs: Variable(
+                                                        Named(
+                                                            Global(
+                                                                GlobalValueID(
+                                                                    1,
+                                                                ),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                },
+                                            ],
+                                        ),
+                                    ),
+                                },
+                                tail: ElseIf(
+                                    Conditional {
+                                        condition: Variable(
+                                            Named(
+                                                Local(
+                                                    LocalValueID(
+                                                        1,
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                        body: Block {
+                                            statements: [],
+                                            ret: Some(
+                                                Return(
+                                                    [
+                                                        BinaryOperator {
+                                                            lhs: Variable(
+                                                                Named(
+                                                                    Global(
+                                                                        GlobalValueID(
+                                                                            1,
+                                                                        ),
+                                                                    ),
+                                                                ),
+                                                            ),
+                                                            op: Minus,
+                                                            rhs: Variable(
+                                                                Named(
+                                                                    Local(
+                                                                        LocalValueID(
+                                                                            0,
+                                                                        ),
+                                                                    ),
+                                                                ),
+                                                            ),
+                                                        },
+                                                    ],
+                                                ),
+                                            ),
+                                        },
+                                        tail: Else(
+                                            Block {
+                                                statements: [],
+                                                ret: Some(
+                                                    Return(
+                                                        [
+                                                            BinaryOperator {
+                                                                lhs: Variable(
+                                                                    Named(
+                                                                        Local(
+                                                                            LocalValueID(
+                                                                                2,
+                                                                            ),
+                                                                        ),
+                                                                    ),
+                                                                ),
+                                                                op: Plus,
+                                                                rhs: Number(
+                                                                    NumberLiteral(
+                                                                        1.0,
+                                                                    ),
+                                                                ),
+                                                            },
+                                                        ],
+                                                    ),
+                                                ),
+                                            },
+                                        ),
+                                    },
+                                ),
+                            },
+                        ),
+                    ],
+                    ret: None,
+                },
+            },
+        ),
+        Statement(
+            FunctionCall(
+                Function {
+                    func: Named(
+                        Global(
+                            GlobalValueID(
+                                2,
+                            ),
+                        ),
+                    ),
+                    args: Arglist(
+                        [
+                            String(
+                                StringLiteral(
+                                    "hello",
+                                ),
+                            ),
+                            Variable(
+                                Named(
+                                    Global(
+                                        GlobalValueID(
+                                            0,
+                                        ),
+                                    ),
+                                ),
+                            ),
+                            BinaryOperator {
+                                lhs: Variable(
+                                    Named(
+                                        Local(
+                                            LocalValueID(
+                                                0,
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                                op: Minus,
+                                rhs: Variable(
+                                    PropertyAccess {
+                                        from: Named(
+                                            Local(
+                                                LocalValueID(
+                                                    1,
+                                                ),
+                                            ),
+                                        ),
+                                        property: Ident(
+                                            "bar",
+                                        ),
+                                    },
+                                ),
+                            },
+                        ],
+                    ),
+                },
+            ),
+        ),
+    ],
+    ret: Some(
+        Return(
+            [
+                Variable(
+                    Named(
+                        Global(
+                            GlobalValueID(
+                                0,
+                            ),
+                        ),
+                    ),
+                ),
+                Variable(
+                    Named(
+                        Local(
+                            LocalValueID(
+                                1,
+                            ),
+                        ),
+                    ),
+                ),
+                Variable(
+                    Named(
+                        Local(
+                            LocalValueID(
+                                2,
+                            ),
+                        ),
+                    ),
+                ),
+                FunctionCall(
+                    Method {
+                        func: Named(
+                            Local(
+                                LocalValueID(
+                                    2,
+                                ),
+                            ),
+                        ),
+                        method: Ident(
+                            "foo",
+                        ),
+                        args: Arglist(
+                            [
+                                Number(
+                                    NumberLiteral(
+                                        3.0,
+                                    ),
+                                ),
+                                Variable(
+                                    Named(
+                                        Local(
+                                            LocalValueID(
+                                                1,
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                                Variable(
+                                    MemberLookup {
+                                        from: Named(
+                                            Local(
+                                                LocalValueID(
+                                                    2,
+                                                ),
+                                            ),
+                                        ),
+                                        value: Variable(
+                                            Named(
+                                                Global(
+                                                    GlobalValueID(
+                                                        0,
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    },
+                                ),
+                            ],
+                        ),
+                    },
+                ),
+                Variable(
+                    Named(
+                        Global(
+                            GlobalValueID(
+                                3,
+                            ),
+                        ),
+                    ),
+                ),
+            ],
+        ),
+    ),
+}

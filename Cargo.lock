@@ -24,7 +24,9 @@ dependencies = [
 name = "ast_vm"
 version = "0.1.0"
 dependencies = [
+ "insta",
  "itertools",
+ "keyed_vec",
  "libc",
  "luar_error",
  "luar_lex",
@@ -390,6 +392,10 @@ checksum = "c5f195fe497f702db0f318b07fdd68edb16955aed830df8363d837542f8f935a"
 dependencies = [
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "keyed_vec"
+version = "0.1.0"
 
 [[package]]
 name = "lazy_static"
@@ -904,6 +910,7 @@ dependencies = [
  "decorum",
  "enum-map",
  "itertools",
+ "keyed_vec",
  "libc",
  "luar_lex",
  "luar_syn",

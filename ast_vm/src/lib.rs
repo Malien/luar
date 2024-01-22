@@ -33,6 +33,8 @@ pub use tail_values::*;
 
 pub mod scope;
 
+pub mod opt;
+
 mod ctrl_flow;
 pub use ctrl_flow::*;
 
