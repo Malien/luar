@@ -1,4 +1,5 @@
 pub mod ast_vm_test_harness;
+pub mod ast_vm_opt_test_harness;
 pub mod reggie_test_harness;
 
 macro_rules! lua_test {
@@ -36,6 +37,10 @@ macro_rules! run_tests {
 
 mod ast_vm {
     run_tests!(crate::ast_vm_test_harness::run_lua_test);
+
+    mod opt {
+        run_tests!(crate::ast_vm_opt_test_harness::run_lua_test);
+    }
 }
 
 mod reggie {

@@ -8,7 +8,7 @@ use crate::{
 #[cfg(test)]
 use test_util::{with_thread_gen, GenExt};
 
-use super::{ReturnValue, TableRef, TableValue};
+use super::{NativeFunction, ReturnValue, TableRef, TableValue};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LuaValue {
@@ -16,6 +16,7 @@ pub enum LuaValue {
     Number(LuaNumber),
     String(String),
     Function(LuaFunction),
+    NativeFunction(NativeFunction),
     Table(TableRef),
     // CFunction,
     // UserData
@@ -50,7 +51,7 @@ impl LuaValue {
     pub fn function(
         func: impl Fn(&mut GlobalContext, &[LuaValue]) -> Result<ReturnValue, EvalError> + 'static,
     ) -> Self {
-        Self::Function(LuaFunction::new(func))
+        Self::NativeFunction(NativeFunction::new(func))
     }
 
     pub fn unwrap_number(self) -> LuaNumber {
@@ -86,6 +87,13 @@ impl LuaValue {
             return function;
         }
         panic!("Called unwrap_function() on a {:?}", self)
+    }
+
+    pub fn unwrap_native_function_ref(&self) -> &NativeFunction {
+        if let Self::NativeFunction(function) = self {
+            return function;
+        }
+        panic!("Called unwrap_native_function() on a {:?}", self)
     }
 
     pub fn total_eq(&self, other: &LuaValue) -> bool {
@@ -171,6 +179,7 @@ impl LuaValue {
             Self::Number(_) => LuaType::Number,
             Self::String(_) => LuaType::String,
             Self::Function(_) => LuaType::Function,
+            Self::NativeFunction(_) => LuaType::Function,
             Self::Table(_) => LuaType::Table,
         }
     }
@@ -187,6 +196,7 @@ impl fmt::Display for LuaValue {
             Self::Number(num) => fmt::Display::fmt(num, f),
             Self::String(str) => fmt::Debug::fmt(str, f),
             Self::Function(function) => fmt::Debug::fmt(function, f),
+            Self::NativeFunction(function) => fmt::Debug::fmt(function, f),
             Self::Table(table) => fmt::Debug::fmt(table, f),
         }
     }
@@ -199,7 +209,7 @@ impl quickcheck::Arbitrary for LuaValue {
             0 => LuaValue::Nil,
             1 => LuaValue::Number(with_thread_gen(LuaNumber::arbitrary)),
             2 => LuaValue::String(with_thread_gen(String::arbitrary)),
-            3 => LuaValue::Function(LuaFunction::new(|_, _| Ok(ReturnValue::Nil))),
+            3 => LuaValue::NativeFunction(NativeFunction::new(|_, _| Ok(ReturnValue::NIL))),
             4 => LuaValue::Table(TableRef::arbitrary(&mut g.next_iter())),
             _ => unreachable!(),
         }
@@ -215,6 +225,7 @@ impl quickcheck::Arbitrary for LuaValue {
                 Box::new(std::iter::once(LuaValue::Nil).chain(str.shrink().map(LuaValue::String)))
             }
             LuaValue::Function(_) => Box::new(std::iter::once(LuaValue::Nil)),
+            LuaValue::NativeFunction(_) => Box::new(std::iter::once(LuaValue::Nil)),
             LuaValue::Table(table) => {
                 Box::new(std::iter::once(LuaValue::Nil).chain(table.shrink().map(LuaValue::Table)))
             }

@@ -1,5 +1,5 @@
 use crate::{
-    lang::{LocalScope, ReturnValue, ScopeHolder, TableRef},
+    lang::{LocalScope, ReturnValue, ScopeHolder, TableRef, LuaValue},
     EvalError,
 };
 use luar_lex::{NumberLiteral, StringLiteral};
@@ -24,13 +24,14 @@ pub(crate) fn eval_expr(
     scope: &mut LocalScope<impl ScopeHolder>,
 ) -> Result<ReturnValue, EvalError> {
     match expr {
-        Expression::Nil => Ok(ReturnValue::Nil),
-        Expression::Number(NumberLiteral(num)) => Ok(ReturnValue::Number((*num).into())),
-        Expression::String(StringLiteral(str)) => Ok(ReturnValue::String(str.clone())),
+        Expression::Nil => Ok(ReturnValue::NIL),
+        Expression::Number(NumberLiteral(num)) => Ok(ReturnValue::number(*num)),
+        Expression::String(StringLiteral(str)) => Ok(ReturnValue::string(str)),
         Expression::Variable(var) => eval_var(var, scope).map(ReturnValue::from),
         Expression::TableConstructor(tbl) => eval_tbl_constructor(tbl, scope)
             .map(TableRef::from)
-            .map(ReturnValue::Table),
+            .map(LuaValue::Table)
+            .map(ReturnValue::from),
         Expression::FunctionCall(call) => eval_fn_call(call, scope),
         Expression::UnaryOperator { op, exp } => {
             eval_unary_op_expr(exp.as_ref(), *op, scope).map(ReturnValue::from)
@@ -58,7 +59,7 @@ mod test {
         let mut context = GlobalContext::new();
         assert_eq!(
             ast_vm::eval_module(&module, &mut context)?,
-            ReturnValue::Nil
+            ReturnValue::NIL
         );
         Ok(())
     }
@@ -81,7 +82,7 @@ mod test {
         let mut context = GlobalContext::new();
         assert_eq!(
             ast_vm::eval_module(&module, &mut context)?,
-            ReturnValue::String(str)
+            ReturnValue::string(str)
         );
         Ok(())
     }

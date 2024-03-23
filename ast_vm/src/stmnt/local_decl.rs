@@ -136,7 +136,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
-        assert_eq!(res, ReturnValue::Nil);
+        assert_eq!(res, ReturnValue::NIL);
         Ok(())
     }
 
@@ -157,7 +157,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
-        assert_eq!(res, ReturnValue::Nil);
+        assert_eq!(res, ReturnValue::NIL);
         Ok(())
     }
 
@@ -176,7 +176,7 @@ mod test {
         ",
         )?;
         let res = ast_vm::eval_module(&module, &mut GlobalContext::new())?;
-        assert_eq!(res, ReturnValue::Nil);
+        assert_eq!(res, ReturnValue::NIL);
         Ok(())
     }
 }

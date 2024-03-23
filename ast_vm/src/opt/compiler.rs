@@ -63,15 +63,14 @@ impl<'a> LocalValues<'a> {
     }
 }
 
-pub fn compile_module(module: luar_syn::Module) -> Module {
-    let mut global_state = GlobalValues::default();
-    let mut root_locals = LocalValues::new(&mut global_state);
+pub fn compile_module(global_state: &mut GlobalValues, module: luar_syn::Module) -> Module {
+    let mut root_locals = LocalValues::new(global_state);
 
     let chunks = module
         .chunks
         .into_iter()
         .map(|chunk| match chunk {
-            luar_syn::Chunk::FnDecl(decl) => Chunk::FnDecl(compile_fn_body(&mut root_locals, decl)),
+            luar_syn::Chunk::FnDecl(decl) => Chunk::FnDecl(compile_fn_decl(&mut root_locals, decl)),
             luar_syn::Chunk::Statement(statement) => {
                 Chunk::Statement(compile_statement(&mut root_locals, statement))
             }
@@ -82,7 +81,7 @@ pub fn compile_module(module: luar_syn::Module) -> Module {
     Module { chunks, ret }
 }
 
-fn compile_fn_body(
+fn compile_fn_decl(
     root_locals: &mut LocalValues,
     decl: luar_syn::FunctionDeclaration,
 ) -> FunctionDeclaration {
@@ -94,13 +93,17 @@ fn compile_fn_body(
     };
     let globals = root_locals.globals();
     let mut fn_locals = LocalValues::new(globals);
-    let args = decl
-        .args
-        .iter()
-        .map(|ident| fn_locals.delcare(ident.clone()))
-        .collect();
+    let arg_count = decl.args.len().try_into().unwrap();
+    for arg in decl.args {
+        fn_locals.delcare(arg);
+    }
     let body = compile_block(&mut fn_locals, decl.body);
-    FunctionDeclaration { name, args, body }
+    FunctionDeclaration {
+        name,
+        arg_count,
+        body,
+        local_count: fn_locals.current.0,
+    }
 }
 
 fn compile_statement(locals: &mut LocalValues, statement: luar_syn::Statement) -> Statement {
@@ -273,7 +276,8 @@ mod test {
             return c
         ";
         let ast = luar_syn::lua_parser::module(program).unwrap();
-        let module = super::compile_module(ast);
+        let mut global_state = super::GlobalValues::default();
+        let module = super::compile_module(&mut global_state, ast);
 
         insta::assert_debug_snapshot!(module);
     }
@@ -297,7 +301,8 @@ mod test {
             return global, l1, l2, l2:foo(3, l1, l2[global]), unspecified
         ";
         let ast = luar_syn::lua_parser::module(program).unwrap();
-        let module = super::compile_module(ast);
+        let mut global_state = super::GlobalValues::default();
+        let module = super::compile_module(&mut global_state, ast);
 
         insta::assert_debug_snapshot!(module);
     }

@@ -28,6 +28,7 @@ pub fn print(writer: &mut impl Write, args: &[LuaValue]) -> Result<LuaValue, Eva
                 .map(|_| ()),
             LuaValue::Number(num) => write!(writer, "{}\n", num),
             LuaValue::Function(func) => write!(writer, "function: {:p}\n", func.addr()),
+            LuaValue::NativeFunction(func) => write!(writer, "function: {:p}\n", func.addr()),
             LuaValue::Table(table) => write!(writer, "table: {:p}\n", table.addr()),
         };
         if let Err(err) = res {
@@ -174,6 +175,7 @@ pub fn lua_type(args: &[LuaValue]) -> LuaValue {
         LuaValue::Number(_) => "number",
         LuaValue::String(_) => "string",
         LuaValue::Function(_) => "function",
+        LuaValue::NativeFunction(_) => "function",
         LuaValue::Table(_) => "table",
     })
 }
@@ -186,7 +188,7 @@ mod test {
 
     use super::{assert, floor, print, random, strlen, strsub, tonumber};
     use crate::{
-        lang::{LuaFunction, LuaNumber, LuaValue, ReturnValue, TableValue},
+        lang::{LuaNumber, LuaValue, ReturnValue, TableValue, NativeFunction},
         util::{close_relative_eq, eq_with_nan},
         EvalError,
     };
@@ -251,10 +253,10 @@ mod test {
 
     #[quickcheck]
     fn printing_function_prints_it_address() {
-        let func = LuaFunction::new(|_, _| Ok(ReturnValue::Nil));
+        let func = NativeFunction::new(|_, _| Ok(ReturnValue::NIL));
         let addr = func.addr();
         let mut buf = Cursor::new(Vec::new());
-        let res = print(&mut buf, &[LuaValue::Function(func)]).unwrap();
+        let res = print(&mut buf, &[LuaValue::NativeFunction(func)]).unwrap();
         assert_eq!(res, LuaValue::Nil);
         let res = String::from_utf8(buf.into_inner()).unwrap();
         assert_eq!(res, format!("function: {:p}\n", addr));
@@ -308,7 +310,7 @@ mod test {
             LuaValue::Nil,
             LuaValue::string("hello"),
             LuaValue::table(TableValue::new()),
-            LuaValue::function(|_, _| Ok(ReturnValue::Nil)),
+            LuaValue::function(|_, _| Ok(ReturnValue::NIL)),
         ];
         for value in unsupported {
             assert!(floor(&[value]).is_err())

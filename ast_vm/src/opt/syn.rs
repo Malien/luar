@@ -17,8 +17,9 @@ pub enum Chunk {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionDeclaration {
     pub name: FunctionName,
-    pub args: Vec<LocalValueID>,
+    pub arg_count: u16,
     pub body: Block,
+    pub local_count: u16,
 }
 
 #[derive(Debug, Clone, PartialEq)]

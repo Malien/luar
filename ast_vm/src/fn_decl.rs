@@ -1,4 +1,6 @@
-use crate::lang::{FunctionContext, GlobalContext, LocalScope, LuaFunction, LuaValue, ScopeHolder};
+use crate::lang::{
+    FunctionContext, GlobalContext, LocalScope, LuaValue, NativeFunction, ScopeHolder,
+};
 use luar_lex::Ident;
 use luar_syn::{FunctionDeclaration, FunctionName};
 
@@ -10,7 +12,7 @@ pub(crate) fn eval_fn_decl(
 ) -> Result<(), crate::EvalError> {
     match &decl.name {
         FunctionName::Plain(var) => {
-            let function = LuaFunction::new({
+            let function = NativeFunction::new({
                 let body = decl.body.clone();
                 let arg_names = decl.args.clone();
                 move |context, args| {
@@ -20,9 +22,11 @@ pub(crate) fn eval_fn_decl(
                     eval_block(&body, &mut scope).map(ControlFlow::function_return)
                 }
             });
-            assign_to_var(scope, var, LuaValue::Function(function))
+            assign_to_var(scope, var, LuaValue::NativeFunction(function))
         }
-        FunctionName::Method(base, name) => todo!("Cannot evaluate method declaration for {base}:{name} yet"),
+        FunctionName::Method(base, name) => {
+            todo!("Cannot evaluate method declaration for {base}:{name} yet")
+        }
     }
 }
 
@@ -51,7 +55,8 @@ mod test {
         lua_parser, Block, Chunk, Expression, FunctionCall, FunctionCallArgs, FunctionDeclaration,
         FunctionName, Module, Return, Var,
     };
-    use non_empty::{ne_vec, NonEmptyVec};
+    use non_empty::NonEmptyVec;
+    use smallvec::smallvec;
 
     #[quickcheck]
     fn fn_declaration_puts_function_in_scope(ident: Ident) -> Result<(), LuaError> {
@@ -137,11 +142,8 @@ mod test {
             context.set(ident, value.clone());
         }
         let res = ast_vm::eval_module(&module, &mut context)?;
-        if values.len().get() == 1 {
-            assert!(res.first_value().total_eq(values.first()));
-        } else {
-            assert!(res.total_eq(&ReturnValue::MultiValue(values)));
-        }
+        let expected: ReturnValue = values.into_iter().collect();
+        assert!(res.total_eq(&expected));
         Ok(())
     }
 
@@ -174,7 +176,7 @@ mod test {
         ))?;
         let mut context = GlobalContext::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
-        let expected = ReturnValue::MultiValue(ne_vec![
+        let expected = ReturnValue(smallvec![
             LuaValue::string("local"),
             LuaValue::string("global"),
         ]);
@@ -196,7 +198,7 @@ mod test {
         let mut context = GlobalContext::new();
         context.set("value", value.clone());
         let res = ast_vm::eval_module(&module, &mut context)?;
-        let expected = ReturnValue::MultiValue(ne_vec![value, LuaValue::Nil]);
+        let expected = ReturnValue(smallvec![value, LuaValue::Nil]);
         assert!(res.total_eq(&expected));
         Ok(())
     }
@@ -211,7 +213,7 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
-        let expected = ReturnValue::MultiValue(ne_vec![
+        let expected = ReturnValue(smallvec![
             LuaValue::number(1i32),
             LuaValue::number(2i32),
             LuaValue::Nil,
@@ -231,15 +233,14 @@ mod test {
         )?;
         let mut context = GlobalContext::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
-        let expected =
-            ReturnValue::MultiValue(ne_vec![LuaValue::number(1i32), LuaValue::number(2i32)]);
+        let expected = ReturnValue(smallvec![LuaValue::number(1i32), LuaValue::number(2i32)]);
         assert_eq!(res, expected);
         Ok(())
     }
 
     macro_rules! mv_num {
         ($($num:expr),*) => {
-            ReturnValue::MultiValue(ne_vec![$(LuaValue::number($num as i32),)*])
+            ReturnValue(smallvec![$(LuaValue::number($num as i32),)*])
         };
     }
 
@@ -270,7 +271,7 @@ mod test {
         for (func, expected) in expectations {
             let res = context
                 .get(func)
-                .unwrap_function_ref()
+                .unwrap_native_function_ref()
                 .clone()
                 .call(&mut context, &[])?;
             assert_eq!(res, expected);

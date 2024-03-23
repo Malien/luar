@@ -1,13 +1,33 @@
 use std::{fmt, hash::Hash, rc::Rc};
 
-use crate::{lang::{GlobalContext, LuaValue, ReturnValue}, EvalError};
+use crate::{lang::{GlobalContext, LuaValue, ReturnValue}, EvalError, opt};
 
-pub type InnerFn = dyn Fn(&mut GlobalContext, &[LuaValue]) -> Result<ReturnValue, EvalError>;
+type NativeFn = dyn Fn(&mut GlobalContext, &[LuaValue]) -> Result<ReturnValue, EvalError>;
 
 #[derive(Clone)]
-pub struct LuaFunction(Rc<InnerFn>);
+pub struct NativeFunction(Rc<NativeFn>);
 
-impl LuaFunction {
+impl fmt::Debug for NativeFunction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "native function: {:p}", Rc::as_ptr(&self.0))
+    }
+}
+
+impl PartialEq for NativeFunction {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Eq for NativeFunction {}
+
+impl Hash for NativeFunction {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        Rc::as_ptr(&self.0).hash(state);
+    }
+}
+
+impl NativeFunction {
     pub fn new(
         func: impl Fn(&mut GlobalContext, &[LuaValue]) -> Result<ReturnValue, EvalError> + 'static,
     ) -> Self {
@@ -22,6 +42,31 @@ impl LuaFunction {
         self.0(context, args)
     }
 
+    pub fn addr(&self) -> *const NativeFn {
+        Rc::as_ptr(&self.0)
+    }
+}
+
+pub struct InnerFn {
+    local_count: u16,
+    arg_count: u16,
+    body: opt::syn::Block,
+}
+
+#[derive(Clone)]
+pub struct LuaFunction(Rc<InnerFn>);
+
+impl LuaFunction {
+    pub fn new(
+        decl: opt::syn::FunctionDeclaration,
+    ) -> Self {
+        Self(Rc::new(InnerFn {
+            local_count: decl.local_count,
+            arg_count: decl.arg_count,
+            body: decl.body,
+        }))
+    }
+
     pub fn addr(&self) -> *const InnerFn {
         Rc::as_ptr(&self.0)
     }
@@ -29,7 +74,7 @@ impl LuaFunction {
 
 impl fmt::Debug for LuaFunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt("<lua function>", f)
+        write!(f, "lua function: {:p}", Rc::as_ptr(&self.0))
     }
 }
 

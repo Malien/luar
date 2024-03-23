@@ -11,7 +11,7 @@ pub fn eval_module(module: &Module, context: &mut GlobalContext) -> Result<Retur
     }
     match module.ret {
         Some(ref ret) => eval_ret(ret, &mut scope),
-        None => Ok(ReturnValue::Nil),
+        None => Ok(ReturnValue::NIL),
     }
 }
 

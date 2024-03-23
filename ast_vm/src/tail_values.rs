@@ -1,9 +1,13 @@
 use crate::lang::{LuaValue, ReturnValue};
 
+/// Expands multi-value lists into a single iterator of values.
 pub struct TailValuesIter<I> {
+    /// The iterator of return values.
     values: I,
+    /// Held value to detect the last element of the multi-value iterator.
     hold: Option<ReturnValue>,
-    tail: Option<std::vec::IntoIter<LuaValue>>,
+    /// Iterator over the last multi-value return.
+    tail: Option<<ReturnValue as IntoIterator>::IntoIter>,
 }
 
 impl<I> Iterator for TailValuesIter<I>
@@ -23,14 +27,7 @@ where
                 (None, hold, tail) => {
                     match hold.take() {
                         None => return None,
-                        Some(ReturnValue::Nil) => return Some(LuaValue::Nil),
-                        Some(ReturnValue::Number(num)) => return Some(LuaValue::Number(num)),
-                        Some(ReturnValue::String(str)) => return Some(LuaValue::String(str)),
-                        Some(ReturnValue::Function(func)) => return Some(LuaValue::Function(func)),
-                        Some(ReturnValue::Table(table)) => return Some(LuaValue::Table(table)),
-                        Some(ReturnValue::MultiValue(values)) => {
-                            *tail = Some(values.into_iter());
-                        }
+                        Some(ret) => *tail = Some(ret.into_iter()),
                     };
                 }
             }
@@ -51,7 +48,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use non_empty::ne_vec;
+    use smallvec::smallvec;
 
     use crate::lang::{LuaValue, ReturnValue};
 
@@ -78,12 +75,12 @@ mod test {
 
     #[test]
     fn tail_values_expand_end_multi_value() {
-        let multi_value = ReturnValue::MultiValue(ne_vec![
+        let multi_value = ReturnValue(smallvec![
             LuaValue::Nil,
             LuaValue::string("hello"),
             LuaValue::number(69),
         ]);
-        let values = vec![ReturnValue::Nil, ReturnValue::number(42), multi_value];
+        let values = vec![ReturnValue::NIL, ReturnValue::number(42), multi_value];
         let tail_values: Vec<_> = tail_values(values).collect();
         let expected = vec![
             LuaValue::Nil,
@@ -97,12 +94,12 @@ mod test {
 
     #[test]
     fn tail_values_does_not_expand_multi_value_in_the_middle() {
-        let multi_value = ReturnValue::MultiValue(ne_vec![
+        let multi_value = ReturnValue(smallvec![
             LuaValue::Nil,
             LuaValue::string("hello"),
             LuaValue::number(69),
         ]);
-        let values = vec![ReturnValue::Nil, multi_value, ReturnValue::number(42)];
+        let values = vec![ReturnValue::NIL, multi_value, ReturnValue::number(42)];
         let expected: Vec<_> = values
             .iter()
             .cloned()

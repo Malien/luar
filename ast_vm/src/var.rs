@@ -113,7 +113,7 @@ mod test {
         let mut context = GlobalContext::new();
         assert_eq!(
             ast_vm::eval_module(&module, &mut context)?,
-            ReturnValue::Nil
+            ReturnValue::NIL
         );
         context.set(ident, value.clone());
         assert!(ast_vm::eval_module(&module, &mut context)?.total_eq(&value.into()));
@@ -130,7 +130,7 @@ mod test {
         context.set("key", LuaValue::from(key));
 
         let res = ast_vm::eval_module(&module, &mut context)?;
-        assert_eq!(res, ReturnValue::Nil);
+        assert_eq!(res, ReturnValue::NIL);
 
         Ok(())
     }
@@ -208,7 +208,7 @@ mod test {
         let module = lua_parser::module(&format!("tbl = {{}} return tbl.{}", property))?;
         let mut context = GlobalContext::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
-        assert_eq!(res, ReturnValue::Nil);
+        assert_eq!(res, ReturnValue::NIL);
         Ok(())
     }
 
@@ -222,9 +222,8 @@ mod test {
         context.set("tbl", LuaValue::table(table));
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.is_multiple_return());
-        let values = res.unwrap_multiple_return();
-        assert_eq!(values.len().get(), 2);
-        assert!(values[0].total_eq(&values[1]));
+        assert_eq!(res.len(), 2);
+        assert!(res[0].total_eq(&res[1]));
         Ok(())
     }
 }

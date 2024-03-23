@@ -107,7 +107,7 @@ pub struct NaNLessTable(pub TableValue);
 mod test {
     use quickcheck::{Arbitrary, TestResult};
 
-    use crate::lang::{LuaFunction, LuaNumber, LuaValue, ReturnValue};
+    use crate::lang::{LuaNumber, LuaValue, ReturnValue, NativeFunction};
 
     use super::{LuaKey, NaNLessTable, TableRef, TableValue};
 
@@ -205,12 +205,12 @@ mod test {
     #[quickcheck]
     fn setting_function_key_can_be_retrieved_only_with_the_same_fn_ref(value: LuaValue) {
         let mut table = TableValue::new();
-        let func = LuaFunction::new(|_, _| Ok(ReturnValue::Nil));
-        let func = LuaKey::Function(func);
+        let func = NativeFunction::new(|_, _| Ok(ReturnValue::NIL));
+        let func = LuaKey::NativeFunction(func);
         table.set(func.clone(), value.clone());
         assert!(table.get(&func).total_eq(&value));
-        let func2 = LuaFunction::new(|_, _| Ok(ReturnValue::Nil));
-        let func2 = LuaKey::Function(func2);
+        let func2 = NativeFunction::new(|_, _| Ok(ReturnValue::NIL));
+        let func2 = LuaKey::NativeFunction(func2);
         assert_eq!(table.get(&func2), &LuaValue::Nil);
     }
 

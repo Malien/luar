@@ -1,79 +1,46 @@
+use smallvec::{smallvec, smallvec_inline, SmallVec};
 use std::fmt::{self, Write};
 
-use non_empty::NonEmptyVec;
+use crate::lang::LuaNumber;
 
-use crate::lang::{LuaFunction, LuaNumber};
-
-use super::{LuaValue, TableRef};
+use super::LuaValue;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ReturnValue {
-    Nil,
-    Number(LuaNumber),
-    String(String),
-    Function(LuaFunction),
-    MultiValue(NonEmptyVec<LuaValue>),
-    Table(TableRef),
-}
+pub struct ReturnValue(pub SmallVec<[LuaValue; 1]>);
 
 impl From<LuaValue> for ReturnValue {
     fn from(v: LuaValue) -> Self {
-        match v {
-            LuaValue::Nil => Self::Nil,
-            LuaValue::Number(num) => Self::Number(num),
-            LuaValue::String(str) => Self::String(str),
-            LuaValue::Function(func) => Self::Function(func),
-            LuaValue::Table(table) => Self::Table(table),
-        }
+        Self(smallvec![v])
     }
 }
 
 impl ReturnValue {
+    pub const NIL: ReturnValue = ReturnValue(smallvec_inline![LuaValue::Nil]);
+
     pub fn first_value(self) -> LuaValue {
-        match self {
-            ReturnValue::Nil => LuaValue::Nil,
-            ReturnValue::Number(num) => LuaValue::Number(num),
-            ReturnValue::String(str) => LuaValue::String(str),
-            ReturnValue::Function(func) => LuaValue::Function(func),
-            ReturnValue::Table(table) => LuaValue::Table(table),
-            ReturnValue::MultiValue(values) => values.move_first(),
-        }
+        self.0.into_iter().next().expect("ReturnValue should have at least one value (even if it is nil)")
     }
 
     pub fn assert_single(self) -> LuaValue {
-        match self {
-            ReturnValue::Nil => LuaValue::Nil,
-            ReturnValue::Number(num) => LuaValue::Number(num),
-            ReturnValue::String(str) => LuaValue::String(str),
-            ReturnValue::Function(func) => LuaValue::Function(func),
-            ReturnValue::Table(table) => LuaValue::Table(table),
-            ReturnValue::MultiValue(values) => {
-                assert_eq!(values.len().get(), 1);
-                values.move_first()
-            }
-        }
+        assert!(self.0.len() <= 1);
+        self.first_value()
     }
 
     pub fn total_eq(&self, other: &ReturnValue) -> bool {
-        match (self, other) {
-            (Self::Nil, Self::Nil) => true,
-            (Self::Number(lhs), Self::Number(rhs)) => lhs.total_eq(rhs),
-            (Self::String(lhs), Self::String(rhs)) => lhs == rhs,
-            (Self::Function(lhs), Self::Function(rhs)) => lhs == rhs,
-            (Self::MultiValue(lhs), Self::MultiValue(rhs)) if lhs.len() == rhs.len() => {
-                lhs.into_iter().zip(rhs).all(|(lhs, rhs)| lhs.total_eq(rhs))
-            }
-            (Self::Table(lhs), Self::Table(rhs)) => lhs == rhs,
-            (_, _) => false,
-        }
+        self.0.len() == other.0.len()
+            && self
+                .0
+                .iter()
+                .zip(other.0.iter())
+                .all(|(lhs, rhs)| lhs.total_eq(rhs))
     }
 
     pub fn number(value: impl Into<LuaNumber>) -> Self {
-        Self::Number(value.into())
+        Self::from(LuaValue::number(value))
     }
 
     pub fn string(value: impl Into<String>) -> Self {
-        Self::String(value.into())
+        Self::from(LuaValue::string(value))
     }
 
     pub fn true_value() -> Self {
@@ -81,39 +48,53 @@ impl ReturnValue {
     }
 
     pub fn false_value() -> Self {
-        Self::Nil
+        Self::from(LuaValue::Nil)
     }
 
     pub fn is_multiple_return(&self) -> bool {
-        matches!(self, Self::MultiValue(_))
+        self.0.len() > 1
     }
 
-    pub fn unwrap_multiple_return(self) -> NonEmptyVec<LuaValue> {
-        if let Self::MultiValue(values) = self {
-            values
-        } else {
-            panic!("Called unwrap_multiple_return() on {:?}", self)
-        }
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 }
 
 impl fmt::Display for ReturnValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Nil => fmt::Display::fmt("nil", f),
-            Self::Number(num) => fmt::Display::fmt(num, f),
-            Self::String(str) => fmt::Debug::fmt(str, f),
-            Self::Function(function) => fmt::Debug::fmt(function, f),
-            Self::MultiValue(values) => {
-                for value in values {
-                    fmt::Display::fmt(value, f)?;
-                    f.write_char('\t')?;
-                }
-                Ok(())
-            }
-            Self::Table(table) => fmt::Debug::fmt(table, f),
-            // Self::CFunction => fmt::Display::fmt("<cfunction>", f),
-            // Self::UserData => fmt::Display::fmt("<unserdata>", f),
+        for value in self.0.iter() {
+            fmt::Display::fmt(value, f)?;
+            f.write_char('\t')?;
         }
+        Ok(())
+    }
+}
+
+impl IntoIterator for ReturnValue {
+    type Item = LuaValue;
+    type IntoIter = <SmallVec<[LuaValue; 1]> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl FromIterator<LuaValue> for ReturnValue {
+    fn from_iter<T: IntoIterator<Item = LuaValue>>(iter: T) -> Self {
+        Self(iter.into_iter().collect())
+    }
+}
+
+impl std::ops::Index<usize> for ReturnValue {
+    type Output = LuaValue;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl std::ops::IndexMut<usize> for ReturnValue {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.0[index]
     }
 }

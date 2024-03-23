@@ -42,7 +42,7 @@ mod test {
     use crate as ast_vm;
     use crate::{
         lang::{
-            GlobalContext, LuaFunction, LuaKey, LuaValue, NaNLessTable, ReturnValue, TableRef,
+            GlobalContext, LuaKey, LuaValue, NaNLessTable, ReturnValue, TableRef,
             TableValue,
         },
         vec_of_idents, LuaError, TypeError,
@@ -86,9 +86,8 @@ mod test {
     }
 
     fn multi_return_fn(ret: NonEmptyVec<LuaValue>) -> LuaValue {
-        let ret_value = ReturnValue::MultiValue(ret);
-        let lua_fn = LuaFunction::new(move |_, _| Ok(ret_value.clone()));
-        LuaValue::Function(lua_fn)
+        let ret_value: ReturnValue = ret.iter().cloned().collect();
+        LuaValue::function(move |_, _| Ok(ret_value.clone()))
     }
 
     fn assign_values(

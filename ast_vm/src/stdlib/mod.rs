@@ -1,5 +1,5 @@
 use crate::{
-    lang::{GlobalContext, LuaFunction, LuaValue, ReturnValue},
+    lang::{GlobalContext, LuaValue, ReturnValue},
     EvalError,
 };
 
@@ -29,9 +29,7 @@ fn define_fn(
 ) {
     ctx.set(
         name,
-        LuaValue::Function(LuaFunction::new(move |_, args| {
-            fun(args).map(ReturnValue::from)
-        })),
+        LuaValue::function(move |_, args| fun(args).map(ReturnValue::from)),
     )
 }
 
@@ -42,7 +40,7 @@ fn define_total_fn(
 ) {
     ctx.set(
         name,
-        LuaValue::Function(LuaFunction::new(move |_, args| Ok(fun(args).into()))),
+        LuaValue::function(move |_, args| Ok(fun(args).into())),
     );
 }
 

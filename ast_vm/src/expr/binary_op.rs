@@ -112,7 +112,7 @@ fn concat(lhs: LuaValue, rhs: LuaValue) -> Result<LuaValue, TypeError> {
 mod test {
     use crate as ast_vm;
     use crate::{
-        lang::{GlobalContext, LuaFunction, LuaValue, ReturnValue},
+        lang::{GlobalContext, LuaValue, ReturnValue},
         LuaError,
     };
     use luar_syn::lua_parser;
@@ -140,7 +140,7 @@ mod test {
         context.set("lhs", LuaValue::Nil);
         context.set("rhs", rhs.clone());
         let res = ast_vm::eval_module(&module, &mut context)?;
-        assert_eq!(res, ReturnValue::Nil);
+        assert_eq!(res, ReturnValue::NIL);
         Ok(())
     }
 
@@ -150,9 +150,9 @@ mod test {
     ) -> Result<(), LuaError> {
         let module = lua_parser::module("return 1 and mult()")?;
         let mut context = GlobalContext::new();
-        let ret_value = ReturnValue::MultiValue(values.clone());
-        let mult_fn = LuaFunction::new(move |_, _| Ok(ret_value.clone()));
-        context.set("mult", LuaValue::Function(mult_fn));
+        let ret_value: ReturnValue = values.iter().cloned().collect();
+        let mult_fn = LuaValue::function(move |_, _| Ok(ret_value.clone()));
+        context.set("mult", mult_fn);
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(ReturnValue::total_eq(&res, &values.move_first().into()));
         Ok(())
@@ -173,7 +173,7 @@ mod test {
         let mut context = GlobalContext::new();
         assert_eq!(
             ast_vm::eval_module(&module, &mut context)?,
-            ReturnValue::Nil
+            ReturnValue::NIL
         );
         Ok(())
     }
@@ -209,9 +209,9 @@ mod test {
     ) -> Result<(), LuaError> {
         let module = lua_parser::module("return nil or mult()")?;
         let mut context = GlobalContext::new();
-        let ret_value = ReturnValue::MultiValue(values.clone());
-        let mult_fn = LuaFunction::new(move |_, _| Ok(ret_value.clone()));
-        context.set("mult", LuaValue::Function(mult_fn));
+        let ret_value: ReturnValue = values.iter().cloned().collect();
+        let mult_fn = LuaValue::function(move |_, _| Ok(ret_value.clone()));
+        context.set("mult", mult_fn);
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(ReturnValue::total_eq(&res, &values.move_first().into()));
         Ok(())
@@ -234,7 +234,7 @@ mod test {
         let mut context = GlobalContext::new();
         assert_eq!(
             ast_vm::eval_module(&module, &mut context)?,
-            ReturnValue::Nil
+            ReturnValue::NIL
         );
         Ok(())
     }

@@ -3,7 +3,6 @@ use crate::{
     EvalError,
 };
 use luar_syn::Return;
-use non_empty::NonEmptyVec;
 
 use super::{eval_expr, tail_values};
 
@@ -14,7 +13,7 @@ pub(crate) fn eval_ret(
     if ret.0.len() <= 1 {
         match ret.0.first() {
             Some(expr) => eval_expr(expr, scope),
-            None => Ok(ReturnValue::Nil),
+            None => Ok(ReturnValue::NIL),
         }
     } else {
         ret.0
@@ -23,9 +22,7 @@ pub(crate) fn eval_ret(
             .collect::<Result<Vec<_>, _>>()
             .map(tail_values)
             .map(Iterator::collect)
-            // SAFETY: values is produced from NonEmpty vec, so values are not empty as well
-            .map(|values| unsafe { NonEmptyVec::new_unchecked(values) })
-            .map(ReturnValue::MultiValue)
+            .map(ReturnValue)
     }
 }
 
@@ -33,7 +30,7 @@ pub(crate) fn eval_ret(
 mod test {
     use crate as ast_vm;
     use crate::{
-        lang::{GlobalContext, LuaFunction, LuaValue, ReturnValue},
+        lang::{GlobalContext, LuaValue, ReturnValue},
         LuaError,
     };
     use luar_lex::Ident;
@@ -63,11 +60,8 @@ mod test {
             context.set(ident, val.clone());
         }
         let res = ast_vm::eval_module(&module, &mut context)?;
-        if values.len().get() == 1 {
-            assert!(res.total_eq(&values.move_first().into()));
-        } else {
-            assert!(res.total_eq(&ReturnValue::MultiValue(values)));
-        }
+        let expected: ReturnValue = values.into_iter().collect();
+        assert!(res.total_eq(&expected));
         Ok(())
     }
 
@@ -100,16 +94,16 @@ mod test {
         };
         let mut context = GlobalContext::new();
 
-        let ret_value = ReturnValue::MultiValue(v2.clone());
-        let mult_fn = LuaFunction::new(move |_, _| Ok(ret_value.clone()));
-        context.set("mult", LuaValue::Function(mult_fn));
+        let ret_value: ReturnValue = v2.iter().cloned().collect();
+        let mult_fn = LuaValue::function(move |_, _| Ok(ret_value.clone()));
+        context.set("mult", mult_fn);
 
         for (val, ident) in v1.iter().zip(idents) {
             context.set(ident, val.clone());
         }
         let res = ast_vm::eval_module(&module, &mut context)?;
-        let combined = NonEmptyVec::try_new(v1.into_iter().chain(v2).collect()).unwrap();
-        assert!(res.total_eq(&ReturnValue::MultiValue(combined)));
+        let combined: ReturnValue = v1.into_iter().chain(v2).collect();
+        assert!(res.total_eq(&combined));
         Ok(())
     }
 }

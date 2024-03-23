@@ -8,7 +8,7 @@ pub enum ControlFlow {
 
 impl ControlFlow {
     pub fn function_return(self) -> ReturnValue {
-        self.return_value().unwrap_or(ReturnValue::Nil)
+        self.return_value().unwrap_or(ReturnValue::NIL)
     }
 
     pub fn return_value(self) -> Option<ReturnValue> {

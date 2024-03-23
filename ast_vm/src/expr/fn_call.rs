@@ -15,7 +15,9 @@ pub(crate) fn eval_fn_call(
             let fn_value = eval_var(func, scope)?;
             call_value(scope.global_mut(), &fn_value, &args)
         }),
-        FunctionCall::Method { func,args,method } => todo!("Cannot evaluate method call {func}:{method}{args} yet")
+        FunctionCall::Method { func, args, method } => {
+            todo!("Cannot evaluate method call {func}:{method}{args} yet")
+        }
     }
 }
 
@@ -24,10 +26,10 @@ fn call_value(
     func: &LuaValue,
     args: &[LuaValue],
 ) -> Result<ReturnValue, EvalError> {
-    if let LuaValue::Function(func) = func {
-        func.call(context, args)
-    } else {
-        Err(EvalError::from(TypeError::IsNotCallable(func.clone())))
+    match func {
+        LuaValue::Function(func) => todo!(),
+        LuaValue::NativeFunction(func) => func.call(context, args),
+        _ => Err(EvalError::from(TypeError::IsNotCallable(func.clone()))),
     }
 }
 
@@ -52,7 +54,7 @@ fn eval_fn_args(
 mod test {
     use crate as ast_vm;
     use crate::{
-        lang::{GlobalContext, LuaFunction, LuaValue, ReturnValue},
+        lang::{GlobalContext, LuaValue, ReturnValue},
         LuaError, TypeError,
     };
     use luar_error::assert_type_error;
@@ -66,16 +68,16 @@ mod test {
     fn eval_fn_call() -> Result<(), LuaError> {
         let module = lua_parser::module("myfn()")?;
         let called = Rc::new(RefCell::new(false));
-        let myfn = LuaFunction::new({
+        let myfn = LuaValue::function({
             let called = Rc::clone(&called);
             move |_, _| {
                 let mut called = called.borrow_mut();
                 *called = true;
-                Ok(ReturnValue::Nil)
+                Ok(ReturnValue::NIL)
             }
         });
         let mut context = GlobalContext::new();
-        context.set("myfn", LuaValue::Function(myfn));
+        context.set("myfn", myfn);
         ast_vm::eval_module(&module, &mut context)?;
         let called = called.borrow();
         assert!(*called);
@@ -87,11 +89,11 @@ mod test {
         let ret_value = ReturnValue::from(ret_value);
         let module = lua_parser::module("return myfn()")?;
         let mut context = GlobalContext::new();
-        let myfn = LuaFunction::new({
+        let myfn = LuaValue::function({
             let ret_value = ret_value.clone();
             move |_, _| Ok(ret_value.clone())
         });
-        context.set("myfn", LuaValue::Function(myfn));
+        context.set("myfn", myfn);
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(ret_value.total_eq(&res));
         Ok(())
@@ -115,12 +117,12 @@ mod test {
     fn eval_fn_call_multiple_returns(values: NonEmptyVec<LuaValue>) -> Result<(), LuaError> {
         let module = lua_parser::module("return myfn()")?;
         let mut context = GlobalContext::new();
-        let ret_values = ReturnValue::MultiValue(values);
-        let myfn = LuaFunction::new({
+        let ret_values: ReturnValue = values.into_iter().collect();
+        let myfn = LuaValue::function({
             let ret_values = ret_values.clone();
             move |_, _| Ok(ret_values.clone())
         });
-        context.set("myfn", LuaValue::Function(myfn));
+        context.set("myfn", myfn);
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(ret_values.total_eq(&res));
         Ok(())

@@ -176,7 +176,7 @@ mod test {
             };
             assert_eq!(
                 ast_vm::eval_expr(&expr, &mut context.top_level_scope())?,
-                ReturnValue::Nil
+                ReturnValue::NIL
             );
             Ok(())
         }
