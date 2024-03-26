@@ -17,7 +17,7 @@ pub(crate) fn eval_unary_op_expr(
     })
 }
 
-fn unary_op_eval(op: UnaryOperator, value: LuaValue) -> Result<LuaValue, ArithmeticError> {
+pub(crate) fn unary_op_eval(op: UnaryOperator, value: LuaValue) -> Result<LuaValue, ArithmeticError> {
     match op {
         UnaryOperator::Minus => unary_minus_eval(value),
         UnaryOperator::Not if value.is_falsy() => Ok(LuaValue::true_value()),
@@ -43,7 +43,7 @@ mod test {
 
         use crate as ast_vm;
         use crate::{
-            lang::{GlobalContext, ReturnValue, ScopeHolder},
+            lang::{Context, ReturnValue, ScopeHolder},
             util::eq_with_nan,
             ArithmeticError, EvalError, LuaError, TypeError,
         };
@@ -57,7 +57,7 @@ mod test {
 
         #[quickcheck]
         fn eval_negation(Finite(num): Finite<f64>) -> Result<(), EvalError> {
-            let mut context = GlobalContext::new();
+            let mut context = Context::new();
             let expr = negation_expr(num);
             let res = ast_vm::eval_expr(&expr, &mut context.top_level_scope())?
                 .assert_single()
@@ -69,7 +69,7 @@ mod test {
 
         #[test]
         fn eval_negation_on_nan() -> Result<(), EvalError> {
-            let mut context = GlobalContext::new();
+            let mut context = Context::new();
             let expr = negation_expr(f64::NAN);
             let res = ast_vm::eval_expr(&expr, &mut context.top_level_scope())?
                 .assert_single()
@@ -81,7 +81,7 @@ mod test {
 
         #[test]
         fn eval_negation_on_inf() -> Result<(), EvalError> {
-            let mut context = GlobalContext::new();
+            let mut context = Context::new();
             let expr = negation_expr(f64::INFINITY);
             let res = ast_vm::eval_expr(&expr, &mut context.top_level_scope())?
                 .assert_single()
@@ -93,7 +93,7 @@ mod test {
 
         #[test]
         fn eval_negation_on_neg_inf() -> Result<(), EvalError> {
-            let mut context = GlobalContext::new();
+            let mut context = Context::new();
             let expr = negation_expr(f64::NEG_INFINITY);
             let res = ast_vm::eval_expr(&expr, &mut context.top_level_scope())?
                 .assert_single()
@@ -105,7 +105,7 @@ mod test {
 
         #[quickcheck]
         fn eval_negation_on_convertible_str(num: f64) -> Result<(), EvalError> {
-            let mut context = GlobalContext::new();
+            let mut context = Context::new();
             let expr = Expression::UnaryOperator {
                 op: UnaryOperator::Minus,
                 exp: Box::new(Expression::String(StringLiteral(format!("{}", num)))),
@@ -120,7 +120,7 @@ mod test {
 
         #[test]
         fn eval_unary_minus_on_unsupported_type_errors() {
-            let mut context = GlobalContext::new();
+            let mut context = Context::new();
             let unsupported = [
                 Expression::Nil,
                 Expression::String(StringLiteral("Definitely not a number".to_string())),
@@ -139,7 +139,7 @@ mod test {
 
         #[test]
         fn eval_not_on_nil() -> Result<(), LuaError> {
-            let mut context = GlobalContext::new();
+            let mut context = Context::new();
             let expr = lua_parser::expression("not nil")?;
             assert_eq!(
                 ast_vm::eval_expr(&expr, &mut context.top_level_scope())?,
@@ -169,7 +169,7 @@ mod test {
         fn eval_not_on_truthy_vals(
             TruthyExpression(expr): TruthyExpression,
         ) -> Result<(), LuaError> {
-            let mut context = GlobalContext::new();
+            let mut context = Context::new();
             let expr = Expression::UnaryOperator {
                 op: UnaryOperator::Not,
                 exp: Box::new(expr),

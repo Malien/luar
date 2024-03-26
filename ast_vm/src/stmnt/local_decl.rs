@@ -31,7 +31,7 @@ fn multiple_local_assignment(
 mod test {
     use crate as ast_vm;
     use crate::{
-        lang::{GlobalContext, LuaValue, ReturnValue},
+        lang::{Context, LuaValue, ReturnValue},
         LuaError,
     };
     use luar_lex::Ident;
@@ -43,7 +43,7 @@ mod test {
         value: LuaValue,
     ) -> Result<(), LuaError> {
         let module = lua_parser::module(&format!("local {} = value", ident))?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("value", value.clone());
         ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(context.get(&ident), &LuaValue::Nil);
@@ -58,7 +58,7 @@ mod test {
             return {}",
             ident, ident, ident
         ))?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("value", value.clone());
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(res.assert_single(), LuaValue::Nil);
@@ -77,7 +77,7 @@ mod test {
             return {}",
             ident, ident, ident
         ))?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("value1", value1);
         context.set("value2", value2.clone());
         let res = ast_vm::eval_module(&module, &mut context)?;
@@ -97,7 +97,7 @@ mod test {
             return {}",
             ident, ident, ident
         ))?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("value1", value1.clone());
         context.set("value2", value2);
         ast_vm::eval_module(&module, &mut context)?;
@@ -118,7 +118,7 @@ mod test {
             return {}",
             ident, ident, ident, ident
         ))?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("value1", value1);
         context.set("value2", value2);
         ast_vm::eval_module(&module, &mut context)?;
@@ -134,7 +134,7 @@ mod test {
             function bar() return foo end
             return bar()",
         )?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::NIL);
         Ok(())
@@ -155,7 +155,7 @@ mod test {
 
             return bar()",
         )?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::NIL);
         Ok(())
@@ -175,7 +175,7 @@ mod test {
             return 69
         ",
         )?;
-        let res = ast_vm::eval_module(&module, &mut GlobalContext::new())?;
+        let res = ast_vm::eval_module(&module, &mut Context::new())?;
         assert_eq!(res, ReturnValue::NIL);
         Ok(())
     }

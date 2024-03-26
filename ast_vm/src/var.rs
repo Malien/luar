@@ -99,7 +99,7 @@ pub(crate) fn assign_to_value_property(
 mod test {
     use crate as ast_vm;
     use crate::{
-        lang::{GlobalContext, LuaKey, LuaValue, ReturnValue, TableValue},
+        lang::{Context, LuaKey, LuaValue, ReturnValue, TableValue},
         LuaError, TypeError,
     };
     use luar_error::assert_type_error;
@@ -110,7 +110,7 @@ mod test {
     #[quickcheck]
     fn eval_ident_on_global(value: LuaValue, ident: Ident) -> Result<(), LuaError> {
         let module = lua_parser::module(&format!("return {}", ident))?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         assert_eq!(
             ast_vm::eval_module(&module, &mut context)?,
             ReturnValue::NIL
@@ -126,7 +126,7 @@ mod test {
             "tbl = {}
             return tbl[key]",
         )?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("key", LuaValue::from(key));
 
         let res = ast_vm::eval_module(&module, &mut context)?;
@@ -144,7 +144,7 @@ mod test {
         }
 
         let module = lua_parser::module("return value[1]")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("value", value);
         let res = ast_vm::eval_module(&module, &mut context);
         assert_type_error!(TypeError::IsNotIndexable(_), res);
@@ -161,7 +161,7 @@ mod test {
         }
 
         let module = lua_parser::module("return tbl[key]")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let mut table = TableValue::new();
         table.set(key.clone(), value.clone());
         context.set("tbl", LuaValue::table(table));
@@ -182,7 +182,7 @@ mod test {
         }
 
         let module = lua_parser::module("return value.foo")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("value", value);
         let res = ast_vm::eval_module(&module, &mut context);
         assert_type_error!(TypeError::CannotAccessProperty { .. }, res);
@@ -192,7 +192,7 @@ mod test {
     #[quickcheck]
     fn eval_property_access(value: LuaValue, property: Ident) -> Result<(), LuaError> {
         let module = lua_parser::module(&format!("return tbl.{}", property))?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let mut table = TableValue::new();
         let key = LuaKey::string(property);
         table.set(key, value.clone());
@@ -206,7 +206,7 @@ mod test {
     #[quickcheck]
     fn looking_up_nonexistent_property(property: Ident) -> Result<(), LuaError> {
         let module = lua_parser::module(&format!("tbl = {{}} return tbl.{}", property))?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(res, ReturnValue::NIL);
         Ok(())
@@ -218,7 +218,7 @@ mod test {
         prop: Ident,
     ) -> Result<(), LuaError> {
         let module = lua_parser::module(&format!("return tbl[\"{}\"], tbl.{}", prop, prop))?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("tbl", LuaValue::table(table));
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.is_multiple_return());

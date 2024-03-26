@@ -1,12 +1,11 @@
-use super::{
-    syn::{
-        self, Assignment, Declaration, Expression, FunctionCall, FunctionCallArgs, GlobalValueID,
-        LocalValueID, Module, Return, Statement, TableConstructor, ValueID, Var,
-    },
-    Context,
+use super::syn::{
+    self, Assignment, Declaration, Expression, FunctionCall, FunctionCallArgs, GlobalValueID,
+    LocalValueID, Module, Return, Statement, TableConstructor, ValueID, Var,
 };
 use crate::{
-    assign_to_value_member, assign_to_value_property, binary_op::{binary_number_op, concat, greater_or_equals, greater_than, less_or_equals, less_than}, lang::{InnerFn, LuaFunction, LuaKey, LuaValue, ReturnValue, TableRef, TableValue}, member_lookup, property_access, tail_values, ControlFlow, EvalError
+    assign_to_value_member, assign_to_value_property, binary_op::{
+        binary_number_op, concat, greater_or_equals, greater_than, less_or_equals, less_than,
+    }, lang::{Context, InnerFn, LuaFunction, LuaKey, LuaValue, ReturnValue, TableRef, TableValue}, member_lookup, property_access, tail_values, unary_op::unary_op_eval, ControlFlow, EvalError
 };
 use luar_error::{ArithmeticOperator, TypeError};
 use luar_lex::{NumberLiteral, StringLiteral};
@@ -282,11 +281,15 @@ pub(crate) fn binary_op_eval(
 }
 
 fn eval_unary_op_expr(
-    as_ref: &Expression,
+    expr: &Expression,
     op: luar_syn::UnaryOperator,
     ctx: &mut EvalContext<'_>,
 ) -> Result<LuaValue> {
-    todo!()
+    eval_expr(expr, ctx).and_then(|value| {
+        unary_op_eval(op, value.first_value())
+            .map_err(TypeError::Arithmetic)
+            .map_err(EvalError::from)
+    })
 }
 
 fn eval_fn_call(call: &syn::FunctionCall, ctx: &mut EvalContext<'_>) -> Result<ReturnValue> {
@@ -318,7 +321,7 @@ fn eval_fn_args(args: &FunctionCallArgs, ctx: &mut EvalContext) -> Result<Vec<Lu
 fn call_value(ctx: &mut Context, value: &LuaValue, args: &[LuaValue]) -> Result<ReturnValue> {
     match value {
         LuaValue::Function(func) => call_function(func, ctx, args),
-        LuaValue::NativeFunction(func) => todo!("Native function calls are not a thing yet"),
+        LuaValue::NativeFunction(func) => func.call(ctx, args),
         _ => Err(EvalError::from(TypeError::IsNotCallable(value.clone()))),
     }
 }

@@ -112,7 +112,7 @@ pub(crate) fn concat(lhs: LuaValue, rhs: LuaValue) -> Result<LuaValue, TypeError
 mod test {
     use crate as ast_vm;
     use crate::{
-        lang::{GlobalContext, LuaValue, ReturnValue},
+        lang::{Context, LuaValue, ReturnValue},
         LuaError,
     };
     use luar_syn::lua_parser;
@@ -125,7 +125,7 @@ mod test {
             return Ok(TestResult::discard());
         }
         let module = lua_parser::module("return lhs and rhs")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs.clone());
         let res = ast_vm::eval_module(&module, &mut context)?;
@@ -136,7 +136,7 @@ mod test {
     #[quickcheck]
     fn eval_and_falsy(rhs: LuaValue) -> Result<(), LuaError> {
         let module = lua_parser::module("return lhs and rhs")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("lhs", LuaValue::Nil);
         context.set("rhs", rhs.clone());
         let res = ast_vm::eval_module(&module, &mut context)?;
@@ -149,7 +149,7 @@ mod test {
         values: NonEmptyVec<LuaValue>,
     ) -> Result<(), LuaError> {
         let module = lua_parser::module("return 1 and mult()")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let ret_value: ReturnValue = values.iter().cloned().collect();
         let mult_fn = LuaValue::function(move |_, _| Ok(ret_value.clone()));
         context.set("mult", mult_fn);
@@ -170,7 +170,7 @@ mod test {
             res = nil and side_effecty_fn()
             return side_effect_committed",
         )?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         assert_eq!(
             ast_vm::eval_module(&module, &mut context)?,
             ReturnValue::NIL
@@ -184,7 +184,7 @@ mod test {
             return Ok(TestResult::discard());
         }
         let module = lua_parser::module("return lhs or rhs")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("lhs", lhs.clone());
         context.set("rhs", rhs);
         let res = ast_vm::eval_module(&module, &mut context)?;
@@ -195,7 +195,7 @@ mod test {
     #[quickcheck]
     fn eval_or_falsy(rhs: LuaValue) -> Result<(), LuaError> {
         let module = lua_parser::module("return lhs or rhs")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("lhs", LuaValue::Nil);
         context.set("rhs", rhs.clone());
         let res = ast_vm::eval_module(&module, &mut context)?;
@@ -208,7 +208,7 @@ mod test {
         values: NonEmptyVec<LuaValue>,
     ) -> Result<(), LuaError> {
         let module = lua_parser::module("return nil or mult()")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let ret_value: ReturnValue = values.iter().cloned().collect();
         let mult_fn = LuaValue::function(move |_, _| Ok(ret_value.clone()));
         context.set("mult", mult_fn);
@@ -231,7 +231,7 @@ mod test {
             return side_effect_committed
         ",
         )?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         assert_eq!(
             ast_vm::eval_module(&module, &mut context)?,
             ReturnValue::NIL
@@ -249,7 +249,7 @@ mod test {
         }
 
         let module = lua_parser::module("return value == value")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert_eq!(LuaValue::true_value(), res.assert_single());
         Ok(TestResult::passed())
@@ -262,7 +262,7 @@ mod test {
     ) -> Result<(), LuaError> {
         let expected = LuaValue::from_bool(lhs == rhs);
         let module = lua_parser::module("return lhs == rhs")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
         let res = ast_vm::eval_module(&module, &mut context)?;
@@ -276,7 +276,7 @@ mod test {
         rhs: LuaValue,
     ) -> Result<(), LuaError> {
         let module = lua_parser::module("return (not (lhs ~= rhs)) == (lhs == rhs)")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
         let res = ast_vm::eval_module(&module, &mut context)?;
@@ -290,7 +290,7 @@ mod test {
         rhs: f64,
     ) -> Result<(), LuaError> {
         let module = lua_parser::module("return lhs + rhs")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::number(rhs));
@@ -324,7 +324,7 @@ mod test {
             return Ok(TestResult::discard());
         }
         let module = lua_parser::module("return lhs + rhs")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
         let res = ast_vm::eval_module(&module, &mut context);
@@ -339,7 +339,7 @@ mod test {
         rhs: f64,
     ) -> Result<(), LuaError> {
         let module = lua_parser::module("return lhs - rhs")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::number(rhs));
@@ -373,7 +373,7 @@ mod test {
             return Ok(TestResult::discard());
         }
         let module = lua_parser::module("return lhs - rhs")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
         let res = ast_vm::eval_module(&module, &mut context);
@@ -388,7 +388,7 @@ mod test {
         rhs: f64,
     ) -> Result<(), LuaError> {
         let module = lua_parser::module("return lhs * rhs")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::number(rhs));
@@ -422,7 +422,7 @@ mod test {
             return Ok(TestResult::discard());
         }
         let module = lua_parser::module("return lhs * rhs")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
         let res = ast_vm::eval_module(&module, &mut context);
@@ -437,7 +437,7 @@ mod test {
         rhs: f64,
     ) -> Result<(), LuaError> {
         let module = lua_parser::module("return lhs / rhs")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
 
         context.set("lhs", LuaValue::number(lhs));
         context.set("rhs", LuaValue::number(rhs));
@@ -471,7 +471,7 @@ mod test {
             return Ok(TestResult::discard());
         }
         let module = lua_parser::module("return lhs / rhs")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("lhs", lhs);
         context.set("rhs", rhs);
         let res = ast_vm::eval_module(&module, &mut context);
@@ -483,7 +483,7 @@ mod test {
     #[quickcheck]
     fn concat(lhs: LuaValue, rhs: LuaValue) {
         let module = lua_parser::module("return lhs .. rhs").unwrap();
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("lhs", lhs.clone());
         context.set("rhs", rhs.clone());
 

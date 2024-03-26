@@ -8,7 +8,7 @@ use luar_syn::Expression;
 mod table_constructor;
 pub(crate) use table_constructor::eval_tbl_constructor;
 
-mod unary_op;
+pub(crate) mod unary_op;
 use unary_op::eval_unary_op_expr;
 
 pub(crate) mod binary_op;
@@ -46,7 +46,7 @@ pub(crate) fn eval_expr(
 mod test {
     use crate as ast_vm;
     use crate::{
-        lang::{GlobalContext, ReturnValue},
+        lang::{Context, ReturnValue},
         LuaError,
     };
     use luar_lex::{NumberLiteral, StringLiteral, Token};
@@ -56,7 +56,7 @@ mod test {
     #[test]
     fn eval_nil() -> Result<(), LuaError> {
         let module = lua_parser::module("return nil")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         assert_eq!(
             ast_vm::eval_module(&module, &mut context)?,
             ReturnValue::NIL
@@ -68,7 +68,7 @@ mod test {
     fn eval_number_literal(Finite(num): Finite<f64>) -> Result<(), LuaError> {
         let module =
             unspanned_lua_token_parser::module([Token::Return, Token::Number(NumberLiteral(num))])?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         assert!(ast_vm::eval_module(&module, &mut context)?.total_eq(&ReturnValue::number(num)));
         Ok(())
     }
@@ -79,7 +79,7 @@ mod test {
             Token::Return,
             Token::String(StringLiteral(str.clone())),
         ])?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         assert_eq!(
             ast_vm::eval_module(&module, &mut context)?,
             ReturnValue::string(str)

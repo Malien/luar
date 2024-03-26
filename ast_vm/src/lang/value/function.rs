@@ -1,8 +1,8 @@
 use std::{fmt, hash::Hash, rc::Rc};
 
-use crate::{lang::{GlobalContext, LuaValue, ReturnValue}, EvalError, opt};
+use crate::{lang::{Context, LuaValue, ReturnValue}, EvalError, opt};
 
-type NativeFn = dyn Fn(&mut GlobalContext, &[LuaValue]) -> Result<ReturnValue, EvalError>;
+type NativeFn = dyn Fn(&mut Context, &[LuaValue]) -> Result<ReturnValue, EvalError>;
 
 #[derive(Clone)]
 pub struct NativeFunction(Rc<NativeFn>);
@@ -29,14 +29,14 @@ impl Hash for NativeFunction {
 
 impl NativeFunction {
     pub fn new(
-        func: impl Fn(&mut GlobalContext, &[LuaValue]) -> Result<ReturnValue, EvalError> + 'static,
+        func: impl Fn(&mut Context, &[LuaValue]) -> Result<ReturnValue, EvalError> + 'static,
     ) -> Self {
         Self(Rc::new(func))
     }
 
     pub fn call(
         &self,
-        context: &mut GlobalContext,
+        context: &mut Context,
         args: &[LuaValue],
     ) -> Result<ReturnValue, EvalError> {
         self.0(context, args)

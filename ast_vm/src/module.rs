@@ -1,8 +1,8 @@
 use super::{eval_fn_decl, eval_ret, eval_stmnt, ControlFlow};
-use crate::{lang::{GlobalContext, LocalScope, ReturnValue, ScopeHolder}, EvalError};
+use crate::{lang::{Context, LocalScope, ReturnValue, ScopeHolder}, EvalError};
 use luar_syn::{Chunk, Module};
 
-pub fn eval_module(module: &Module, context: &mut GlobalContext) -> Result<ReturnValue, EvalError> {
+pub fn eval_module(module: &Module, context: &mut Context) -> Result<ReturnValue, EvalError> {
     let mut scope = context.top_level_scope();
     for chunk in &*module.chunks {
         if let ControlFlow::Return(value) = eval_chunk(chunk, &mut scope)? {
@@ -17,7 +17,7 @@ pub fn eval_module(module: &Module, context: &mut GlobalContext) -> Result<Retur
 
 pub(crate) fn eval_chunk(
     chunk: &Chunk,
-    scope: &mut LocalScope<GlobalContext>,
+    scope: &mut LocalScope<Context>,
 ) -> Result<ControlFlow, EvalError> {
     match chunk {
         Chunk::Statement(stmnt) => eval_stmnt(stmnt, scope),

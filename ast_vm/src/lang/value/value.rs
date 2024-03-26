@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    lang::{GlobalContext, LuaFunction, LuaNumber, LuaType},
+    lang::{Context, LuaFunction, LuaNumber, LuaType},
     EvalError,
 };
 
@@ -49,7 +49,7 @@ impl LuaValue {
     }
 
     pub fn function(
-        func: impl Fn(&mut GlobalContext, &[LuaValue]) -> Result<ReturnValue, EvalError> + 'static,
+        func: impl Fn(&mut Context, &[LuaValue]) -> Result<ReturnValue, EvalError> + 'static,
     ) -> Self {
         Self::NativeFunction(NativeFunction::new(func))
     }

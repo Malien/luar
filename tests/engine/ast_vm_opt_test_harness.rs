@@ -1,4 +1,4 @@
-use ast_vm::{lang::LuaValue, opt};
+use ast_vm::{lang::LuaValue, opt, stdlib};
 use luar_syn::lua_parser;
 
 macro_rules! run_lua_test {
@@ -14,7 +14,7 @@ macro_rules! run_lua_test {
 pub(crate) use run_lua_test;
 
 pub fn run_lua_test_impl(module_path: &str, group_name: &str, module_str: &str) {
-    let mut context = opt::stdlib::std_context();
+    let mut context = stdlib::std_context();
 
     let already_defined_fns = context.globals.cells.key_range();
 

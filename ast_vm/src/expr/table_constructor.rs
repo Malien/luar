@@ -27,7 +27,7 @@ pub(crate) fn eval_tbl_constructor(
 mod test {
     use crate::{
         expr::table_constructor::eval_tbl_constructor,
-        lang::{GlobalContext, LuaKey, LuaValue, ScopeHolder, TableValue},
+        lang::{Context, LuaKey, LuaValue, ScopeHolder, TableValue},
         vec_of_idents, LuaError,
     };
     use crate as ast_vm;
@@ -38,7 +38,7 @@ mod test {
     #[test]
     fn empty_table_constructor_creates_empty_table() -> Result<(), LuaError> {
         let module = lua_parser::module("return {}")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let res = ast_vm::eval_module(&module, &mut context)?.assert_single();
         assert!(res.is_table());
         assert!(res.unwrap_table().is_empty());
@@ -61,7 +61,7 @@ mod test {
             ffield: vec![],
         };
 
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         for (value, ident) in values.iter().cloned().zip(idents) {
             context.set(ident, value);
         }
@@ -103,7 +103,7 @@ mod test {
                 .collect(),
         };
 
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         for (value, ident) in values.iter().map(|(_, value)| value).cloned().zip(idents) {
             context.set(ident, value);
         }

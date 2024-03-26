@@ -25,7 +25,7 @@ pub(crate) fn eval_block(
 #[cfg(test)]
 mod test {
     use crate as ast_vm;
-    use crate::{lang::GlobalContext, LuaError};
+    use crate::{lang::Context, LuaError};
     use luar_syn::lua_parser;
 
     #[test]
@@ -36,7 +36,7 @@ mod test {
             end
             return nil",
         )?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.assert_single().is_truthy());
         Ok(())
@@ -53,7 +53,7 @@ mod test {
             end
             return fn()",
         )?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.assert_single().is_truthy());
         Ok(())

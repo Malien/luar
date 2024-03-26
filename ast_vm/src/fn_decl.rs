@@ -1,5 +1,5 @@
 use crate::lang::{
-    FunctionContext, GlobalContext, LocalScope, LuaValue, NativeFunction, ScopeHolder,
+    FunctionContext, Context, LocalScope, LuaValue, NativeFunction, ScopeHolder,
 };
 use luar_lex::Ident;
 use luar_syn::{FunctionDeclaration, FunctionName};
@@ -8,7 +8,7 @@ use super::{assign_to_var, eval_block, ControlFlow};
 
 pub(crate) fn eval_fn_decl(
     decl: &FunctionDeclaration,
-    scope: &mut LocalScope<GlobalContext>,
+    scope: &mut LocalScope<Context>,
 ) -> Result<(), crate::EvalError> {
     match &decl.name {
         FunctionName::Plain(var) => {
@@ -46,7 +46,7 @@ fn declare_arguments(scope: &mut LocalScope<impl ScopeHolder>, names: &[Ident], 
 mod test {
     use crate as ast_vm;
     use crate::{
-        lang::{GlobalContext, LuaValue, ReturnValue},
+        lang::{Context, LuaValue, ReturnValue},
         LuaError,
     };
     use itertools::Itertools;
@@ -61,7 +61,7 @@ mod test {
     #[quickcheck]
     fn fn_declaration_puts_function_in_scope(ident: Ident) -> Result<(), LuaError> {
         let module = lua_parser::module(&format!("function {}() end", ident))?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         ast_vm::eval_module(&module, &mut context)?;
         assert!(context.get(&ident).is_function());
         Ok(())
@@ -73,7 +73,7 @@ mod test {
             "function myfn() return value end
             return myfn()",
         )?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("value", ret_value.clone());
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(context.get("myfn").is_function());
@@ -106,9 +106,9 @@ mod test {
             ret: block.ret,
         };
 
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let res_block = ast_vm::eval_module(&block_module, &mut context);
-        context = GlobalContext::new();
+        context = Context::new();
         let res_fn = ast_vm::eval_module(&fn_module, &mut context);
 
         let is_same = match (res_block, res_fn) {
@@ -137,7 +137,7 @@ mod test {
             return myfn()",
             idents_str
         ))?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         for (value, ident) in values.iter().zip(idents) {
             context.set(ident, value.clone());
         }
@@ -157,7 +157,7 @@ mod test {
             myfn()
             return executed",
         )?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.assert_single().is_truthy());
         Ok(())
@@ -174,7 +174,7 @@ mod test {
             return myfn(), {}",
             ident, ident, ident, ident
         ))?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
         let expected = ReturnValue(smallvec![
             LuaValue::string("local"),
@@ -195,7 +195,7 @@ mod test {
             end
             return myfn(value), arg",
         )?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("value", value.clone());
         let res = ast_vm::eval_module(&module, &mut context)?;
         let expected = ReturnValue(smallvec![value, LuaValue::Nil]);
@@ -211,7 +211,7 @@ mod test {
             end
             return myfn(1, 2)",
         )?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
         let expected = ReturnValue(smallvec![
             LuaValue::number(1i32),
@@ -231,7 +231,7 @@ mod test {
             end
             return myfn(1, 2, 3, 4)",
         )?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let res = ast_vm::eval_module(&module, &mut context)?;
         let expected = ReturnValue(smallvec![LuaValue::number(1i32), LuaValue::number(2i32)]);
         assert_eq!(res, expected);
@@ -260,7 +260,7 @@ mod test {
                 return mult(), 3
             end",
         )?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         ast_vm::eval_module(&module, &mut context)?;
         let expectations = [
             ("mult", mv_num![1, 2]),

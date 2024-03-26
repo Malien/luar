@@ -28,7 +28,7 @@ pub(crate) fn eval_ret(
 mod test {
     use crate as ast_vm;
     use crate::{
-        lang::{GlobalContext, LuaValue, ReturnValue},
+        lang::{Context, LuaValue, ReturnValue},
         LuaError,
     };
     use luar_lex::Ident;
@@ -53,7 +53,7 @@ mod test {
                     .collect(),
             )),
         };
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         for (val, ident) in values.iter().zip(idents) {
             context.set(ident, val.clone());
         }
@@ -90,7 +90,7 @@ mod test {
                     .collect(),
             )),
         };
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
 
         let ret_value: ReturnValue = v2.iter().cloned().collect();
         let mult_fn = LuaValue::function(move |_, _| Ok(ret_value.clone()));

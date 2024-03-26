@@ -1,5 +1,5 @@
 use crate::{
-    lang::{GlobalContext, LocalScope, LuaValue, ReturnValue, ScopeHolder, TableRef},
+    lang::{Context, LocalScope, LuaValue, ReturnValue, ScopeHolder, TableRef},
     EvalError, TypeError,
 };
 use luar_syn::{FunctionCall, FunctionCallArgs};
@@ -22,7 +22,7 @@ pub(crate) fn eval_fn_call(
 }
 
 pub(crate) fn call_value(
-    context: &mut GlobalContext,
+    context: &mut Context,
     func: &LuaValue,
     args: &[LuaValue],
 ) -> Result<ReturnValue, EvalError> {
@@ -54,7 +54,7 @@ fn eval_fn_args(
 mod test {
     use crate as ast_vm;
     use crate::{
-        lang::{GlobalContext, LuaValue, ReturnValue},
+        lang::{Context, LuaValue, ReturnValue},
         LuaError, TypeError,
     };
     use luar_error::assert_type_error;
@@ -76,7 +76,7 @@ mod test {
                 Ok(ReturnValue::NIL)
             }
         });
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("myfn", myfn);
         ast_vm::eval_module(&module, &mut context)?;
         let called = called.borrow();
@@ -88,7 +88,7 @@ mod test {
     fn eval_fn_return(ret_value: LuaValue) -> Result<(), LuaError> {
         let ret_value = ReturnValue::from(ret_value);
         let module = lua_parser::module("return myfn()")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let myfn = LuaValue::function({
             let ret_value = ret_value.clone();
             move |_, _| Ok(ret_value.clone())
@@ -106,7 +106,7 @@ mod test {
         }
 
         let module = lua_parser::module("value()")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("value", value);
         let res = ast_vm::eval_module(&module, &mut context);
         assert_type_error!(TypeError::IsNotCallable(_), res);
@@ -116,7 +116,7 @@ mod test {
     #[quickcheck]
     fn eval_fn_call_multiple_returns(values: NonEmptyVec<LuaValue>) -> Result<(), LuaError> {
         let module = lua_parser::module("return myfn()")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let ret_values: ReturnValue = values.into_iter().collect();
         let myfn = LuaValue::function({
             let ret_values = ret_values.clone();

@@ -42,7 +42,7 @@ mod test {
     use crate as ast_vm;
     use crate::{
         lang::{
-            GlobalContext, LuaKey, LuaValue, NaNLessTable, ReturnValue, TableRef,
+            Context, LuaKey, LuaValue, NaNLessTable, ReturnValue, TableRef,
             TableValue,
         },
         vec_of_idents, LuaError, TypeError,
@@ -58,7 +58,7 @@ mod test {
     #[quickcheck]
     fn eval_single_assignment(ident: Ident, v1: LuaValue, v2: LuaValue) -> Result<(), LuaError> {
         let module = lua_parser::module(&format!("{} = value", ident))?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         assert_eq!(context.get(&ident), &LuaValue::Nil);
         context.set("value", v1.clone());
         ast_vm::eval_module(&module, &mut context)?;
@@ -91,7 +91,7 @@ mod test {
     }
 
     fn assign_values(
-        context: &mut GlobalContext,
+        context: &mut Context,
         names: impl IntoIterator<Item = Ident>,
         values: impl IntoIterator<Item = LuaValue>,
     ) {
@@ -101,7 +101,7 @@ mod test {
     }
 
     fn assert_multiple_assignment(
-        context: &GlobalContext,
+        context: &Context,
         idents: Vec<Ident>,
         values: Vec<LuaValue>,
     ) {
@@ -118,7 +118,7 @@ mod test {
     }
 
     fn put_dummy_values<'a>(
-        context: &mut GlobalContext,
+        context: &mut Context,
         idents: impl IntoIterator<Item = &'a Ident>,
     ) {
         for ident in idents {
@@ -144,7 +144,7 @@ mod test {
                 .collect();
         let module = unspanned_lua_token_parser::module(tokens)?;
 
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         assign_values(
             &mut context,
             value_idents.iter().cloned(),
@@ -193,7 +193,7 @@ mod test {
             .collect();
         let module = unspanned_lua_token_parser::module(tokens)?;
 
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("myfn", multi_return_fn(right_values.clone()));
         assign_values(&mut context, value_idents, left_values.iter().cloned());
         put_dummy_values(&mut context, &idents);
@@ -258,7 +258,7 @@ mod test {
             Ident::new("myfn"),
         )?;
 
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("myfn", multi_return_fn(multi_value.clone()));
         assign_values(&mut context, left_idents, left_values.iter().cloned());
         assign_values(&mut context, right_idents, right_values.iter().cloned());
@@ -286,7 +286,7 @@ mod test {
         let module = lua_parser::module("table[key] = value")?;
 
         let table = TableRef::from(TableValue::new());
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("table", LuaValue::Table(table.clone()));
         context.set("value", value.clone());
         context.set("key", LuaValue::from(key.clone()));
@@ -312,7 +312,7 @@ mod test {
         let mut table = TableValue::new();
         table.set(key.clone(), prev_value);
         let table = TableRef::from(table);
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("table", LuaValue::Table(table.clone()));
         context.set("value", value.clone());
         context.set("key", LuaValue::from(key.clone()));
@@ -332,7 +332,7 @@ mod test {
         }
 
         let module = lua_parser::module("value[key] = 42")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("key", key.into());
         context.set("value", value);
         let res = ast_vm::eval_module(&module, &mut context);
@@ -343,7 +343,7 @@ mod test {
     #[test]
     fn assigning_to_a_nil_member_is_an_error() -> Result<(), LuaError> {
         let module = lua_parser::module("tbl = {} tbl[nil] = 42")?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         let res = ast_vm::eval_module(&module, &mut context);
         assert_type_error!(TypeError::NilAssign(_), res);
         Ok(())
@@ -362,7 +362,7 @@ mod test {
         ))?;
         let tbl1 = TableRef::from(table.clone());
         let tbl2 = TableRef::from(table);
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("tbl1", LuaValue::Table(tbl1.clone()));
         context.set("tbl2", LuaValue::Table(tbl2.clone()));
         context.set("value", value.clone());
@@ -386,7 +386,7 @@ mod test {
         }
 
         let module = lua_parser::module(&format!("value.{} = 42", prop))?;
-        let mut context = GlobalContext::new();
+        let mut context = Context::new();
         context.set("value", value);
         let res = ast_vm::eval_module(&module, &mut context);
         assert_type_error!(TypeError::CannotAssignProperty { .. }, res);

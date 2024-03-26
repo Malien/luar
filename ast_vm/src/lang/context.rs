@@ -1,36 +1,36 @@
 use super::LuaValue;
 use crate::opt;
 use non_empty::NonEmptyVec;
-use std::collections::{hash_map::Entry, HashMap};
+use std::{collections::{hash_map::Entry, HashMap}, marker::PhantomData};
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Scope(pub HashMap<String, LuaValue>);
 
-#[derive(Debug, Clone, Default)]
-struct GlobalScope {
-    scope: Scope,
-    global_nil: LuaValue,
-}
+// #[derive(Debug, Clone, Default)]
+// struct GlobalScope {
+//     scope: Scope,
+//     global_nil: LuaValue,
+// }
 
-impl GlobalScope {
-    pub fn get(&self, ident: impl AsRef<str>) -> &LuaValue {
-        self.scope.0.get(ident.as_ref()).unwrap_or(&self.global_nil)
-    }
+// impl GlobalScope {
+//     pub fn get(&self, ident: impl AsRef<str>) -> &LuaValue {
+//         self.scope.0.get(ident.as_ref()).unwrap_or(&self.global_nil)
+//     }
 
-    pub fn set(&mut self, ident: impl Into<String>, value: LuaValue) {
-        self.scope.0.insert(ident.into(), value);
-    }
+//     pub fn set(&mut self, ident: impl Into<String>, value: LuaValue) {
+//         self.scope.0.insert(ident.into(), value);
+//     }
 
-    pub fn contains(&self, ident: impl AsRef<str>) -> bool {
-        self.scope.0.contains_key(ident.as_ref())
-    }
-}
+//     pub fn contains(&self, ident: impl AsRef<str>) -> bool {
+//         self.scope.0.contains_key(ident.as_ref())
+//     }
+// }
 
 pub(crate) trait ScopeHolder {
     fn scopes(&self) -> &[Scope];
     fn scopes_mut(&mut self) -> &mut [Scope];
-    fn global(&self) -> &GlobalContext;
-    fn global_mut(&mut self) -> &mut GlobalContext;
+    fn global(&self) -> &Context;
+    fn global_mut(&mut self) -> &mut Context;
 
     fn top_level_scope(&mut self) -> LocalScope<'_, Self>
     where
@@ -42,34 +42,52 @@ pub(crate) trait ScopeHolder {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct GlobalContext {
-    global_scope: GlobalScope,
+pub struct Context {
+    // global_scope: GlobalScope,
+    global_nil: LuaValue,
     local_scopes: NonEmptyVec<Scope>,
+
+    // opt stuff
+    pub globals: opt::GlobalValues,
+    pub(crate) stack: Vec<LuaValue>,
+    _not_send: PhantomData<*const ()>,
 }
 
-impl GlobalContext {
+impl Context {
     pub fn new() -> Self {
         Self::default()
     }
 
     pub fn get(&self, ident: impl AsRef<str>) -> &LuaValue {
-        self.global_scope.get(ident)
+        let id = self.globals.mapping.get(ident.as_ref());
+        if let Some(&id) = id {
+            return &self.globals.cells[id];
+        }
+        return &self.global_nil;
     }
 
     pub fn set(&mut self, ident: impl Into<String>, value: LuaValue) {
-        self.global_scope.set(ident, value)
+        match self.globals.mapping.entry(ident.into()) {
+            Entry::Occupied(entry) => {
+                self.globals.cells[*entry.get()] = value;
+            }
+            Entry::Vacant(entry) => {
+                let id = self.globals.cells.push(value);
+                entry.insert(id);
+            }
+        }
     }
 
     pub fn contains(&self, ident: impl AsRef<str>) -> bool {
-        self.global_scope.contains(ident)
+        self.globals.mapping.contains_key(ident.as_ref())
     }
 
-    pub fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
-        self.into_iter()
-    }
+    // pub fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
+    //     self.into_iter()
+    // }
 }
 
-impl ScopeHolder for GlobalContext {
+impl ScopeHolder for Context {
     fn scopes(&self) -> &[Scope] {
         &self.local_scopes
     }
@@ -78,11 +96,11 @@ impl ScopeHolder for GlobalContext {
         &mut self.local_scopes
     }
 
-    fn global(&self) -> &GlobalContext {
+    fn global(&self) -> &Context {
         self
     }
 
-    fn global_mut(&mut self) -> &mut GlobalContext {
+    fn global_mut(&mut self) -> &mut Context {
         self
     }
 
@@ -113,12 +131,12 @@ impl ScopeHolder for GlobalContext {
 }
 
 pub(crate) struct FunctionContext<'a> {
-    global: &'a mut GlobalContext,
+    global: &'a mut Context,
     scopes: NonEmptyVec<Scope>,
 }
 
 impl<'a> FunctionContext<'a> {
-    pub(crate) fn new(global: &'a mut GlobalContext) -> Self {
+    pub(crate) fn new(global: &'a mut Context) -> Self {
         Self {
             global,
             scopes: NonEmptyVec::default(),
@@ -135,11 +153,11 @@ impl<'a> ScopeHolder for FunctionContext<'a> {
         &mut self.scopes
     }
 
-    fn global(&self) -> &GlobalContext {
+    fn global(&self) -> &Context {
         &self.global
     }
 
-    fn global_mut(&mut self) -> &mut GlobalContext {
+    fn global_mut(&mut self) -> &mut Context {
         &mut self.global
     }
 
@@ -199,7 +217,7 @@ impl<'b, Parent: ScopeHolder> LocalScope<'b, Parent> {
         self.parent.child_scope(self.scope)
     }
 
-    pub(crate) fn global_mut(&mut self) -> &mut GlobalContext {
+    pub(crate) fn global_mut(&mut self) -> &mut Context {
         self.parent.global_mut()
     }
 }
@@ -218,22 +236,22 @@ fn set_impl(holder: &mut impl ScopeHolder, scope: usize, key: String, value: Lua
     set_impl(holder, scope - 1, key, value)
 }
 
-impl<'a> IntoIterator for &'a GlobalContext {
-    type Item = (&'a String, &'a LuaValue);
+// impl<'a> IntoIterator for &'a GlobalContext {
+//     type Item = (&'a String, &'a LuaValue);
 
-    type IntoIter = std::collections::hash_map::Iter<'a, String, LuaValue>;
+//     type IntoIter = std::collections::hash_map::Iter<'a, String, LuaValue>;
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.global_scope.scope.0.iter()
-    }
-}
+//     fn into_iter(self) -> Self::IntoIter {
+//         self.global_scope.scope.0.iter()
+//     }
+// }
 
-impl IntoIterator for GlobalContext {
-    type Item = (String, LuaValue);
+// impl IntoIterator for GlobalContext {
+//     type Item = (String, LuaValue);
 
-    type IntoIter = std::collections::hash_map::IntoIter<String, LuaValue>;
+//     type IntoIter = std::collections::hash_map::IntoIter<String, LuaValue>;
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.global_scope.scope.0.into_iter()
-    }
-}
+//     fn into_iter(self) -> Self::IntoIter {
+//         self.global_scope.scope.0.into_iter()
+//     }
+// }
