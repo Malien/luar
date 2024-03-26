@@ -1,11 +1,16 @@
 use super::syn::{
     self, Assignment, Declaration, Expression, FunctionCall, FunctionCallArgs, GlobalValueID,
-    LocalValueID, Module, Return, Statement, TableConstructor, ValueID, Var,
+    LocalValueID, Module, Return, Statement, TableConstructor, ValueID, Var, WhileLoop,
 };
 use crate::{
-    assign_to_value_member, assign_to_value_property, binary_op::{
+    assign_to_value_member, assign_to_value_property,
+    binary_op::{
         binary_number_op, concat, greater_or_equals, greater_than, less_or_equals, less_than,
-    }, lang::{Context, InnerFn, LuaFunction, LuaKey, LuaValue, ReturnValue, TableRef, TableValue}, member_lookup, property_access, tail_values, unary_op::unary_op_eval, ControlFlow, EvalError
+    },
+    lang::{Context, InnerFn, LuaFunction, LuaKey, LuaValue, ReturnValue, TableRef, TableValue},
+    member_lookup, property_access, tail_values,
+    unary_op::unary_op_eval,
+    ControlFlow, EvalError,
 };
 use luar_error::{ArithmeticOperator, TypeError};
 use luar_lex::{NumberLiteral, StringLiteral};
@@ -171,7 +176,26 @@ fn multiple_local_assignment(
 }
 
 fn eval_while_loop(while_loop: &syn::WhileLoop, ctx: &mut EvalContext) -> Result<ControlFlow> {
-    todo!()
+    let WhileLoop { condition, body } = while_loop;
+    while eval_expr(condition, ctx)?.first_value().is_truthy() {
+        if let ControlFlow::Return(ret_value) = eval_block(body, ctx)? {
+            return Ok(ControlFlow::Return(ret_value));
+        }
+    }
+    Ok(ControlFlow::Continue)
+}
+
+fn eval_block(block: &syn::Block, ctx: &mut EvalContext<'_>) -> Result<ControlFlow> {
+    for statement in &block.statements {
+        if let ControlFlow::Return(value) = eval_stmnt(statement, ctx)? {
+            return Ok(ControlFlow::Return(value));
+        }
+    }
+    block
+        .ret
+        .as_ref()
+        .map(|ret| eval_ret(ret, ctx).map(ControlFlow::Return))
+        .unwrap_or(Ok(ControlFlow::Continue))
 }
 
 fn eval_conditional(conditional: &syn::Conditional, ctx: &mut EvalContext) -> Result<ControlFlow> {
