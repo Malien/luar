@@ -21,7 +21,7 @@ pub(crate) fn eval_fn_call(
     }
 }
 
-fn call_value(
+pub(crate) fn call_value(
     context: &mut GlobalContext,
     func: &LuaValue,
     args: &[LuaValue],

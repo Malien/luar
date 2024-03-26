@@ -82,6 +82,12 @@ where
     pub fn next_key(&self) -> K {
         self.vec.len().try_into().unwrap()
     }
+
+    pub fn key_range(&self) -> std::ops::Range<K> {
+        let start = 0.try_into().unwrap();
+        let end = self.vec.len().try_into().unwrap();
+        start..end
+    }
 }
 
 impl<K, V> KeyedVec<K, V>

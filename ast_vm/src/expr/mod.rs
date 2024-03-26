@@ -11,7 +11,7 @@ pub(crate) use table_constructor::eval_tbl_constructor;
 mod unary_op;
 use unary_op::eval_unary_op_expr;
 
-mod binary_op;
+pub(crate) mod binary_op;
 use binary_op::binary_op_eval;
 
 mod fn_call;

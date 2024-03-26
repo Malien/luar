@@ -22,7 +22,7 @@ pub fn run_lua_test_impl(module_path: &str, group_name: &str, module_str: &str) 
     let test_cases: Vec<_> = (&context)
         .into_iter()
         .map(|(name, value)| (name.clone(), value.clone()))
-        .filter_map(|(name, value)| LuaValue::as_function(value).map(|func| (name, func)))
+        .filter_map(|(name, value)| LuaValue::as_native_function(value).map(|func| (name, func)))
         .filter(|(name, _)| !already_defined_fns.contains(name) && !name.starts_with('_'))
         .collect();
     let mut error_occurred = false;

@@ -787,7 +787,6 @@ mod test {
         call_block,
         compiler::CompiledModule,
         ids::{ArgumentRegisterID, JmpLabel, LocalBlockID, LocalRegisterID, StringID},
-        keyed_vec::keyed_vec,
         machine::{
             CodeBlock, Machine,
             TestFlag::{self, *},
@@ -796,6 +795,7 @@ mod test {
         ops::Instruction::{self, *},
         EvalError, LuaValue, NativeFunction, Strict, TypeError,
     };
+    use keyed_vec::keyed_vec;
     use ntest::timeout;
 
     macro_rules! test_instructions_with_meta {
@@ -868,7 +868,7 @@ mod test {
                 meta: CodeMeta {
                     arg_count: 0.into(),
                     return_count: 0.into(),
-                    const_strings: $crate::keyed_vec::keyed_vec![
+                    const_strings: ::keyed_vec::keyed_vec![
                         $($strings.into(),)*
                     ],
                     ..Default::default()

@@ -45,7 +45,7 @@ pub(crate) fn binary_op_eval(
     .map_err(EvalError::from)
 }
 
-fn binary_number_op(
+pub(crate) fn binary_number_op(
     lhs: LuaValue,
     rhs: LuaValue,
     op: ArithmeticOperator,
@@ -65,7 +65,7 @@ fn binary_number_op(
 
 macro_rules! ord_op {
     ($name: ident, $cmp_op: tt, $op: expr) => {
-        fn $name(lhs: LuaValue, rhs: LuaValue) -> Result<LuaValue, TypeError> {
+        pub(crate) fn $name(lhs: LuaValue, rhs: LuaValue) -> Result<LuaValue, TypeError> {
             match (&lhs, &rhs) {
                 (LuaValue::Number(lhs), LuaValue::Number(rhs)) =>
                     Ok(LuaValue::from_bool(lhs $cmp_op rhs)),
@@ -90,7 +90,7 @@ ord_op!(greater_than, >, OrderingOperator::Greater);
 ord_op!(less_or_equals, <=, OrderingOperator::LessOrEquals);
 ord_op!(greater_or_equals, >=, OrderingOperator::GreaterOrEquals);
 
-fn concat(lhs: LuaValue, rhs: LuaValue) -> Result<LuaValue, TypeError> {
+pub(crate) fn concat(lhs: LuaValue, rhs: LuaValue) -> Result<LuaValue, TypeError> {
     match (&lhs, &rhs) {
         (LuaValue::String(lhs), LuaValue::String(rhs)) => {
             Ok(LuaValue::String(format!("{lhs}{rhs}")))

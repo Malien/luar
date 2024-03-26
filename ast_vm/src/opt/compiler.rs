@@ -20,6 +20,12 @@ pub struct GlobalValues {
     pub mapping: HashMap<String, GlobalValueID>,
 }
 
+pub struct GlobalValue<'a> {
+    pub id: GlobalValueID,
+    pub name: &'a str,
+    globals: &'a GlobalValues,
+}
+
 pub struct LocalValues<'a> {
     pub current: LocalValueID,
     pub mapping: HashMap<String, LocalValueID>,
@@ -27,11 +33,29 @@ pub struct LocalValues<'a> {
 }
 
 impl GlobalValues {
+    pub fn values(&self) -> impl Iterator<Item = GlobalValue<'_>> + '_ {
+        self.mapping.iter().map(|(name, id)| GlobalValue {
+            id: id.clone(),
+            name: name.as_str(),
+            globals: self,
+        })
+    }
+
+    pub fn ids(&self) -> impl Iterator<Item = GlobalValueID> {
+        self.cells.keys()
+    }
+
     pub fn id_for(&mut self, ident: impl AsRef<str>) -> GlobalValueID {
         self.mapping
             .entry(ident.as_ref().to_owned())
             .or_insert_with(|| self.cells.push(LuaValue::Nil))
             .clone()
+    }
+}
+
+impl GlobalValue<'_> {
+    pub fn value(&self) -> &LuaValue {
+        &self.globals.cells[self.id]
     }
 }
 
@@ -63,7 +87,7 @@ impl<'a> LocalValues<'a> {
     }
 }
 
-pub fn compile_module(global_state: &mut GlobalValues, module: luar_syn::Module) -> Module {
+pub fn compile_module(module: luar_syn::Module, global_state: &mut GlobalValues) -> Module {
     let mut root_locals = LocalValues::new(global_state);
 
     let chunks = module
@@ -78,7 +102,11 @@ pub fn compile_module(global_state: &mut GlobalValues, module: luar_syn::Module)
         .collect();
     let ret = module.ret.map(|ret| compile_ret(&mut root_locals, ret));
 
-    Module { chunks, ret }
+    Module {
+        chunks,
+        ret,
+        local_count: root_locals.current.0,
+    }
 }
 
 fn compile_fn_decl(
@@ -277,7 +305,7 @@ mod test {
         ";
         let ast = luar_syn::lua_parser::module(program).unwrap();
         let mut global_state = super::GlobalValues::default();
-        let module = super::compile_module(&mut global_state, ast);
+        let module = super::compile_module(ast, &mut global_state);
 
         insta::assert_debug_snapshot!(module);
     }
@@ -302,7 +330,7 @@ mod test {
         ";
         let ast = luar_syn::lua_parser::module(program).unwrap();
         let mut global_state = super::GlobalValues::default();
-        let module = super::compile_module(&mut global_state, ast);
+        let module = super::compile_module(ast, &mut global_state);
 
         insta::assert_debug_snapshot!(module);
     }

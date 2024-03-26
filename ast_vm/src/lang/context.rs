@@ -1,25 +1,18 @@
-use std::collections::{hash_map::Entry, HashMap};
-
-use non_empty::NonEmptyVec;
-
 use super::LuaValue;
+use crate::opt;
+use non_empty::NonEmptyVec;
+use std::collections::{hash_map::Entry, HashMap};
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Scope(pub HashMap<String, LuaValue>);
 
+#[derive(Debug, Clone, Default)]
 struct GlobalScope {
     scope: Scope,
     global_nil: LuaValue,
 }
 
 impl GlobalScope {
-    fn new() -> Self {
-        Self {
-            scope: Scope::default(),
-            global_nil: LuaValue::Nil,
-        }
-    }
-
     pub fn get(&self, ident: impl AsRef<str>) -> &LuaValue {
         self.scope.0.get(ident.as_ref()).unwrap_or(&self.global_nil)
     }
@@ -48,6 +41,7 @@ pub(crate) trait ScopeHolder {
     fn declare_local(&mut self, scope: usize, ident: impl Into<String>, initial_value: LuaValue);
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct GlobalContext {
     global_scope: GlobalScope,
     local_scopes: NonEmptyVec<Scope>,
@@ -55,10 +49,7 @@ pub struct GlobalContext {
 
 impl GlobalContext {
     pub fn new() -> Self {
-        Self {
-            global_scope: GlobalScope::new(),
-            local_scopes: NonEmptyVec::default(),
-        }
+        Self::default()
     }
 
     pub fn get(&self, ident: impl AsRef<str>) -> &LuaValue {

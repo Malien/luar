@@ -157,6 +157,13 @@ impl LuaValue {
         }
     }
 
+    pub fn as_native_function(self) -> Option<NativeFunction> {
+        match self {
+            LuaValue::NativeFunction(func) => Some(func),
+            _ => None,
+        }
+    }
+
     pub fn true_value() -> LuaValue {
         LuaValue::number(1)
     }

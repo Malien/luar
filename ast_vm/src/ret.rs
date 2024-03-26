@@ -10,19 +10,17 @@ pub(crate) fn eval_ret(
     ret: &Return,
     scope: &mut LocalScope<impl ScopeHolder>,
 ) -> Result<ReturnValue, EvalError> {
-    if ret.0.len() <= 1 {
-        match ret.0.first() {
-            Some(expr) => eval_expr(expr, scope),
-            None => Ok(ReturnValue::NIL),
+    match &ret.0[..] {
+        [] => Ok(ReturnValue::NIL),
+        // Common case optimization
+        [expr] => eval_expr(expr, scope),
+        exprs => {
+            let exprs = exprs
+                .iter()
+                .map(|expr| eval_expr(expr, scope))
+                .collect::<Result<Vec<ReturnValue>, EvalError>>()?;
+            Ok(tail_values(exprs).collect())
         }
-    } else {
-        ret.0
-            .iter()
-            .map(|expr| eval_expr(expr, scope))
-            .collect::<Result<Vec<_>, _>>()
-            .map(tail_values)
-            .map(Iterator::collect)
-            .map(ReturnValue)
     }
 }
 

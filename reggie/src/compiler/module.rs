@@ -120,20 +120,18 @@ fn needs_wrapper(meta: &CodeMeta) -> bool {
 
 #[cfg(test)]
 mod test {
-    use nonzero_ext::nonzero;
-
     use super::compile_module;
     use crate::{
         compiler::compile_function,
         ids::{ArgumentRegisterID, JmpLabel, LocalBlockID, StringID},
-        keyed_vec::keyed_vec,
         machine::CodeBlock,
         meta::{CodeMeta, LocalRegCount, ReturnCount},
         ops::Instruction,
         GlobalValues, LuaError,
     };
-
+    use keyed_vec::keyed_vec;
     use luar_syn::lua_parser;
+    use nonzero_ext::nonzero;
     use Instruction::*;
 
     macro_rules! test_instruction_output {

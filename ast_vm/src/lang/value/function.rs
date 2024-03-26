@@ -48,22 +48,22 @@ impl NativeFunction {
 }
 
 pub struct InnerFn {
-    local_count: u16,
-    arg_count: u16,
-    body: opt::syn::Block,
+    pub local_count: u16,
+    pub arg_count: u16,
+    pub body: opt::syn::Block,
 }
 
 #[derive(Clone)]
-pub struct LuaFunction(Rc<InnerFn>);
+pub struct LuaFunction(pub(crate) Rc<InnerFn>);
 
 impl LuaFunction {
     pub fn new(
-        decl: opt::syn::FunctionDeclaration,
+        decl: &opt::syn::FunctionDeclaration,
     ) -> Self {
         Self(Rc::new(InnerFn {
             local_count: decl.local_count,
             arg_count: decl.arg_count,
-            body: decl.body,
+            body: decl.body.clone(),
         }))
     }
 

@@ -6,6 +6,7 @@ use non_empty::NonEmptyVec;
 pub struct Module {
     pub chunks: Vec<Chunk>,
     pub ret: Option<Return>,
+    pub local_count: u16,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -139,6 +140,12 @@ impl TryFrom<usize> for GlobalValueID {
 
     fn try_from(value: usize) -> Result<Self, Self::Error> {
         u16::try_from(value).map(Self)
+    }
+}
+
+impl From<GlobalValueID> for usize {
+    fn from(value: GlobalValueID) -> Self {
+        value.0 as usize
     }
 }
 

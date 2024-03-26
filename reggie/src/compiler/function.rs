@@ -114,12 +114,12 @@ fn alias_arguments(args: &Vec<Ident>, state: &mut LocalScopeCompilationState) {
 mod test {
     use crate::{
         ids::{ArgumentRegisterID, LocalRegisterID, StringID},
-        keyed_vec::keyed_vec,
         machine::CodeBlock,
         meta::{reg_count, CodeMeta},
         ops::Instruction,
         GlobalValues, LuaError,
     };
+    use keyed_vec::keyed_vec;
 
     use super::compile_function;
 

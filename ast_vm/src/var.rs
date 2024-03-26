@@ -26,7 +26,7 @@ pub(crate) fn eval_var(
     .map_err(EvalError::from)
 }
 
-fn member_lookup(value: LuaValue, key: LuaValue) -> Result<LuaValue, TypeError> {
+pub(crate) fn member_lookup(value: LuaValue, key: LuaValue) -> Result<LuaValue, TypeError> {
     if let LuaValue::Table(table) = value {
         Ok(LuaKey::new(key)
             .map(|key| table.get(&key))
@@ -36,7 +36,7 @@ fn member_lookup(value: LuaValue, key: LuaValue) -> Result<LuaValue, TypeError> 
     }
 }
 
-fn property_access(value: LuaValue, property: Ident) -> Result<LuaValue, TypeError> {
+pub(crate) fn property_access(value: LuaValue, property: Ident) -> Result<LuaValue, TypeError> {
     if let LuaValue::Table(table) = value {
         let key = LuaKey::string(property);
         Ok(table.get(&key))
@@ -68,7 +68,7 @@ pub(crate) fn assign_to_var(
     .map_err(EvalError::from)
 }
 
-fn assign_to_value_member(of: LuaValue, key: LuaValue, value: LuaValue) -> Result<(), TypeError> {
+pub(crate) fn assign_to_value_member(of: LuaValue, key: LuaValue, value: LuaValue) -> Result<(), TypeError> {
     if let LuaValue::Table(mut table) = of {
         if let Some(key) = LuaKey::new(key) {
             table.set(key, value);
@@ -81,7 +81,7 @@ fn assign_to_value_member(of: LuaValue, key: LuaValue, value: LuaValue) -> Resul
     }
 }
 
-fn assign_to_value_property(
+pub(crate) fn assign_to_value_property(
     of: LuaValue,
     property: Ident,
     value: LuaValue,
