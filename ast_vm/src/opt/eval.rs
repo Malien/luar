@@ -1,16 +1,3 @@
-mod binary_op;
-
-use luar_error::TypeError;
-use luar_lex::{NumberLiteral, StringLiteral};
-
-use crate::{
-    assign_to_value_member, assign_to_value_property,
-    lang::{InnerFn, LuaFunction, LuaKey, LuaValue, ReturnValue, TableRef, TableValue},
-    member_lookup, property_access, tail_values, ControlFlow, EvalError,
-};
-
-use self::binary_op::binary_op_eval;
-
 use super::{
     syn::{
         self, Assignment, Declaration, Expression, FunctionCall, FunctionCallArgs, GlobalValueID,
@@ -18,6 +5,12 @@ use super::{
     },
     Context,
 };
+use crate::{
+    assign_to_value_member, assign_to_value_property, binary_op::{binary_number_op, concat, greater_or_equals, greater_than, less_or_equals, less_than}, lang::{InnerFn, LuaFunction, LuaKey, LuaValue, ReturnValue, TableRef, TableValue}, member_lookup, property_access, tail_values, ControlFlow, EvalError
+};
+use luar_error::{ArithmeticOperator, TypeError};
+use luar_lex::{NumberLiteral, StringLiteral};
+use luar_syn::BinaryOperator;
 
 pub(crate) type Result<T> = std::result::Result<T, EvalError>;
 
@@ -247,6 +240,45 @@ fn eval_expr(expr: &Expression, ctx: &mut EvalContext) -> Result<ReturnValue> {
             binary_op_eval(*op, lhs, rhs, ctx).map(ReturnValue::from)
         }
     }
+}
+
+pub(crate) fn binary_op_eval(
+    op: luar_syn::BinaryOperator,
+    lhs: &Expression,
+    rhs: &Expression,
+    ctx: &mut EvalContext<'_>,
+) -> Result<LuaValue> {
+    use BinaryOperator::*;
+
+    let lhs = eval_expr(lhs, ctx)?.first_value();
+    match op {
+        And if lhs.is_falsy() => return Ok(lhs),
+        Or if lhs.is_truthy() => return Ok(lhs),
+        _ => {}
+    };
+
+    let rhs = eval_expr(rhs, ctx)?.first_value();
+    match op {
+        Equals => return Ok(LuaValue::from_bool(lhs == rhs)),
+        NotEquals => return Ok(LuaValue::from_bool(lhs != rhs)),
+        And | Or => return Ok(rhs),
+        _ => {}
+    }
+
+    match op {
+        Less => less_than(lhs, rhs),
+        Greater => greater_than(lhs, rhs),
+        LessOrEquals => less_or_equals(lhs, rhs),
+        GreaterOrEquals => greater_or_equals(lhs, rhs),
+        Plus => binary_number_op(lhs, rhs, ArithmeticOperator::Add, std::ops::Add::add),
+        Minus => binary_number_op(lhs, rhs, ArithmeticOperator::Sub, std::ops::Sub::sub),
+        Mul => binary_number_op(lhs, rhs, ArithmeticOperator::Mul, std::ops::Mul::mul),
+        Div => binary_number_op(lhs, rhs, ArithmeticOperator::Div, std::ops::Div::div),
+        Exp => todo!("No support for ^ operator yet."),
+        Concat => concat(lhs, rhs),
+        And | Or | Equals | NotEquals => unreachable!(),
+    }
+    .map_err(EvalError::from)
 }
 
 fn eval_unary_op_expr(
