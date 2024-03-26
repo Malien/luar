@@ -1,6 +1,7 @@
 use super::syn::{
-    self, Assignment, Declaration, Expression, FunctionCall, FunctionCallArgs, GlobalValueID,
-    LocalValueID, Module, Return, Statement, TableConstructor, ValueID, Var, WhileLoop,
+    self, Assignment, Conditional, ConditionalTail, Declaration, Expression, FunctionCall,
+    FunctionCallArgs, GlobalValueID, LocalValueID, Module, Return, Statement, TableConstructor,
+    ValueID, Var, WhileLoop,
 };
 use crate::{
     assign_to_value_member, assign_to_value_property,
@@ -25,17 +26,6 @@ pub(crate) struct EvalContext<'a> {
 }
 
 impl EvalContext<'_> {
-    fn frame(&self) -> &[LuaValue] {
-        &self.context.stack[self.offset..]
-    }
-
-    fn next_frame(&mut self, frame_size: u16) -> EvalContext {
-        EvalContext {
-            context: self.context,
-            offset: self.offset + frame_size as usize,
-        }
-    }
-
     fn new(context: &mut Context, frame_size: u16) -> EvalContext {
         context.stack.resize(frame_size as usize, LuaValue::Nil);
 
@@ -199,7 +189,21 @@ fn eval_block(block: &syn::Block, ctx: &mut EvalContext<'_>) -> Result<ControlFl
 }
 
 fn eval_conditional(conditional: &syn::Conditional, ctx: &mut EvalContext) -> Result<ControlFlow> {
-    todo!()
+    let Conditional {
+        condition,
+        body,
+        tail,
+    } = conditional;
+
+    if eval_expr(condition, ctx)?.first_value().is_truthy() {
+        eval_block(body, ctx)
+    } else {
+        match tail {
+            ConditionalTail::End => Ok(ControlFlow::Continue),
+            ConditionalTail::Else(block) => eval_block(block, ctx),
+            ConditionalTail::ElseIf(condition) => eval_conditional(condition, ctx),
+        }
+    }
 }
 
 fn eval_assignment(assignment: &syn::Assignment, ctx: &mut EvalContext) -> Result<()> {
@@ -322,7 +326,7 @@ fn eval_fn_call(call: &syn::FunctionCall, ctx: &mut EvalContext<'_>) -> Result<R
             let fn_value = eval_var(func, ctx)?;
             call_value(ctx.context, &fn_value, &args)
         }),
-        FunctionCall::Method { func, args, method } => {
+        FunctionCall::Method { .. } => {
             todo!("Cannot evaluate method call yet")
         }
     }

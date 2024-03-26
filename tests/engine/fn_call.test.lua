@@ -27,4 +27,3 @@ function multiple_return_values_are_correctly_set()
   assert(c == 1, "first return of multi-return list is not set correctly")
   assert(d == 2, "second return of multi-return list is not set correctly")
 end
-

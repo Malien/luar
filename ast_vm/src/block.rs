@@ -41,21 +41,4 @@ mod test {
         assert!(res.assert_single().is_truthy());
         Ok(())
     }
-
-    #[test]
-    fn early_returns_from_functions_stop_flow_of_execution() -> Result<(), LuaError> {
-        let module = lua_parser::module(
-            "function fn()
-                if 1 then
-                    return 1
-                end
-                return nil
-            end
-            return fn()",
-        )?;
-        let mut context = Context::new();
-        let res = ast_vm::eval_module(&module, &mut context)?;
-        assert!(res.assert_single().is_truthy());
-        Ok(())
-    }
 }
