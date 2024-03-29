@@ -32,9 +32,6 @@ fn eval_file(filename: &str) -> Result<(), Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let zeros = [0u8; std::mem::size_of::<LuaValue>()];
-    let zeros: LuaValue = unsafe { std::mem::transmute(zeros) };
-    println!("LuaValue: {zeros:?}");
     if let Some(filename) = std::env::args().skip(1).next() {
         eval_file(&filename)
     } else {

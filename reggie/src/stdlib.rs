@@ -166,11 +166,9 @@ pub fn define_stdlib(global_values: &mut GlobalValues) {
 
 #[cfg(test)]
 mod test {
-    use std::io::Cursor;
-
-    use crate::{TableRef, TableValue};
-
     use super::*;
+    use crate::{TableRef, TableValue};
+    use std::io::Cursor;
 
     #[test]
     fn flooring_unconvertible_values_is_an_error() {
@@ -203,7 +201,8 @@ mod test {
     #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn floor_floor_numbers(num: f64) {
-        use crate::{eq_with_nan::eq_with_nan, lua_format};
+        use crate::eq_with_nan::eq_with_nan;
+        use luar_string::lua_format;
 
         let res = floor(&LuaValue::Float(num)).unwrap();
 
@@ -277,7 +276,7 @@ mod test {
 
     #[cfg(feature = "quickcheck")]
     #[quickcheck]
-    fn strlen_returns_the_number_of_bytes_in_a_string(str: crate::LuaString) {
+    fn strlen_returns_the_number_of_bytes_in_a_string(str: luar_string::LuaString) {
         let len = str.len();
         let res = strlen(&LuaValue::String(str)).unwrap();
         assert_eq!(res, LuaValue::Int(len as i32));

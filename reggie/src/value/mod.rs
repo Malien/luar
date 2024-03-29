@@ -1,8 +1,9 @@
 use std::{cmp::Ordering, rc::Rc};
 
-use crate::{eq_with_nan::eq_with_nan, ids::BlockID, lua_format};
+use crate::{eq_with_nan::eq_with_nan, ids::BlockID};
 
 pub mod native_function;
+use luar_string::{lua_format, LuaString};
 pub use native_function::*;
 
 pub mod traits;
@@ -15,9 +16,6 @@ pub use table::*;
 
 pub mod key;
 pub use key::*;
-
-pub mod string;
-pub use string::*;
 
 #[derive(Debug, Clone)]
 pub enum LuaValue {

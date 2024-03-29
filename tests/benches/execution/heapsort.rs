@@ -56,6 +56,25 @@ fn bench_ast(b: &mut Bencher, i: &usize) {
     );
 }
 
+fn bench_ast_opt(b: &mut Bencher, i: &usize) {
+    use ast_vm::lang::LuaValue;
+    let module = lua_parser::module(BENCH_FILE).unwrap();
+
+    b.iter_batched(
+        || {
+            let mut context = ast_vm::stdlib::std_context();
+            let module = ast_vm::opt::compile_module(module.clone(), &mut context.globals);
+            context.set("TABLE", LuaValue::table(random_ast_vm_tbl(*i)));
+            context.set("COUNT", LuaValue::number(*i));
+            (module, context)
+        },
+        |(module, mut context)| {
+            ast_vm::opt::eval_module(&module, &mut context).unwrap();
+        },
+        criterion::BatchSize::SmallInput,
+    );
+}
+
 fn bench_reggie(b: &mut Bencher, i: &usize) {
     let module = lua_parser::module(BENCH_FILE).unwrap();
 
@@ -106,6 +125,7 @@ pub fn bench(c: &mut Criterion) {
         group.sample_size((len - idx) * sample_count);
 
         group.bench_with_input(BenchmarkId::new("AST interpretation", i), &i, bench_ast);
+        group.bench_with_input(BenchmarkId::new("AST optimized", i), &i, bench_ast_opt);
         group.bench_with_input(BenchmarkId::new("Reggie baseline", i), &i, bench_reggie);
         group.bench_with_input(BenchmarkId::new("Lua 5.4", i), &i, bench_lua);
     }

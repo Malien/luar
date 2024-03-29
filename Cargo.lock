@@ -496,6 +496,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "luar_string"
+version = "0.1.0"
+dependencies = [
+ "quickcheck",
+]
+
+[[package]]
 name = "luar_syn"
 version = "0.1.0"
 dependencies = [
@@ -520,6 +527,7 @@ dependencies = [
  "itertools",
  "libc",
  "luar_lex",
+ "luar_string",
  "luar_syn",
  "mlua",
  "non_empty",
@@ -914,6 +922,7 @@ dependencies = [
  "keyed_vec",
  "libc",
  "luar_lex",
+ "luar_string",
  "luar_syn",
  "non_empty",
  "nonzero_ext",

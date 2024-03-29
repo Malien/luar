@@ -1,7 +1,7 @@
+use crate::{ids::BlockID, LuaValue, NativeFunction, TableRef};
 use decorum::NotNan;
+use luar_string::LuaString;
 use num_traits::FromPrimitive;
-
-use crate::{ids::BlockID, LuaString, LuaValue, NativeFunction, TableRef};
 
 // No nills allowed
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

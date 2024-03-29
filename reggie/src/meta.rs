@@ -1,13 +1,11 @@
-use std::num::NonZeroU16;
-
-use enum_map::EnumMap;
-
 use crate::{
     ids::{BlockID, JmpLabel, StringID},
     machine::DataType,
-    LuaString,
 };
+use enum_map::EnumMap;
 use keyed_vec::KeyedVec;
+use luar_string::LuaString;
+use std::num::NonZeroU16;
 
 pub type LocalRegCount = EnumMap<DataType, u16>;
 

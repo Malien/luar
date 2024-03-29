@@ -4,10 +4,16 @@ use super::{
     ops::Instruction,
     GlobalValues,
 };
-use crate::{ids::ArgumentRegisterID, machine::DataType, meta::{self, ReturnCount}, LuaString};
-use std::{collections::HashMap, num::NonZeroU16};
+use crate::{
+    ids::ArgumentRegisterID,
+    machine::DataType,
+    meta::{self, ReturnCount},
+};
 use keyed_vec::KeyedVec;
+use luar_string::LuaString;
+use std::{collections::HashMap, num::NonZeroU16};
 
+pub(crate) mod assignment;
 pub(crate) mod expr;
 pub(crate) mod fn_call;
 pub mod function;
@@ -16,15 +22,14 @@ pub(crate) mod ret;
 pub(crate) mod return_traversal;
 pub(crate) mod statement;
 pub(crate) mod var;
-pub(crate) mod assignment;
 
+pub(crate) use assignment::*;
 pub(crate) use expr::*;
 pub(crate) use fn_call::*;
 pub use function::*;
 pub use module::*;
 pub(crate) use statement::*;
 pub(crate) use var::*;
-pub(crate) use assignment::*;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct RegisterAllocator {

@@ -1,6 +1,6 @@
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [workspace]
-members = ["non_empty", "lex", "test_util", "syn", "error", "reggie", "tests", "ast_vm", "keyed_vec"]
+members = ["non_empty", "lex", "test_util", "syn", "error", "reggie", "tests", "ast_vm", "keyed_vec", "string"]
 resolver = "2"
 
 # [dependencies]

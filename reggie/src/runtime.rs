@@ -1,5 +1,3 @@
-use crate::{ids::BlockID, lua_format, trace_execution, ArithmeticOperator};
-
 use super::{
     ids::{ArgumentRegisterID, LocalRegisterID},
     machine::{Machine, ProgramCounter, TestFlag},
@@ -7,6 +5,8 @@ use super::{
     ArithmeticError, EvalError, InvalidLuaKey, LuaKey, LuaValue, NativeFunction,
     NativeFunctionKind, TableRef, TableValue, TypeError,
 };
+use crate::{ids::BlockID, trace_execution, ArithmeticOperator};
+use luar_string::lua_format;
 use std::{borrow::Borrow, cmp::Ordering};
 
 macro_rules! register_of {

@@ -1,6 +1,6 @@
-use std::{alloc::Layout, fmt, hash::Hash, marker::PhantomData, mem::size_of};
-
-use luar_lex::Ident;
+use std::{
+    alloc::{alloc, Layout}, fmt, hash::Hash, marker::PhantomData, mem::size_of
+};
 
 const INLINE_BUFFER_SIZE: usize = 8;
 
@@ -98,8 +98,7 @@ impl From<&str> for LuaString {
             //       * `size`, when rounded up to the nearest multiple of `align`,
             //          cannot not overflow isize (i.e., the rounded value must be
             //          less than or equal to `isize::MAX`).
-            let allocation =
-                std::alloc::alloc(Layout::from_size_align_unchecked(allocation_size, 1));
+            let allocation = alloc(Layout::from_size_align_unchecked(allocation_size, 1));
             let shared_str_ptr = from_raw_parts(allocation as *mut (), len);
             let shared_str = &mut *shared_str_ptr;
             shared_str.refcount = 0;
@@ -132,11 +131,11 @@ impl From<&String> for LuaString {
     }
 }
 
-impl From<Ident> for LuaString {
-    fn from(value: Ident) -> Self {
-        Self::from(value.as_ref())
-    }
-}
+// impl From<Ident> for LuaString {
+//     fn from(value: Ident) -> Self {
+//         Self::from(value.as_ref())
+//     }
+// }
 
 /// Until we have std::ptr::from_raw_parts this is a workaround for
 /// creating fat pointers to ?Sized structs

@@ -32,16 +32,47 @@ fn bench_reggie(b: &mut Bencher, i: &usize) {
     );
 }
 
+fn bench_ast_vm(b: &mut Bencher, i: &usize) {
+    use ast_vm::lang::LuaValue;
+    let module = lua_parser::module(BENCH_FILE).unwrap();
+
+    b.iter_batched(
+        || {
+            let mut context = ast_vm::stdlib::std_context();
+            context.set("INPUT", LuaValue::string(random_ascii_string(*i)));
+            context
+        },
+        |mut context| {
+            ast_vm::eval_module(&module, &mut context).unwrap();
+        },
+        criterion::BatchSize::SmallInput,
+    );
+}
+
+fn bench_ast_vm_opt(b: &mut Bencher, i: &usize) {
+    use ast_vm::lang::LuaValue;
+    let module = lua_parser::module(BENCH_FILE).unwrap();
+
+    b.iter_batched(
+        || {
+            let mut context = ast_vm::stdlib::std_context();
+            let module = ast_vm::opt::compile_module(module.clone(), &mut context.globals);
+            context.set("INPUT", LuaValue::string(random_ascii_string(*i)));
+            (module, context)
+        },
+        |(module, mut context)| {
+            ast_vm::opt::eval_module(&module, &mut context).unwrap();
+        },
+        criterion::BatchSize::SmallInput,
+    );
+}
+
 fn bench_lua(b: &mut Bencher, i: &usize) {
     let lua = mlua::Lua::new();
     let routine = lua.load(BENCH_FILE).into_function().unwrap();
 
     b.iter_batched(
-        || {
-            lua.globals()
-                .set("INPUT", random_ascii_string(*i))
-                .unwrap()
-        },
+        || lua.globals().set("INPUT", random_ascii_string(*i)).unwrap(),
         |()| routine.call::<(), ()>(()),
         criterion::BatchSize::SmallInput,
     )
@@ -53,6 +84,8 @@ pub fn bench(c: &mut Criterion) {
     let input_lengths = [1, 4, 16, 64, 256, 1024, 4096];
 
     for i in input_lengths.into_iter() {
+        group.bench_with_input(BenchmarkId::new("AST interpretation", i), &i, bench_ast_vm);
+        group.bench_with_input(BenchmarkId::new("AST optimized", i), &i, bench_ast_vm_opt);
         group.bench_with_input(BenchmarkId::new("Reggie baseline", i), &i, bench_reggie);
         group.bench_with_input(BenchmarkId::new("Lua 5.4", i), &i, bench_lua);
     }

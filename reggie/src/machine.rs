@@ -1,4 +1,5 @@
 use enum_map::Enum;
+use luar_string::LuaString;
 
 use crate::{
     compiler::CompiledModule,
@@ -6,7 +7,7 @@ use crate::{
     ids::{BlockID, LocalBlockID, ModuleID},
     meta::CodeMeta,
     ops::Instruction,
-    LuaValue, TableRef, stdlib::define_stdlib, LuaString, call_stack::CallStack,
+    LuaValue, TableRef, stdlib::define_stdlib, call_stack::CallStack,
 };
 use keyed_vec::{keyed_vec, KeyedVec};
 

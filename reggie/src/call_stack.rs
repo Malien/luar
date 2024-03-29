@@ -1,13 +1,12 @@
-use std::mem::{align_of, size_of, size_of_val};
-
-use enum_map::{enum_map, EnumMap};
-
 use crate::{
     ids::{BlockID, LocalRegisterID},
     machine::{CodeBlocks, DataType, ProgramCounter},
     meta::{CodeMeta, LocalRegCount},
-    LuaString, LuaValue, NativeFunction, TableRef,
+    LuaValue, NativeFunction, TableRef,
 };
+use enum_map::{enum_map, EnumMap};
+use luar_string::LuaString;
+use std::mem::{align_of, size_of, size_of_val};
 
 pub struct CallStack {
     stack: Vec<u8>,
@@ -26,7 +25,7 @@ pub struct ReleaseHandle<'a> {
 }
 
 /// Stack frame layout:
-/// ```
+/// ```text
 /// +-------------------------------------------------------+
 /// | return_addr                                           | <- ProgramCounter
 /// +-------------------------------------------------------+
@@ -358,9 +357,9 @@ impl<'a, 'b> FrameHandle<'a, 'b> {
 
 #[cfg(test)]
 mod test {
+    use crate::{LuaValue, NativeFunction, TableRef};
+    use luar_string::LuaString;
     use std::mem::size_of;
-
-    use crate::{LuaString, LuaValue, NativeFunction, TableRef};
 
     #[test]
     fn zero_bit_initialized_lua_value_is_nil() {

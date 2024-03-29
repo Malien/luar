@@ -26,6 +26,7 @@ ast_vm = { path = "../ast_vm" }
 reggie = { path = "../reggie", features = ["quickcheck"] }
 luar_lex = { path = "../lex", features = ["quickcheck"] }
 luar_syn = { path = "../syn" }
+luar_string = { path = "../string", features = ["quickcheck"] }
 non_empty = { path = "../non_empty", features = ["quickcheck"] }
 itertools = "0.10"
 quickcheck = "1.0"

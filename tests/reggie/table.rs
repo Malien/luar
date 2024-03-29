@@ -1,7 +1,7 @@
 use luar_lex::Ident;
 use luar_syn::lua_parser;
 use quickcheck::TestResult;
-use reggie::{eval_module, LuaValue, Machine, assert_type_error, TypeError};
+use reggie::{assert_type_error, eval_module, LuaValue, Machine, TypeError};
 
 #[quickcheck]
 fn accessing_non_table_property_is_an_error(value: LuaValue, property: Ident) -> TestResult {

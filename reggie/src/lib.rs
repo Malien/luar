@@ -94,3 +94,8 @@ macro_rules! trace_execution {
 macro_rules! trace_execution {
     ($($fmt:expr),*) => {};
 }
+
+#[test]
+fn lua_value_is_still_16_bytes() {
+    assert_eq!(std::mem::size_of::<LuaValue>(), 16);
+}

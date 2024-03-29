@@ -2,8 +2,9 @@
 extern crate quickcheck_macros;
 
 use luar_lex::{NumberLiteral, StringLiteral, Token};
+use luar_string::lua_format;
 use quickcheck::TestResult;
-use reggie::{eval_module, eval_str, lua_format, value::Strict, LuaError, LuaValue, Machine};
+use reggie::{eval_module, eval_str, value::Strict, LuaError, LuaValue, Machine};
 
 mod assignment;
 mod boolean_ops;

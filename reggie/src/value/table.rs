@@ -1,6 +1,6 @@
+use crate::{LuaKey, LuaValue};
+use luar_string::LuaString;
 use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Rc};
-
-use crate::{LuaKey, LuaValue, LuaString};
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TableValue {
@@ -107,7 +107,10 @@ impl TableValue {
     }
 
     pub fn get_str_assoc(&mut self, str: impl Into<LuaString>) -> LuaValue {
-        self.hash.get(&LuaKey::String(str.into())).cloned().unwrap_or_default()
+        self.hash
+            .get(&LuaKey::String(str.into()))
+            .cloned()
+            .unwrap_or_default()
     }
 }
 

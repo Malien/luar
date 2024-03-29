@@ -6,8 +6,8 @@ macro_rules! fib_bench {
 
             fn bench_ast(b: &mut ::criterion::Bencher, i: &i32) {
                 let module = ::luar_syn::lua_parser::module(BENCH_FILE).unwrap();
-                let mut context = ::ast_vm::lang::GlobalContext::new();
-                ::ast_vm::lang::GlobalContext::set(
+                let mut context = ::ast_vm::lang::Context::new();
+                ::ast_vm::lang::Context::set(
                     &mut context,
                     "N",
                     ::ast_vm::lang::LuaValue::number(*i),
@@ -15,6 +15,21 @@ macro_rules! fib_bench {
 
                 b.iter(|| {
                     ::ast_vm::eval_module(&module, &mut context).unwrap();
+                });
+            }
+
+            fn bench_ast_opt(b: &mut ::criterion::Bencher, i: &i32) {
+                let mut context = ::ast_vm::stdlib::std_context();
+                let module = ::luar_syn::lua_parser::module(BENCH_FILE).unwrap();
+                let module = ::ast_vm::opt::compile_module(module, &mut context.globals);
+                ::ast_vm::lang::Context::set(
+                    &mut context,
+                    "N",
+                    ::ast_vm::lang::LuaValue::number(*i),
+                );
+
+                b.iter(|| {
+                    ::ast_vm::opt::eval_module(&module, &mut context).unwrap();
                 });
             }
 
@@ -56,6 +71,12 @@ macro_rules! fib_bench {
                     );
 
                     group.bench_with_input(
+                        ::criterion::BenchmarkId::new("AST optimized", i),
+                        &i,
+                        bench_ast_opt,
+                    );
+
+                    group.bench_with_input(
                         ::criterion::BenchmarkId::new("Reggie baseline", i),
                         &i,
                         bench_reggie,
@@ -72,6 +93,6 @@ macro_rules! fib_bench {
     };
 }
 
-fib_bench!(fib_rec, [0,1,2,4,8,16]);
-fib_bench!(fib_tailrec, [0,1,2,4,8,16,32,64,128]);
-fib_bench!(fib_loop, [0,1,2,4,8,16,64,128]);
+fib_bench!(fib_rec, [0, 1, 2, 4, 8, 16]);
+fib_bench!(fib_tailrec, [0, 1, 2, 4, 8, 16, 32, 64, 128]);
+fib_bench!(fib_loop, [0, 1, 2, 4, 8, 16, 64, 128]);

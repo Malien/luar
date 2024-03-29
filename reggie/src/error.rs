@@ -1,8 +1,7 @@
-use std::{fmt, error::Error};
-
-use luar_syn::{ParseError, RawParseError, ParseErrorWithSourcePosition};
-
-use crate::{LuaValue, LuaString};
+use crate::LuaValue;
+use luar_string::LuaString;
+use luar_syn::{ParseError, ParseErrorWithSourcePosition, RawParseError};
+use std::{error::Error, fmt};
 
 #[derive(Debug, thiserror::Error)]
 pub enum LuaError {
@@ -29,7 +28,6 @@ impl From<ParseErrorWithSourcePosition> for LuaError {
         Self::from(ParseError::from(err))
     }
 }
-
 
 #[derive(Debug, thiserror::Error)]
 pub enum EvalError {
@@ -93,13 +91,13 @@ pub enum TypeError {
     StringConcat {
         lhs: LuaValue,
         rhs: LuaValue,
-    }
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExpectedType {
     Number,
-    String
+    String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
