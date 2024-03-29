@@ -1,25 +1,35 @@
-use std::fmt;
-
+use super::{NativeFunction, ReturnValue, TableRef, TableValue};
 use crate::{
     lang::{Context, LuaFunction, LuaNumber, LuaType},
     EvalError,
 };
-
+use luar_string::{lua_format, LuaString};
+use std::fmt;
 #[cfg(test)]
 use test_util::{with_thread_gen, GenExt};
-
-use super::{NativeFunction, ReturnValue, TableRef, TableValue};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LuaValue {
     Nil,
     Number(LuaNumber),
-    String(String),
+    String(LuaString),
     Function(LuaFunction),
     NativeFunction(NativeFunction),
     Table(TableRef),
     // UserData
 }
+
+// const _ASSERT_SIZE: () = assert!(std::mem::size_of::<LuaValue>() == 16);
+// #[test]
+// fn lua_value_is_16_bytes() {
+//     use std::mem::size_of;
+//     assert_eq!(size_of::<LuaNumber>(), 8);
+//     assert_eq!(size_of::<LuaString>(), 12);
+//     assert_eq!(size_of::<LuaFunction>(), 8);
+//     assert_eq!(size_of::<NativeFunction>(), 8);
+//     assert_eq!(size_of::<TableRef>(), 8);
+//     assert_eq!(size_of::<LuaValue>(), 16);
+// }
 
 impl Default for LuaValue {
     fn default() -> Self {
@@ -39,7 +49,7 @@ impl LuaValue {
         Self::Number(value.into())
     }
 
-    pub fn string(value: impl Into<String>) -> Self {
+    pub fn string(value: impl Into<LuaString>) -> Self {
         Self::String(value.into())
     }
 
@@ -60,7 +70,7 @@ impl LuaValue {
         panic!("Called unwrap_number() on a {:?}", self)
     }
 
-    pub fn unwrap_string(self) -> String {
+    pub fn unwrap_string(self) -> LuaString {
         if let Self::String(str) = self {
             return str;
         }
@@ -143,10 +153,10 @@ impl LuaValue {
         }
     }
 
-    pub fn coerce_to_string(&self) -> Option<String> {
+    pub fn coerce_to_string(&self) -> Option<LuaString> {
         match self {
             LuaValue::String(str) => Some(str.clone()),
-            LuaValue::Number(num) => Some(num.to_string()),
+            LuaValue::Number(num) => Some(lua_format!("{num}")),
             _ => None,
         }
     }
@@ -223,7 +233,7 @@ impl quickcheck::Arbitrary for LuaValue {
         match u8::arbitrary(g) % 5 {
             0 => LuaValue::Nil,
             1 => LuaValue::Number(with_thread_gen(LuaNumber::arbitrary)),
-            2 => LuaValue::String(with_thread_gen(String::arbitrary)),
+            2 => LuaValue::String(with_thread_gen(LuaString::arbitrary)),
             3 => LuaValue::NativeFunction(NativeFunction::new(|_, _| Ok(ReturnValue::NIL))),
             4 => LuaValue::Table(TableRef::arbitrary(&mut g.next_iter())),
             _ => unreachable!(),

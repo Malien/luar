@@ -112,7 +112,7 @@ mod test {
 
         let mut expected = TableValue::new();
         for (key, value) in values {
-            expected.set(LuaKey::String(key.into()), value)
+            expected.set(LuaKey::string(key.as_ref()), value)
         }
 
         assert!(res.total_eq(&expected));

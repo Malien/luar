@@ -1,6 +1,7 @@
 use std::io::Write;
 
 use luar_error::ExpectedType;
+use luar_string::LuaString;
 
 use crate::{lang::LuaValue, EvalError, TypeError};
 
@@ -150,7 +151,7 @@ pub fn strsub(args: &[LuaValue]) -> Result<LuaValue, EvalError> {
     }
 }
 
-fn strsub_inner(str: String, start: isize, end: isize) -> Result<LuaValue, EvalError> {
+fn strsub_inner(str: LuaString, start: isize, end: isize) -> Result<LuaValue, EvalError> {
     if str.is_empty() {
         return Ok(LuaValue::String(str));
     }
@@ -165,7 +166,7 @@ fn strsub_inner(str: String, start: isize, end: isize) -> Result<LuaValue, EvalE
     if !str.is_char_boundary(end) {
         return Err(EvalError::Utf8Error);
     }
-    Ok(LuaValue::String(str[start - 1..end].to_string()))
+    Ok(LuaValue::string(&str[start - 1..end]))
 }
 
 pub fn lua_type(args: &[LuaValue]) -> LuaValue {
@@ -184,6 +185,7 @@ pub fn lua_type(args: &[LuaValue]) -> LuaValue {
 mod test {
     use std::io::Cursor;
 
+    use luar_string::{lua_format, LuaString};
     use quickcheck::TestResult;
 
     use super::{assert, floor, print, random, strlen, strsub, tonumber};
@@ -205,7 +207,7 @@ mod test {
 
     #[quickcheck]
     fn tonumber_on_number_looking_string_returns_parsed_number(num: f64) {
-        let str = num.to_string();
+        let str = lua_format!("{num}");
         let res = tonumber(&[LuaValue::String(str)]);
         assert!(res.is_number());
         let resnum = res.unwrap_number().as_f64();
@@ -234,7 +236,7 @@ mod test {
     }
 
     #[quickcheck]
-    fn printing_string_prints_its_value(str: String) {
+    fn printing_string_prints_its_value(str: LuaString) {
         let mut buf = Cursor::new(Vec::new());
         let res = print(&mut buf, &[LuaValue::String(str.clone())]).unwrap();
         assert_eq!(res, LuaValue::Nil);
@@ -336,7 +338,7 @@ mod test {
     }
 
     #[quickcheck]
-    fn strlen_returns_the_number_of_bytes_in_a_string(str: String) {
+    fn strlen_returns_the_number_of_bytes_in_a_string(str: LuaString) {
         let len = str.len();
         let res = strlen(&[LuaValue::String(str)]).unwrap();
         assert_eq!(res, LuaValue::Number(LuaNumber::from(len)));
@@ -359,7 +361,7 @@ mod test {
     }
 
     #[quickcheck]
-    fn strsub_slices_string_suffix(str: String, start: usize) {
+    fn strsub_slices_string_suffix(str: LuaString, start: usize) {
         let suffix_start = if start <= 1 {
             0
         } else if start as usize >= str.len() + 1 {

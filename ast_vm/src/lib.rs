@@ -17,6 +17,7 @@ mod fn_decl;
 pub(crate) use fn_decl::*;
 
 mod module;
+use luar_string::LuaString;
 pub use module::*;
 
 mod ret;
@@ -39,8 +40,8 @@ mod ctrl_flow;
 pub use ctrl_flow::*;
 
 use lang::LuaValue;
-pub type LuaError = luar_error::LuaError<LuaValue>;
-pub type EvalError = luar_error::EvalError<LuaValue>;
+pub type LuaError = luar_error::LuaError<LuaValue, LuaString>;
+pub type EvalError = luar_error::EvalError<LuaValue, LuaString>;
 pub type TypeError = luar_error::TypeError<LuaValue>;
 pub type ArithmeticError = luar_error::ArithmeticError<LuaValue>;
 

@@ -1,3 +1,5 @@
+use luar_string::LuaString;
+
 use crate::lang::{LuaFunction, LuaNumber, LuaValue};
 
 use super::{TableRef, NativeFunction};
@@ -6,7 +8,7 @@ use super::{TableRef, NativeFunction};
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum LuaKey {
     Number(LuaNumber),
-    String(String),
+    String(LuaString),
     Function(LuaFunction),
     NativeFunction(NativeFunction),
     Table(TableRef),
@@ -28,7 +30,7 @@ impl LuaKey {
     pub fn number(num: impl Into<LuaNumber>) -> Self {
         Self::Number(num.into())
     }
-    pub fn string(str: impl Into<String>) -> Self {
+    pub fn string(str: impl Into<LuaString>) -> Self {
         Self::String(str.into())
     }
 }
@@ -51,7 +53,7 @@ impl quickcheck::Arbitrary for LuaKey {
         use test_util::with_thread_gen;
         match u8::arbitrary(g) % 2 {
             0 => LuaKey::Number(with_thread_gen(LuaNumber::arbitrary)),
-            1 => LuaKey::String(with_thread_gen(String::arbitrary)),
+            1 => LuaKey::String(with_thread_gen(LuaString::arbitrary)),
             _ => unreachable!(),
         }
     }

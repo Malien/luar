@@ -4,6 +4,7 @@ use crate::{
     ArithmeticError, EvalError, TypeError,
 };
 use luar_error::{ArithmeticOperator, OrderingOperator};
+use luar_string::lua_format;
 use luar_syn::{BinaryOperator, Expression};
 
 pub(crate) fn binary_op_eval(
@@ -72,7 +73,7 @@ macro_rules! ord_op {
                 (LuaValue::String(lhs), LuaValue::String(rhs)) =>
                     Ok(LuaValue::from_bool(lhs $cmp_op rhs)),
                 (LuaValue::Number(lhs), LuaValue::String(rhs)) =>
-                    Ok(LuaValue::from_bool(&format!("{}", lhs) $cmp_op rhs)),
+                    Ok(LuaValue::from_bool(&lua_format!("{}", lhs) $cmp_op rhs)),
                 (LuaValue::String(lhs), LuaValue::Number(rhs)) =>
                     Ok(LuaValue::from_bool(lhs $cmp_op &format!("{}", rhs))),
                 _ => Err(TypeError::Ordering {
@@ -93,16 +94,16 @@ ord_op!(greater_or_equals, >=, OrderingOperator::GreaterOrEquals);
 pub(crate) fn concat(lhs: LuaValue, rhs: LuaValue) -> Result<LuaValue, TypeError> {
     match (&lhs, &rhs) {
         (LuaValue::String(lhs), LuaValue::String(rhs)) => {
-            Ok(LuaValue::String(format!("{lhs}{rhs}")))
+            Ok(LuaValue::String(lua_format!("{lhs}{rhs}")))
         }
         (LuaValue::Number(lhs), LuaValue::String(rhs)) => {
-            Ok(LuaValue::String(format!("{lhs}{rhs}")))
+            Ok(LuaValue::String(lua_format!("{lhs}{rhs}")))
         }
         (LuaValue::String(lhs), LuaValue::Number(rhs)) => {
-            Ok(LuaValue::String(format!("{lhs}{rhs}")))
+            Ok(LuaValue::String(lua_format!("{lhs}{rhs}")))
         }
         (LuaValue::Number(lhs), LuaValue::Number(rhs)) => {
-            Ok(LuaValue::String(format!("{lhs}{rhs}")))
+            Ok(LuaValue::String(lua_format!("{lhs}{rhs}")))
         }
         _ => Err(TypeError::StringConcat { lhs, rhs }),
     }
@@ -115,6 +116,7 @@ mod test {
         lang::{Context, LuaValue, ReturnValue},
         LuaError,
     };
+    use luar_string::lua_format;
     use luar_syn::lua_parser;
     use non_empty::NonEmptyVec;
     use quickcheck::TestResult;
@@ -297,18 +299,18 @@ mod test {
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs + rhs)));
 
-        context.set("lhs", LuaValue::String(lhs.to_string()));
+        context.set("lhs", LuaValue::String(lua_format!("{lhs}")));
         context.set("rhs", LuaValue::number(rhs));
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs + rhs)));
 
         context.set("lhs", LuaValue::number(lhs));
-        context.set("rhs", LuaValue::String(rhs.to_string()));
+        context.set("rhs", LuaValue::String(lua_format!("{rhs}")));
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs + rhs)));
 
-        context.set("lhs", LuaValue::String(lhs.to_string()));
-        context.set("rhs", LuaValue::String(rhs.to_string()));
+        context.set("lhs", LuaValue::String(lua_format!("{lhs}")));
+        context.set("rhs", LuaValue::String(lua_format!("{rhs}")));
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs + rhs)));
 
@@ -346,18 +348,18 @@ mod test {
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs - rhs)));
 
-        context.set("lhs", LuaValue::String(lhs.to_string()));
+        context.set("lhs", LuaValue::String(lua_format!("{lhs}")));
         context.set("rhs", LuaValue::number(rhs));
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs - rhs)));
 
         context.set("lhs", LuaValue::number(lhs));
-        context.set("rhs", LuaValue::String(rhs.to_string()));
+        context.set("rhs", LuaValue::String(lua_format!("{rhs}")));
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs - rhs)));
 
-        context.set("lhs", LuaValue::String(lhs.to_string()));
-        context.set("rhs", LuaValue::String(rhs.to_string()));
+        context.set("lhs", LuaValue::String(lua_format!("{lhs}")));
+        context.set("rhs", LuaValue::String(lua_format!("{rhs}")));
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs - rhs)));
 
@@ -395,18 +397,18 @@ mod test {
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs * rhs)));
 
-        context.set("lhs", LuaValue::String(lhs.to_string()));
+        context.set("lhs", LuaValue::String(lua_format!("{lhs}")));
         context.set("rhs", LuaValue::number(rhs));
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs * rhs)));
 
         context.set("lhs", LuaValue::number(lhs));
-        context.set("rhs", LuaValue::String(rhs.to_string()));
+        context.set("rhs", LuaValue::String(lua_format!("{rhs}")));
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs * rhs)));
 
-        context.set("lhs", LuaValue::String(lhs.to_string()));
-        context.set("rhs", LuaValue::String(rhs.to_string()));
+        context.set("lhs", LuaValue::String(lua_format!("{lhs}")));
+        context.set("rhs", LuaValue::String(lua_format!("{rhs}")));
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs * rhs)));
 
@@ -444,18 +446,18 @@ mod test {
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs / rhs)));
 
-        context.set("lhs", LuaValue::String(lhs.to_string()));
+        context.set("lhs", LuaValue::String(lua_format!("{lhs}")));
         context.set("rhs", LuaValue::number(rhs));
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs / rhs)));
 
         context.set("lhs", LuaValue::number(lhs));
-        context.set("rhs", LuaValue::String(rhs.to_string()));
+        context.set("rhs", LuaValue::String(lua_format!("{rhs}")));
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs / rhs)));
 
-        context.set("lhs", LuaValue::String(lhs.to_string()));
-        context.set("rhs", LuaValue::String(rhs.to_string()));
+        context.set("lhs", LuaValue::String(lua_format!("{lhs}")));
+        context.set("rhs", LuaValue::String(lua_format!("{rhs}")));
         let res = ast_vm::eval_module(&module, &mut context)?;
         assert!(res.total_eq(&ReturnValue::number(lhs / rhs)));
 
@@ -490,7 +492,7 @@ mod test {
         let res = ast_vm::eval_module(&module, &mut context);
         if let (Some(lhs), Some(rhs)) = (lhs.coerce_to_string(), rhs.coerce_to_string()) {
             let res = res.unwrap();
-            assert!(res.total_eq(&ReturnValue::string(lhs + &rhs)));
+            assert!(res.total_eq(&ReturnValue::string(lua_format!("{lhs}{rhs}"))));
         } else {
             assert!(res.is_err());
         }

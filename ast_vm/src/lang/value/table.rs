@@ -109,6 +109,7 @@ pub struct NaNLessTable(pub TableValue);
 
 #[cfg(test)]
 mod test {
+    use luar_string::LuaString;
     use quickcheck::{Arbitrary, TestResult};
 
     use crate::lang::{LuaNumber, LuaValue, ReturnValue, NativeFunction};
@@ -201,7 +202,7 @@ mod test {
     }
 
     #[quickcheck]
-    fn setting_string_key_can_be_retrieved_with_the_same_key(str: String, value: LuaValue) {
+    fn setting_string_key_can_be_retrieved_with_the_same_key(str: LuaString, value: LuaValue) {
         let key = LuaKey::String(str);
         let mut table = TableValue::new();
         table.set(key.clone(), value.clone());

@@ -1,3 +1,4 @@
+use luar_string::LuaString;
 use smallvec::{smallvec, smallvec_inline, SmallVec};
 use std::fmt::{self, Write};
 
@@ -39,7 +40,7 @@ impl ReturnValue {
         Self::from(LuaValue::number(value))
     }
 
-    pub fn string(value: impl Into<String>) -> Self {
+    pub fn string(value: impl Into<LuaString>) -> Self {
         Self::from(LuaValue::string(value))
     }
 

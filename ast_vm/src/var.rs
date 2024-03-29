@@ -38,7 +38,7 @@ pub(crate) fn member_lookup(value: LuaValue, key: LuaValue) -> Result<LuaValue, 
 
 pub(crate) fn property_access(value: LuaValue, property: Ident) -> Result<LuaValue, TypeError> {
     if let LuaValue::Table(table) = value {
-        let key = LuaKey::string(property);
+        let key = LuaKey::string(property.as_ref());
         Ok(table.get(&key))
     } else {
         Err(TypeError::CannotAccessProperty {
@@ -87,7 +87,7 @@ pub(crate) fn assign_to_value_property(
     value: LuaValue,
 ) -> Result<(), TypeError> {
     if let LuaValue::Table(mut table) = of {
-        let key = LuaKey::string(property);
+        let key = LuaKey::string(property.as_ref());
         table.set(key, value);
         Ok(())
     } else {
@@ -194,7 +194,7 @@ mod test {
         let module = lua_parser::module(&format!("return tbl.{}", property))?;
         let mut context = Context::new();
         let mut table = TableValue::new();
-        let key = LuaKey::string(property);
+        let key = LuaKey::string(property.as_ref());
         table.set(key, value.clone());
         context.set("tbl", LuaValue::table(table));
 

@@ -1,19 +1,16 @@
 use std::error::Error;
 use std::fmt;
-
 use luar_lex::Ident;
 
-// use super::{LuaType, LuaValue};
-
 #[derive(Debug, thiserror::Error)]
-pub enum EvalError<V> {
-    TypeError(Box<TypeError<V>>),
-    AssertionError(Option<String>),
+pub enum EvalError<Value, Str> {
+    TypeError(Box<TypeError<Value>>),
+    AssertionError(Option<Str>),
     IO(std::io::Error),
     Utf8Error,
 }
 
-impl<V: fmt::Display> fmt::Display for EvalError<V> {
+impl<Value: fmt::Display, Str: fmt::Display> fmt::Display for EvalError<Value, Str> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::TypeError(err) => err.fmt(f),
@@ -25,48 +22,48 @@ impl<V: fmt::Display> fmt::Display for EvalError<V> {
     }
 }
 
-impl<V> From<TypeError<V>> for EvalError<V> {
-    fn from(e: TypeError<V>) -> Self {
+impl<Value, Str> From<TypeError<Value>> for EvalError<Value, Str> {
+    fn from(e: TypeError<Value>) -> Self {
         Self::TypeError(Box::new(e))
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TypeError<V> {
-    Arithmetic(ArithmeticError<V>),
-    IsNotCallable(V),
+pub enum TypeError<Value> {
+    Arithmetic(ArithmeticError<Value>),
+    IsNotCallable(Value),
     ArgumentType {
         position: usize,
         expected: ExpectedType,
-        got: V,
+        got: Value,
     },
-    NilAssign(V),
-    NaNAssign(V),
-    IsNotIndexable(V),
+    NilAssign(Value),
+    NaNAssign(Value),
+    IsNotIndexable(Value),
     CannotAccessProperty {
         property: Ident,
-        of: V,
+        of: Value,
     },
     CannotAssignProperty {
         property: Ident,
-        of: V,
+        of: Value,
     },
     CannotAccessMember {
-        member: V,
-        of: V,
+        member: Value,
+        of: Value,
     },
     CannotAssignMember {
-        member: V,
-        of: V,
+        member: Value,
+        of: Value,
     },
     Ordering {
-        lhs: V,
-        rhs: V,
+        lhs: Value,
+        rhs: Value,
         op: Option<OrderingOperator>,
     },
     StringConcat {
-        lhs: V,
-        rhs: V,
+        lhs: Value,
+        rhs: Value,
     }
 }
 
@@ -85,12 +82,12 @@ pub enum OrderingOperator {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ArithmeticError<V> {
-    UnaryMinus(V),
+pub enum ArithmeticError<Value> {
+    UnaryMinus(Value),
     Binary {
-        lhs: V,
+        lhs: Value,
         op: ArithmeticOperator,
-        rhs: V,
+        rhs: Value,
     },
 }
 
