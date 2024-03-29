@@ -17,7 +17,6 @@ use non_empty::NonEmptyVec;
 pub(crate) mod flat_intersperse;
 
 pub mod expr;
-pub use expr::op::*;
 pub use expr::*;
 
 pub mod stmnt;

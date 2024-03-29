@@ -63,7 +63,7 @@ mod test {
         let module = lua_parser::module(&format!("function {}() end", ident))?;
         let mut context = Context::new();
         ast_vm::eval_module(&module, &mut context)?;
-        assert!(context.get(&ident).is_function());
+        assert!(context.get(&ident).is_native_function());
         Ok(())
     }
 
@@ -76,7 +76,7 @@ mod test {
         let mut context = Context::new();
         context.set("value", ret_value.clone());
         let res = ast_vm::eval_module(&module, &mut context)?;
-        assert!(context.get("myfn").is_function());
+        assert!(context.get("myfn").is_native_function());
         assert!(res.assert_single().total_eq(&ret_value));
 
         Ok(())

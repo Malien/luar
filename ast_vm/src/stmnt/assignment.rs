@@ -350,11 +350,14 @@ mod test {
     }
 
     #[quickcheck]
+    // If this test were to fail, it might be stuck here indefinitely
+    // #[ignore = "For some reason, quickcheck shrinks to a _possibly_ infinite sequence of lua tables"]
     fn assigning_to_a_property_is_the_same_as_to_a_member_keyed_by_the_string_of_property_name(
         NaNLessTable(table): NaNLessTable,
         prop: Ident,
         value: LuaValue,
     ) -> Result<(), LuaError> {
+        eprintln!("prop: {prop}, table size: {}", table.len());
         let module = lua_parser::module(&format!(
             "tbl1[\"{}\"] = value
             tbl2.{} = value",
@@ -371,6 +374,7 @@ mod test {
         drop(context);
         let tbl1 = tbl1.try_into_inner().unwrap();
         let tbl2 = tbl2.try_into_inner().unwrap();
+        eprintln!("prop: {prop} eval success");
         assert!(tbl1.total_eq(&tbl2));
 
         Ok(())

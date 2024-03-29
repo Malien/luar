@@ -121,17 +121,7 @@ Module {
                         "foo",
                     ),
                 ),
-                args: [
-                    LocalValueID(
-                        0,
-                    ),
-                    LocalValueID(
-                        1,
-                    ),
-                    LocalValueID(
-                        2,
-                    ),
-                ],
+                arg_count: 3,
                 body: Block {
                     statements: [
                         If(
@@ -251,6 +241,7 @@ Module {
                     ],
                     ret: None,
                 },
+                local_count: 3,
             },
         ),
         Statement(
@@ -405,4 +396,5 @@ Module {
             ],
         ),
     ),
+    local_count: 3,
 }

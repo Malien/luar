@@ -14,7 +14,7 @@ use unary_op::eval_unary_op_expr;
 pub(crate) mod binary_op;
 use binary_op::binary_op_eval;
 
-mod fn_call;
+pub(crate) mod fn_call;
 pub(crate) use fn_call::eval_fn_call;
 
 use super::eval_var;

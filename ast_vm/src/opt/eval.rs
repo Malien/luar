@@ -8,6 +8,7 @@ use crate::{
     binary_op::{
         binary_number_op, concat, greater_or_equals, greater_than, less_or_equals, less_than,
     },
+    fn_call::call_value,
     lang::{Context, InnerFn, LuaFunction, LuaKey, LuaValue, ReturnValue, TableRef, TableValue},
     member_lookup, property_access, tail_values,
     unary_op::unary_op_eval,
@@ -27,9 +28,11 @@ pub(crate) struct EvalContext<'a> {
 
 impl EvalContext<'_> {
     fn new(context: &mut Context, frame_size: u16) -> EvalContext {
-        context.stack.resize(frame_size as usize, LuaValue::Nil);
+        let offset = context.stack.len();
+        let new_size = offset + frame_size as usize;
+        context.stack.resize(new_size, LuaValue::Nil);
 
-        EvalContext { context, offset: 0 }
+        EvalContext { context, offset }
     }
 
     fn local_assign(&mut self, id: LocalValueID, value: LuaValue) {
@@ -63,6 +66,12 @@ impl EvalContext<'_> {
     }
 }
 
+impl Drop for EvalContext<'_> {
+    fn drop(&mut self) {
+        self.context.stack.truncate(self.offset);
+    }
+}
+
 pub fn eval_module(module: &Module, context: &mut Context) -> Result<ReturnValue> {
     let ctx = &mut EvalContext::new(context, module.local_count);
 
@@ -93,7 +102,8 @@ pub fn call_function(
         arg_count,
         ref body,
     } = *function.0;
-    let args = &args[..arg_count as usize];
+    let present_arg_count = std::cmp::min(arg_count as usize, args.len());
+    let args = &args[..present_arg_count];
 
     let mut context = EvalContext::new(context, local_count);
     for (idx, value) in args.iter().enumerate() {
@@ -343,14 +353,6 @@ fn eval_fn_args(args: &FunctionCallArgs, ctx: &mut EvalContext) -> Result<Vec<Lu
             .map(TableRef::from)
             .map(LuaValue::Table)
             .map(|table| vec![table]),
-    }
-}
-
-fn call_value(ctx: &mut Context, value: &LuaValue, args: &[LuaValue]) -> Result<ReturnValue> {
-    match value {
-        LuaValue::Function(func) => call_function(func, ctx, args),
-        LuaValue::NativeFunction(func) => func.call(ctx, args),
-        _ => Err(EvalError::from(TypeError::IsNotCallable(value.clone()))),
     }
 }
 

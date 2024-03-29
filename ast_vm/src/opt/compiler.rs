@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use keyed_vec::KeyedVec;
 use luar_lex::Ident;
+use non_empty::{ne_vec, NonEmptyVec};
 
 use crate::{
     lang::LuaValue,
@@ -28,7 +29,7 @@ pub struct GlobalValue<'a> {
 
 pub struct LocalValues<'a> {
     pub current: LocalValueID,
-    pub mapping: HashMap<String, LocalValueID>,
+    pub mapping_stack: NonEmptyVec<HashMap<String, LocalValueID>>,
     pub globals: &'a mut GlobalValues,
 }
 
@@ -61,8 +62,10 @@ impl GlobalValue<'_> {
 
 impl<'a> LocalValues<'a> {
     fn id_for(&mut self, ident: impl AsRef<str>) -> ValueID {
-        if let Some(&id) = self.mapping.get(ident.as_ref()) {
-            return ValueID::Local(id);
+        for scope in self.mapping_stack.iter().rev() {
+            if let Some(&id) = scope.get(ident.as_ref()) {
+                return ValueID::Local(id);
+            }
         }
         return ValueID::Global(self.globals.id_for(ident));
     }
@@ -70,14 +73,29 @@ impl<'a> LocalValues<'a> {
     fn delcare(&mut self, ident: Ident) -> LocalValueID {
         let id = self.current;
         self.current.0 += 1;
-        self.mapping.insert(ident.into(), id);
+        self.mapping_stack.last_mut().insert(ident.into(), id);
         id
+    }
+
+    fn push_scope(&mut self) {
+        self.mapping_stack.push(HashMap::new());
+    }
+
+    fn pop_scope(&mut self) {
+        self.mapping_stack.pop_nonlast();
+    }
+
+    fn in_scope<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
+        self.push_scope();
+        let res = f(self);
+        self.pop_scope();
+        return res;
     }
 
     fn new(globals: &'a mut GlobalValues) -> Self {
         Self {
             current: LocalValueID(0),
-            mapping: HashMap::new(),
+            mapping_stack: ne_vec![HashMap::new()],
             globals,
         }
     }
@@ -206,14 +224,14 @@ fn compile_expr(locals: &mut LocalValues, expr: luar_syn::Expression) -> Express
 }
 
 fn compile_block(locals: &mut LocalValues, block: luar_syn::Block) -> Block {
-    Block {
+    locals.in_scope(|locals| Block {
         statements: block
             .statements
             .into_iter()
             .map(|stmt| compile_statement(locals, stmt))
             .collect(),
         ret: block.ret.map(|ret| compile_ret(locals, ret)),
-    }
+    })
 }
 
 fn compile_ret(locals: &mut LocalValues, ret: luar_syn::Return) -> Return {
@@ -327,6 +345,24 @@ mod test {
             end
             print('hello', global, l0 - l1.bar)
             return global, l1, l2, l2:foo(3, l1, l2[global]), unspecified
+        ";
+        let ast = luar_syn::lua_parser::module(program).unwrap();
+        let mut global_state = super::GlobalValues::default();
+        let module = super::compile_module(ast, &mut global_state);
+
+        insta::assert_debug_snapshot!(module);
+    }
+
+    #[test]
+    fn local_scopes_are_different() {
+        let program = "
+            if 1 then
+                local foo = 42
+            end
+
+            if 1 then
+                assert(not foo)
+            end
         ";
         let ast = luar_syn::lua_parser::module(program).unwrap();
         let mut global_state = super::GlobalValues::default();

@@ -18,7 +18,6 @@ pub enum LuaValue {
     Function(LuaFunction),
     NativeFunction(NativeFunction),
     Table(TableRef),
-    // CFunction,
     // UserData
 }
 
@@ -102,6 +101,7 @@ impl LuaValue {
             (Self::Number(lhs), Self::Number(rhs)) => lhs.total_eq(rhs),
             (Self::String(lhs), Self::String(rhs)) => lhs == rhs,
             (Self::Function(lhs), Self::Function(rhs)) => lhs == rhs,
+            (Self::NativeFunction(lhs), Self::NativeFunction(rhs)) => lhs == rhs,
             (Self::Table(lhs), Self::Table(rhs)) => lhs == rhs,
             _ => false,
         }
@@ -121,6 +121,14 @@ impl LuaValue {
 
     pub fn is_function(&self) -> bool {
         matches!(self, Self::Function(_))
+    }
+
+    pub fn is_native_function(&self) -> bool {
+        matches!(self, Self::NativeFunction(_))
+    }
+
+    pub fn is_callable(&self) -> bool {
+        self.is_function() || self.is_native_function()
     }
 
     pub fn is_table(&self) -> bool {

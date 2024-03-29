@@ -7,7 +7,7 @@ use std::{
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NonEmptyVec<T>(Vec<T>);
 
-pub struct VecIsEmptyError<T>(Vec<T>);
+pub struct VecIsEmptyError<T>(pub Vec<T>);
 
 impl<T> fmt::Display for VecIsEmptyError<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -80,6 +80,11 @@ impl<T> NonEmptyVec<T> {
         self.0.last().unwrap()
     }
 
+    pub fn last_mut(&mut self) -> &mut T {
+        // Can be unwrap_unchecked() but I'm scared tbh.
+        self.0.last_mut().unwrap()
+    }
+
     pub fn unwrap(self) -> Vec<T> {
         self.0
     }
@@ -92,6 +97,11 @@ impl<T> NonEmptyVec<T> {
     pub fn pop(mut self) -> (T, Vec<T>) {
         // Can be unwrap_unchecked() but I'm scared tbh.
         (self.0.pop().unwrap(), self.0)
+    }
+
+    pub fn pop_nonlast(&mut self) -> T {
+        assert!(self.len().get() > 1, "pop_nonlast requires at least 2 elements");
+        self.0.pop().unwrap()
     }
 
     pub fn push(&mut self, value: T) {

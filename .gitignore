@@ -1,5 +1,6 @@
 /target
 .DS_Store
 /.luarc.json
+.vscode
 value_size
 dump.asm

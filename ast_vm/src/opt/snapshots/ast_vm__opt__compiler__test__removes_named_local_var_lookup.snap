@@ -96,4 +96,5 @@ Module {
             ],
         ),
     ),
+    local_count: 3,
 }

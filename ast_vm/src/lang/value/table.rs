@@ -80,6 +80,10 @@ impl TableValue {
     pub fn keys(&self) -> Keys<'_> {
         self.0.keys()
     }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
 type Keys<'a> = std::collections::hash_map::Keys<'a, LuaKey, LuaValue>;
@@ -141,6 +145,7 @@ mod test {
     impl Arbitrary for NaNLessTable {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let size = usize::arbitrary(g) % g.size();
+            eprintln!("Generating table of size {}", size);
             let keys = std::iter::repeat_with({
                 let mut g = quickcheck::Gen::new(g.size());
                 move || LuaKey::arbitrary(&mut g)
@@ -153,6 +158,7 @@ mod test {
         }
 
         fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+            eprintln!("Shrinking table");
             Box::new(
                 self.0
                     .shrink()

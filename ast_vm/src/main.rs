@@ -21,6 +21,26 @@ fn repl() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn opt_repl() -> Result<(), Box<dyn Error>> {
+    use std::io::{BufRead, Write};
+
+    let mut context = stdlib::std_context();
+    print!(">>> ");
+    std::io::stdout().flush()?;
+    for line in std::io::stdin().lock().lines() {
+        let module = lua_parser::module(&line?)?;
+        let module = ast_vm::opt::compile_module(module, &mut context.globals);
+        let res = ast_vm::opt::eval_module(&module, &mut context);
+        match res {
+            Ok(value) => println!("{}", value),
+            Err(err) => println!("Error: {}", err),
+        }
+        print!(">>> ");
+        std::io::stdout().flush()?;
+    }
+    Ok(())
+}
+
 fn eval_file(filename: &str) -> Result<(), Box<dyn Error>> {
     use std::io::Read;
 
@@ -44,6 +64,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         size_of::<ParseErrorWithSourcePosition>()
     );
     println!("RawParseError: {}", size_of::<RawParseError>());
+
+    if std::env::args().any(|arg| arg == "--opt") {
+        return opt_repl();
+    }
 
     if let Some(filename) = std::env::args().skip(1).next() {
         eval_file(&filename)

@@ -1,6 +1,5 @@
 use crate::{
-    lang::{Context, LocalScope, LuaValue, ReturnValue, ScopeHolder, TableRef},
-    EvalError, TypeError,
+    lang::{Context, LocalScope, LuaValue, ReturnValue, ScopeHolder, TableRef}, opt::call_function, EvalError, TypeError
 };
 use luar_syn::{FunctionCall, FunctionCallArgs};
 
@@ -27,7 +26,7 @@ pub(crate) fn call_value(
     args: &[LuaValue],
 ) -> Result<ReturnValue, EvalError> {
     match func {
-        LuaValue::Function(func) => todo!(),
+        LuaValue::Function(func) => call_function(func, context, args),
         LuaValue::NativeFunction(func) => func.call(context, args),
         _ => Err(EvalError::from(TypeError::IsNotCallable(func.clone()))),
     }
@@ -101,7 +100,7 @@ mod test {
 
     #[quickcheck]
     fn calling_not_a_function_value_is_an_error(value: LuaValue) -> Result<TestResult, LuaError> {
-        if value.is_function() {
+        if value.is_callable() {
             return Ok(TestResult::discard());
         }
 
