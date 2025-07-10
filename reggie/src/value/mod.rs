@@ -17,8 +17,11 @@ pub use table::*;
 pub mod key;
 pub use key::*;
 
+#[cfg(feature = "compact_value")]
+mod compact;
+
 #[derive(Debug, Clone)]
-pub enum LuaValue {
+pub enum WideLuaValue {
     Nil,
     Int(i32),
     Float(f64),
@@ -28,11 +31,16 @@ pub enum LuaValue {
     Table(TableRef),
 }
 
+// #[cfg(not(feature = "compact_value"))]
+pub type LuaValue = WideLuaValue;
+// #[cfg(feature = "compact_value")]
+// pub type LuaValue = compact::CompactLuaValue;
+
 fn is_float_intlike(float: f64) -> bool {
     (float as i32) as f64 == float
 }
 
-impl PartialEq for LuaValue {
+impl PartialEq for WideLuaValue {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Int(l0), Self::Int(r0)) => l0 == r0,
@@ -48,7 +56,7 @@ impl PartialEq for LuaValue {
     }
 }
 
-impl PartialOrd for LuaValue {
+impl PartialOrd for WideLuaValue {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         use Ordering::*;
 
@@ -81,13 +89,13 @@ impl PartialOrd for LuaValue {
     }
 }
 
-impl Default for LuaValue {
+impl Default for WideLuaValue {
     fn default() -> Self {
         Self::Nil
     }
 }
 
-impl LuaValue {
+impl WideLuaValue {
     pub fn string(string: impl Into<LuaString>) -> Self {
         Self::String(string.into())
     }

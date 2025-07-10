@@ -1,7 +1,7 @@
 macro_rules! wrap {
     ($name: ident, $type: ty) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        pub struct $name(pub $type);
+        pub struct $name(pub(crate) $type);
 
         impl TryFrom<usize> for $name {
             type Error = <$type as TryFrom<usize>>::Error;

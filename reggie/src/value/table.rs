@@ -115,7 +115,7 @@ impl TableValue {
 }
 
 #[derive(Debug)]
-pub struct TableRef(Rc<RefCell<TableValue>>);
+pub struct TableRef(pub(crate) Rc<RefCell<TableValue>>);
 
 impl TableRef {
     pub fn as_ptr(&self) -> *const TableValue {
@@ -151,6 +151,11 @@ impl TableRef {
     pub fn set(&mut self, member: LuaKey, value: LuaValue) {
         self.0.borrow_mut().set(member, value)
     }
+
+    /// Construct a new empty table value and reference it
+    pub fn new() -> Self {
+        Self::from(TableValue::new())
+    }
 }
 
 impl From<TableValue> for TableRef {
@@ -178,6 +183,12 @@ impl PartialEq for TableRef {
 }
 
 impl Eq for TableRef {}
+
+impl Default for TableRef {
+    fn default() -> Self {
+        Self::from(TableValue::default())
+    }
+}
 
 #[cfg(feature = "quickcheck")]
 impl quickcheck::Arbitrary for TableValue {
