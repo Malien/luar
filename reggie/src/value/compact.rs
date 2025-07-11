@@ -56,11 +56,11 @@ const           INT_BITPATTERN: u64 = 0b0_11111111111_0_010_00000000000000000000
 const       NEG_INF_BITPATTERN: u64 = 0b1_11111111111_0_000_000000000000000000000000000000000000000000000000;
 const         TABLE_BITPATTERN: u64 = 0b0_11111111111_0_000_000000000000000000000000000000000000000000000000;
 const           NIL_BITPATTERN: u64 = 0b0_11111111111_0_001_000000000000000000000000000000000000000000000000;
-const        STRING_BITPATTERN: u64 = 0b1_11111111111_1_000_000000000000000000000000000000000000000000000000;
-const      LUA_FUNC_BITPATTERN: u64 = 0b0_11111111111_1_100_000000000000000000000000000000000000000000000000;
-const   NATIVE_FUNC_BITPATTERN: u64 = 0b0_11111111111_1_101_000000000000000000000000000000000000000000000000;
-const      ANY_FUNC_BITPATTERN: u64 = 0b0_11111111111_1_100_000000000000000000000000000000000000000000000000;
-const         ANY_FUNC_BITMASK: u64 = 0b1_11111111111_1_110_000000000000000000000000000000000000000000000000;
+const        STRING_BITPATTERN: u64 = 0b1_11111111111_0_000_000000000000000000000000000000000000000000000000;
+const      LUA_FUNC_BITPATTERN: u64 = 0b0_11111111111_0_100_000000000000000000000000000000000000000000000000;
+const   NATIVE_FUNC_BITPATTERN: u64 = 0b0_11111111111_0_101_000000000000000000000000000000000000000000000000;
+const      ANY_FUNC_BITPATTERN: u64 = 0b0_11111111111_0_100_000000000000000000000000000000000000000000000000;
+const         ANY_FUNC_BITMASK: u64 = 0b1_11111111111_0_110_000000000000000000000000000000000000000000000000;
 
 /// Pick which bits we are interested in
 macro_rules! bitmask {
@@ -113,7 +113,7 @@ impl CompactLuaValue {
     }
 
     pub fn is_table(&self) -> bool {
-        pick!(self.0, sign, exponent, snan, typetag) == TABLE_BITPATTERN && self.0 != NEG_INF_BITPATTERN
+        pick!(self.0, sign, exponent, snan, typetag) == TABLE_BITPATTERN && self.0 != INF_BITPATTERN
     }
 
     pub fn is_lua_function(&self) -> bool {
@@ -266,6 +266,28 @@ impl CompactLuaValue {
         })
     }
 
+    pub fn float(value: f64) -> Self {
+        let bits = value.to_bits();
+        let is_signaling_nan = pick!(bits, exponent, snan) == SIGNALING_NAN_BITPATTERN &&
+            // aka. everything, except for the sign bit
+            pick!(bits, exponent, snan, typetag, ptrpayload) != INF_BITPATTERN;
+        if is_signaling_nan {
+            if cfg!(debug_assertions) {
+                panic!("Tried to construct a LuaValue float from a signaling nan. This is likely a bug. In release build, float will be coerced to a non-signaling nan")
+            }
+            Self(f64::NAN.to_bits())
+        } else {
+            Self(bits)
+        }
+    }
+
+    pub fn as_float(&self) -> Option<f64> {
+        if self.is_float() {
+            Some(f64::from_bits(self.0))
+        } else {
+            None
+        }
+    }
 }
 
 // #[repr(transparent)]
@@ -504,4 +526,17 @@ mod tests {
         assert_eq!(Rc::strong_count(&func_ref.0), 1);
     }
 
+    #[cfg(feature = "quickcheck")]
+    #[quickcheck]
+    fn floats_are_stored_properly(float: f64) {
+        let value = CompactLuaValue::float(float);
+        assert!(value.is_float());
+
+        let Some(inner) = value.as_float() else { panic!() };
+        if float.is_nan() {
+            assert!(inner.is_nan());
+        } else {
+            assert_eq!(float, inner);
+        }
+    }
 }
