@@ -2,7 +2,7 @@ use std::{cell::RefCell, fmt, ptr::NonNull, rc::Rc};
 
 use crate::{TableRef, TableValue, ids::BlockID, NativeFunction, NativeFunctionKind};
 
-use super::string::{release_shared_string, shared_string_ref, CompactString, StringHeader};
+use super::string::{CompactString, SharedStringPtr};
 
 /// Here's the anatomy of the packed value:
 /// ```text
@@ -185,20 +185,23 @@ impl CompactLuaValue {
     }
 
     pub fn string(str: impl AsRef<str>) -> Self {
-        Self::from_compact_string(CompactString::new(str))
+        Self::from_shared_string_ptr(SharedStringPtr::alloc_and_copy(str.as_ref()))
     }
 
     /// More efficient transformation than going through AsRef<str>
     pub fn from_compact_string(str: CompactString) -> Self {
-        let str_ptr = str.leak();
-        let payload = unsafe { Self::encode_pointer(str_ptr) };
+        Self::from_shared_string_ptr(str.leak())
+    }
+
+    fn from_shared_string_ptr(ptr: SharedStringPtr) -> Self {
+        let payload = unsafe { Self::encode_pointer(ptr.0) };
         Self(STRING_BITPATTERN | payload)
     }
 
-    fn as_string_ptr(&self) -> Option<NonNull<StringHeader>> {
+    fn as_string_ptr(&self) -> Option<SharedStringPtr> {
         if self.is_string() {
             unsafe {
-                Some(self.decode_pointer().cast())
+                Some(SharedStringPtr(self.decode_pointer().cast()))
             }
         } else {
             None
@@ -213,7 +216,7 @@ impl CompactLuaValue {
     pub fn as_str(&self) -> Option<&str> {
         // SAFETY: Pointer is valid. resulting ref lifetime is shorter than self that retains the
         //         string storage
-        self.as_string_ptr().map(|ptr| unsafe { shared_string_ref(ptr) })
+        self.as_string_ptr().map(|ptr| unsafe { ptr.str_ref() })
     }
 
     pub fn lua_function(code_block_id: BlockID) -> Self {
@@ -301,7 +304,7 @@ impl Drop for CompactLuaValue {
             unsafe { Rc::decrement_strong_count(native_function_ptr.as_ptr()) };
         }
         if let Some(str_ptr) = self.as_string_ptr() {
-            unsafe { release_shared_string(str_ptr) };
+            unsafe { str_ptr.release() };
         }
     }
 }
