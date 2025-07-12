@@ -1,4 +1,4 @@
-use std::{rc::Rc, ptr::NonNull, cell::RefCell, marker::PhantomData, alloc::{alloc, Layout}, slice, mem::size_of};
+use std::{alloc::{alloc, Layout}, cell::RefCell, fmt, marker::PhantomData, mem::size_of, ptr::NonNull, rc::Rc, slice};
  
 use nonzero_ext::NonZero;
 
@@ -403,6 +403,55 @@ impl Drop for CompactLuaValue {
         }
         if let Some(str_ptr) = self.as_string_ptr() {
             unsafe { release_shared_string(str_ptr) };
+        }
+    }
+}
+
+macro_rules! lmatch {
+    (
+        $value:expr; 
+        nil => $nil_match:expr,
+        int $int_ident:ident => $int_match:expr,
+        float $float_ident:ident => $float_match:expr,
+        string $string_ident:ident => $string_match:expr,
+        table $table_ident:ident => $table_match:expr,
+        native_function $native_function_ident:ident => $native_function_match:expr,
+        lua_function $lua_function_ident:ident => $lua_function_match:expr$(,)?
+    ) => {{
+        let __value = $value;
+        
+        if __value.is_nil() {
+            $nil_match
+        } else if let Some($int_ident) = __value.as_int() {
+            $int_match
+        } else if let Some($float_ident) = __value.as_float() {
+            $float_match
+        } else if let Some($string_ident) = __value.as_str() {
+            $string_match
+        } else if let Some($table_ident) = __value.as_table() {
+            $table_match
+        } else if let Some($native_function_ident) = __value.as_native_function() {
+            $native_function_match
+        } else if let Some($lua_function_ident) = __value.as_lua_function() {
+            $lua_function_match
+        } else {
+            unreachable!("CompactLuaValue repr cannot be anything else than nil, int, float, string, table, function")
+        }}
+    };
+}
+
+impl fmt::Debug for CompactLuaValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("CompactLuaValue::")?;
+
+        lmatch! { self;
+            nil => f.write_str("nil"),
+            int x => write!(f, "int({x})"),
+            float x => write!(f, "float({x})"),
+            string x => write!(f, "string({x:?}"),
+            table x => write!(f, "table({x:?})"),
+            native_function x => write!(f, "native_function({x:?})"),
+            lua_function block_id => write!(f, "lua_function({block_id:?})"),
         }
     }
 }
