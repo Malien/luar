@@ -358,6 +358,22 @@ impl fmt::Debug for CompactLuaValue {
     }
 }
 
+impl std::fmt::Display for CompactLuaValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        lmatch! { self;
+            nil => f.write_str("nil"),
+            int int => std::fmt::Display::fmt(&int, f),
+            float float => std::fmt::Display::fmt(&float, f),
+            string string => std::fmt::Debug::fmt(string, f),
+            table table_ref => write!(f, "table: {:p}", table_ref.as_ptr()),
+            native_function function => {
+                write!(f, "native_function: {:p}", Rc::as_ptr(&function.0))
+            },
+            lua_function block_id => write!(f, "function: {:#x}", block_id.0),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
