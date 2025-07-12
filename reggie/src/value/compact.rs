@@ -1,8 +1,8 @@
-use std::{alloc::{alloc, Layout}, cell::RefCell, fmt, marker::PhantomData, mem::size_of, ptr::NonNull, rc::Rc, slice};
- 
-use nonzero_ext::NonZero;
+use std::{cell::RefCell, fmt, ptr::NonNull, rc::Rc};
 
 use crate::{TableRef, TableValue, ids::BlockID, NativeFunction, NativeFunctionKind};
+
+use super::string::{release_shared_string, shared_string_ref, CompactString, StringHeader};
 
 /// Here's the anatomy of the packed value:
 /// ```text
@@ -185,22 +185,14 @@ impl CompactLuaValue {
     }
 
     pub fn string(str: impl AsRef<str>) -> Self {
-        // SAFETY: I mean. There is a lot to unpack here. I don't really want to.
-        unsafe {
-            let str = str.as_ref();
-            let len = str.len().try_into().expect("Strings cannot exceed the length of u32::MAX bytes");
-            let allocation_size = str.len() + size_of::<StringHeader>();
-            let block = alloc(Layout::from_size_align_unchecked(allocation_size, 1));
-            let block = NonNull::new(block).expect("Couldn't allocate memory for a lua string");
-            let header_ref = block.cast::<StringHeader>().as_mut();
-            header_ref.refcount = 0;
-            header_ref.len = len;
-            let data_ptr = block.as_ptr().byte_add(size_of::<StringHeader>());
-            let target_slice = slice::from_raw_parts_mut(data_ptr, str.len());
-            target_slice.copy_from_slice(str.as_bytes());
+        Self::from_compact_string(CompactString::new(str))
+    }
 
-            Self(STRING_BITPATTERN | Self::encode_pointer(block))
-        }
+    /// More efficient transformation than going through AsRef<str>
+    pub fn from_compact_string(str: CompactString) -> Self {
+        let str_ptr = str.leak();
+        let payload = unsafe { Self::encode_pointer(str_ptr) };
+        Self(STRING_BITPATTERN | payload)
     }
 
     fn as_string_ptr(&self) -> Option<NonNull<StringHeader>> {
@@ -288,99 +280,6 @@ impl CompactLuaValue {
             None
         }
     }
-}
-
-// #[repr(transparent)]
-// struct CompactString(NonZeroU64);
-
-#[repr(transparent)]
-struct CompactString(NonNull<StringHeader>);
-
-/// SAFETY: Make sure that the lifetime of the string block is greater than the desired lifetime
-unsafe fn shared_string_ref<'a>(ptr: NonNull<StringHeader>) -> &'a str {
-    let data_ptr = ptr.cast::<u8>().as_ptr().byte_add(size_of::<StringHeader>()) as *const _;
-    let slice = slice::from_raw_parts(data_ptr, ptr.as_ref().len as usize);
-    std::str::from_utf8_unchecked(slice)
-}
-
-/// SAFETY: Make sure that the pointer is valid
-unsafe fn release_shared_string(mut ptr: NonNull<StringHeader>) {
-    let header = unsafe { ptr.as_mut() };
-    if header.refcount == 0 {
-        unsafe {
-            // No need to call Drop, since StrBlock is trivially dropable.
-            std::alloc::dealloc(
-                ptr.as_ptr() as *mut u8,
-                shared_string_layout(header.len)
-            )
-        }
-    } else {
-        header.refcount -= 1;
-    }
-}
-
-fn shared_string_layout(body_len: u32) -> Layout {
-    let (layout, offset) = Layout::new::<StringHeader>()
-        .extend(Layout::array::<u8>(body_len as usize).unwrap())
-        .unwrap();
-    assert_eq!(offset, std::mem::size_of::<StringHeader>());
-    layout
-}
-
-impl CompactString {
-    pub fn new(str: impl AsRef<str>) -> Self {
-        // SAFETY: I mean. There is a lot to unpack here. I don't really want to.
-        unsafe {
-            let str = str.as_ref();
-            let len = str.len().try_into().expect("Strings cannot exceed the length of u32::MAX bytes");
-
-            let block = alloc(shared_string_layout(len));
-            let block = NonNull::new(block).expect("Couldn't allocate memory for a lua string");
-            let mut header_ptr = block.cast::<StringHeader>();
-            header_ptr.as_mut().refcount = 0;
-            header_ptr.as_mut().len = len;
-            let data_ptr = block.as_ptr().byte_add(size_of::<StringHeader>());
-            let target_slice = slice::from_raw_parts_mut(data_ptr, str.len());
-            target_slice.copy_from_slice(str.as_bytes());
-
-            Self(header_ptr)
-        }
-    }
-
-    // SAFETY: Make sure the pointer is valid
-    unsafe fn retain(mut ptr: NonNull<StringHeader>) -> Self {
-        ptr.as_mut().refcount += 1;
-        Self(ptr)
-    }
-
-    // SAFETY: Make sure the pointer is valid
-    unsafe fn unretained(ptr: NonNull<StringHeader>) -> Self {
-        Self(ptr)
-    }
-
-    fn refcount(&self) -> u32 {
-        unsafe { self.0.as_ref().refcount }
-    }
-
-}
-
-impl AsRef<str> for CompactString {
-    fn as_ref(&self) -> &str {
-        // SAFETY: string ref is valid until self is valid
-        unsafe { shared_string_ref(self.0) }
-    }
-}
-
-impl Drop for CompactString {
-    fn drop(&mut self) {
-        unsafe { release_shared_string(self.0) };
-    }
-}
-
-struct StringHeader {
-    len: u32,
-    refcount: u32,
-    _unused: PhantomData<*const()>,
 }
 
 impl Default for CompactLuaValue {

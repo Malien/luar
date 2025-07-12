@@ -19,6 +19,8 @@ pub use key::*;
 
 #[cfg(feature = "compact_value")]
 mod compact;
+#[cfg(feature = "compact_value")]
+mod string;
 
 #[derive(Debug, Clone)]
 pub enum WideLuaValue {
