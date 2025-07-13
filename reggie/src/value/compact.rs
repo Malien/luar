@@ -34,7 +34,8 @@ pub struct CompactLuaValue(u64);
 //   - x86-64 macos malloc'd heap pointers
 //   - x86-64 linux glibc malloc'd heap pointers
 const fn is_compatible_with_48bit_pointers() -> bool {
-    cfg!(all(target_os = "macos", target_arch = "x86_64"))
+    cfg!(all(target_os = "macos", target_arch = "x86_64")) || 
+    cfg!(all(target_os = "linux", target_arch = "x86_64"))
 }
 const _: () = assert!(is_compatible_with_48bit_pointers(), "Compact Lua values (compact_value feature) are only supported on 64-bit x86 macos. For now.");
 
