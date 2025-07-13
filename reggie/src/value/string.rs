@@ -2,7 +2,7 @@
 // #[repr(transparent)]
 // struct CompactString(NonZeroU64);
 
-use std::{alloc::{alloc, Layout}, fmt, marker::PhantomData, ptr::NonNull, slice};
+use std::{alloc::{alloc, handle_alloc_error, Layout}, fmt, marker::PhantomData, ptr::NonNull, slice};
 
 pub(crate) struct StringHeader {
     len: u32,
@@ -12,7 +12,7 @@ pub(crate) struct StringHeader {
 
 /// A simple wrapper around a raw pointer. Does not manages it's lifetime.
 /// Most operations are unsafe, as the type does not gurantee it's liveliness.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub(crate) struct SharedStringPtr(pub NonNull<StringHeader>);
 
@@ -23,7 +23,11 @@ impl SharedStringPtr {
             let len = str.len().try_into().expect("Strings cannot exceed the length of u32::MAX bytes");
 
             let block = alloc(Self::layout(len));
-            let block = NonNull::new(block).expect("Couldn't allocate memory for a lua string");
+            #[cfg(feature = "trace-allocation")]
+            eprintln!("[shared string] Alloc {:?} at {:p}", str, block);
+            let Some(block) = NonNull::new(block) else {
+                handle_alloc_error(Self::layout(len));
+            };
             let mut header_ptr = block.cast::<StringHeader>();
             header_ptr.as_mut().refcount = 0;
             header_ptr.as_mut().len = len;
@@ -45,13 +49,17 @@ impl SharedStringPtr {
     /// SAFETY: Make sure that the pointer is valid
     pub(crate) unsafe fn release(mut self) {
         let header = unsafe { self.0.as_mut() };
+        #[cfg(feature = "trace-allocation")]
+        eprintln!("[shared string] Release at {:p}. Refcount: {}", self.0.as_ptr(), header.refcount);
         if header.refcount == 0 {
+            #[cfg(feature = "trace-allocation")]
+            eprintln!("[shared string] Dealloc at {:p}", self.0.as_ptr());
             unsafe {
                 // No need to call Drop, since StrBlock is trivially dropable.
                 std::alloc::dealloc(
                     self.0.as_ptr() as *mut u8,
                     Self::layout(header.len)
-                )
+                );
             }
         } else {
             header.refcount -= 1;
@@ -60,10 +68,17 @@ impl SharedStringPtr {
 
     /// SAFETY: Make sure that the pointer is valid
     pub(crate) unsafe fn retain(mut self) {
-        unsafe { 
-            let (_, did_overflow) = self.0.as_mut().refcount.overflowing_add(1);
-            assert!(!did_overflow);
-        }
+        #[cfg(feature = "trace-allocation")]
+        eprintln!("[shared string] Retain at {:p}. Refcount: {}", self.0.as_ptr(), self.0.as_ref().refcount);
+        let header = self.0.as_mut();
+        let (refcount, did_overflow) = header.refcount.overflowing_add(1);
+        assert!(!did_overflow);
+        header.refcount = refcount;
+    }
+
+    /// SAFETY: Make sure that the pointer is valid
+    pub(crate) unsafe fn refcount(self) -> u32 {
+        self.0.as_ref().refcount
     }
 
     fn layout(body_len: u32) -> Layout {
@@ -94,8 +109,8 @@ impl CompactString {
         Self(ptr)
     }
 
-    fn refcount(&self) -> u32 {
-        unsafe { self.0.0.as_ref().refcount }
+    pub(crate) fn refcount(&self) -> u32 {
+        unsafe { self.0.refcount() + 1 }
     }
 
     pub(crate) fn leak(self) -> SharedStringPtr {

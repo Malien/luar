@@ -2,7 +2,7 @@ use std::{cell::RefCell, fmt, ptr::NonNull, rc::Rc};
 
 use crate::{TableRef, TableValue, ids::BlockID, NativeFunction, NativeFunctionKind};
 
-use super::string::{CompactString, SharedStringPtr};
+use super::{string::{CompactString, SharedStringPtr}, FFIFunc, FromArgs};
 
 /// Here's the anatomy of the packed value:
 /// ```text
@@ -241,6 +241,14 @@ impl CompactLuaValue {
         Self(NATIVE_FUNC_BITPATTERN | ptr_bits)
     }
 
+    pub fn function<'a, F, Args>(func: F) -> Self
+    where
+        F: FFIFunc<Args> + 'static,
+        Args: FromArgs<'a> + 'static,
+    {
+        Self::native_function(NativeFunction::new(func))
+    }
+
     fn as_native_function_ptr(&self) -> Option<NonNull<NativeFunctionKind>> {
         if self.is_native_function() {
             Some(unsafe { self.decode_pointer().cast() })
@@ -296,16 +304,27 @@ impl Drop for CompactLuaValue {
             //         Every other access to the table ref should be guarded with
             //         [CompactLuaValue::as_table]
             unsafe { Rc::decrement_strong_count(table_ptr.as_ptr()) };
-        }
-        if let Some(native_function_ptr) = self.as_native_function_ptr() {
+        } else if let Some(native_function_ptr) = self.as_native_function_ptr() {
             // SAFTEY: This is the only place where we decrement refcount.
             //         Every other access to the table ref should be guarded with 
             //         [CompactLuaValue::as_native_function]
             unsafe { Rc::decrement_strong_count(native_function_ptr.as_ptr()) };
-        }
-        if let Some(str_ptr) = self.as_string_ptr() {
+        } else if let Some(str_ptr) = self.as_string_ptr() {
             unsafe { str_ptr.release() };
         }
+    }
+}
+
+impl Clone for CompactLuaValue {
+    fn clone(&self) -> Self {
+        if let Some(table_ptr) = self.as_table_ptr() {
+            unsafe { Rc::increment_strong_count(table_ptr.as_ptr()) };
+        } else if let Some(native_function_ptr) = self.as_native_function_ptr() {
+            unsafe { Rc::increment_strong_count(native_function_ptr.as_ptr()) };
+        } else if let Some(str_ptr) = self.as_string_ptr() {
+            unsafe { str_ptr.retain() };
+        }
+        Self(self.0)
     }
 }
 
@@ -435,27 +454,6 @@ mod tests {
         assert_eq!(value.as_str(), Some(str.as_ref()));
     }
 
-    // #[test]
-    // #[ignore = ".clone() isn't implemented yet. + this delves into quite a bit of an implementation details"]
-    // fn strings_are_refcounted_properly() {
-    //     let value = CompactLuaValue::string("A pretty long string to avoid fitting into possible SSO");
-    //     let Some(header_ptr) = value.as_shared_string_ptr() else { panic!() };
-
-    //     // SAFETY: Yes, this is going into the implementation details. Yes, I am relying on the
-    //     //         fact that the StringHeader allocation is shared between instances of
-    //     //         CompactLuaValue. Yes, I rely on that pointer to header isn't invalidated by the
-    //     //         call to .clone().
-    //     unsafe {
-    //         assert_eq!(header_ptr.as_ref().refcount, 0);
-
-    //         let copy = value.clone();
-    //         assert_eq!(header_ptr.as_ref().refcount, 1);
-
-    //         drop(copy);
-    //         assert_eq!(header_ptr.as_ref().refcount, 0);
-    //     }
-    // }
-
     #[cfg(feature = "quickcheck")]
     #[quickcheck]
     fn code_block_ids_are_stored_properly(raw_block_id: u32) {
@@ -506,4 +504,50 @@ mod tests {
             assert_eq!(float, inner);
         }
     }
+
+    #[test]
+    fn cloning_tables_does_retain_them() {
+        let table = CompactLuaValue::table(TableRef::new());
+        assert_eq!(Rc::strong_count(&table.as_table().unwrap().0), 2);
+
+        let clone = table.clone();
+        assert_eq!(Rc::strong_count(&table.as_table().unwrap().0), 3);
+        assert_eq!(table.as_table_ptr(), clone.as_table_ptr());
+
+        drop(table);
+        assert_eq!(Rc::strong_count(&clone.as_table().unwrap().0), 2);
+    }
+
+    #[test]
+    fn cloning_native_functions_does_retain_them() {
+        let func = CompactLuaValue::function(|| {});
+        assert_eq!(Rc::strong_count(&func.as_native_function().unwrap().0), 2);
+
+        let clone = func.clone();
+        assert_eq!(Rc::strong_count(&func.as_native_function().unwrap().0), 3);
+        assert_eq!(func.as_native_function_ptr(), clone.as_native_function_ptr());
+
+        drop(func);
+        assert_eq!(Rc::strong_count(&clone.as_native_function().unwrap().0), 2);
+    }
+
+    #[test]
+    fn cloning_strings_does_retain_them() {
+        let str = CompactLuaValue::string("A long-enough string not to fit into SSO");
+        assert_eq!(str.as_string().unwrap().refcount(), 2);
+
+        let clone = str.clone();
+        assert_eq!(str.as_string().unwrap().refcount(), 3);
+        assert_eq!(str.as_string_ptr(), clone.as_string_ptr());
+
+        drop(str);
+        assert_eq!(clone.as_string().unwrap().refcount(), 2);
+    }
+
+    // #[cfg(feature = "quickcheck")]
+    // #[quickcheck]
+    // fn cloning_lua_value_yields_the_same_value(value: CompactLuaValue) {
+    //     let clone = value.clone();
+    //     assert_eq!(value, clone);
+    // }
 }
