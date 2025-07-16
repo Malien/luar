@@ -53,9 +53,9 @@ pub fn compile_function(decl: &FunctionDeclaration, global_values: &mut GlobalVa
 
 fn last_ident(var: &Var) -> Option<&Ident> {
     match var {
-        Var::Named(ref ident) => Some(ident),
-        Var::PropertyAccess { ref property, .. } => Some(property),
-        Var::MemberLookup { .. } => None,
+        &Var::Named(ref ident) => Some(ident),
+        &Var::PropertyAccess { ref property, .. } => Some(property),
+        &Var::MemberLookup { .. } => None,
     }
 }
 

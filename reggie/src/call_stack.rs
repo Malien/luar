@@ -91,7 +91,7 @@ unsafe fn deinit_locals<T>(
     let size = value_sizes()[dtype];
     for _ in 0..local_count[dtype] {
         let target_value = base as *mut T;
-        std::ptr::drop_in_place(target_value);
+        unsafe { std::ptr::drop_in_place(target_value) };
         base = unsafe { base.add(size) };
     }
     return base;

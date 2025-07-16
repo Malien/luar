@@ -2,12 +2,11 @@ use super::{
     ids::{ArgumentRegisterID, LocalRegisterID},
     machine::{Machine, ProgramCounter, TestFlag},
     ops::Instruction,
-    ArithmeticError, EvalError, InvalidLuaKey, LuaKey, LuaValue, NativeFunction,
-    NativeFunctionKind, TableRef, TableValue, TypeError,
+    ArithmeticError, EvalError, InvalidLuaKey, LuaKey, LuaValue, NativeFunction, TableRef, TableValue, TypeError,
 };
 use crate::{ids::BlockID, trace_execution, ArithmeticOperator};
 use luar_string::lua_format;
-use std::{borrow::Borrow, cmp::Ordering};
+use std::cmp::Ordering;
 
 macro_rules! register_of {
     ($machine:expr, AD) => {
@@ -278,19 +277,13 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                     *position = 0;
                     machine.program_counter.block = block_id;
                 }
-                LuaValue::NativeFunction(NativeFunction(native_fn_kind)) => {
-                    match native_fn_kind.borrow() {
-                        NativeFunctionKind::Dyn(dyn_fn) => {
-                            trace_execution!(
-                                "d_call into native function {:p}",
-                                dyn_fn as *const _
-                            );
-                            dyn_fn.call(&mut machine.argument_registers, machine.value_count)?;
-                            machine.value_count = dyn_fn.return_count();
-                        } // NativeFunctionKind::OverloadSet(_) => {
-                          //     todo!("Cannot call native functions defined with overload sets yet")
-                          // }
-                    };
+                LuaValue::NativeFunction(NativeFunction(dyn_fn)) => {
+                    trace_execution!(
+                        "d_call into native function {:p}",
+                        dyn_fn as *const _
+                    );
+                    dyn_fn.call(&mut machine.argument_registers, machine.value_count)?;
+                    machine.value_count = dyn_fn.return_count();
                     *position += 1;
                 }
                 _val => {
@@ -663,15 +656,15 @@ fn cmp_test_flags(ordering: Option<Ordering>) -> TestFlag {
 
 fn neg_dyn_accumulator(accumulator: &mut LuaValue) -> Result<(), EvalError> {
     match accumulator {
-        LuaValue::Int(ref mut int) => {
+        &mut LuaValue::Int(ref mut int) => {
             *int = -*int;
             Ok(())
         }
-        LuaValue::Float(ref mut float) => {
+        &mut LuaValue::Float(ref mut float) => {
             *float = -*float;
             Ok(())
         }
-        LuaValue::String(ref str) => match str.parse::<f64>() {
+        &mut LuaValue::String(ref str) => match str.parse::<f64>() {
             Ok(value) => {
                 *accumulator = LuaValue::Float(-value);
                 Ok(())

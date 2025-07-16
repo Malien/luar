@@ -33,9 +33,12 @@ pub struct CompactLuaValue(u64);
 //   - aarch64 without pointer signings
 //   - x86-64 macos malloc'd heap pointers
 //   - x86-64 linux glibc malloc'd heap pointers
+// The current list is just the platforms I have (kinda) tested.
+// Meaning the encode_pointer assertion didn't fail.
 const fn is_compatible_with_48bit_pointers() -> bool {
     cfg!(all(target_os = "macos", target_arch = "x86_64")) || 
-    cfg!(all(target_os = "linux", target_arch = "x86_64"))
+    cfg!(all(target_os = "linux", target_arch = "x86_64")) ||
+    cfg!(all(target_os = "macos", target_arch = "aarch64"))
 }
 const _: () = assert!(is_compatible_with_48bit_pointers(), "Compact Lua values (compact_value feature) are only supported on 64-bit x86 macos. For now.");
 
@@ -392,6 +395,84 @@ impl std::fmt::Display for CompactLuaValue {
             lua_function block_id => write!(f, "function: {:#x}", block_id.0),
         }
     }
+}
+
+impl PartialEq for CompactLuaValue {
+    fn eq(&self, other: &Self) -> bool {
+        // This could be a BIG shortcut for:
+        // - nils
+        // - ints
+        // - lua functions
+        // - native function pointers
+        // - table pointers
+        // - small strings
+        // - heap strings that are the same allocation
+        // - floats that are the same bit pattern
+        // The only two cases that are not covered by bit-equivalence are:
+        // - heap strings that are different allocations (but could be the same byte sequence)
+        // - floats that are different bit patterns, but are numerically equal (thanks IEE754)
+        //
+        // if self.0 == other.0 {
+        //     return true;
+        // }
+
+        if self.is_nil() && other.is_nil() {
+            true
+        } else if numeric_eq(self, other) {
+            true
+        } else if let Some(lhs) = self.as_str() && let Some(rhs) = other.as_str() {
+            lhs == rhs
+        } else if let Some(lhs) = self.as_table() && let Some(rhs) = other.as_table() {
+            lhs == rhs
+        } else if let Some(lhs) = self.as_native_function() && let Some(rhs) = other.as_native_function() {
+            lhs == rhs
+        } else if let Some(lhs) = self.as_lua_function() && let Some(rhs) = other.as_lua_function() {
+            lhs == rhs
+        } else {
+            false
+        }
+    }
+}
+
+impl PartialOrd for CompactLuaValue {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        if let Some(lhs_int) = self.as_int() {
+            if let Some(rhs_int) = other.as_int() {
+                return lhs_int.partial_cmp(&rhs_int);
+            }
+            if let Some(rhs_float) = other.as_float() {
+                return (lhs_int as f64).partial_cmp(&rhs_float);
+            }
+        } else if let Some(lhs_float) = self.as_float() {
+            if let Some(rhs_float) = other.as_float() {
+                return lhs_float.partial_cmp(&rhs_float);
+            }
+            if let Some(rhs_int) = other.as_int() {
+                return lhs_float.partial_cmp(&(rhs_int as f64));
+            }
+        } else if let Some(lhs_str) = self.as_str() && let Some(rhs_str) = self.as_str() {
+            return lhs_str.partial_cmp(rhs_str);
+        } 
+
+        return None;
+    }
+}
+
+fn numeric_eq(lhs: &CompactLuaValue, rhs: &CompactLuaValue) -> bool {
+    if let Some(lhs_int) = lhs.as_int() {
+        if let Some(rhs_int) = rhs.as_int() {
+            return lhs_int == rhs_int;
+        } else if let Some(rhs_float) = rhs.as_float() {
+            return lhs_int as f64 == rhs_float;
+        }
+    } else if let Some(lhs_float) = lhs.as_float() {
+        if let Some(rhs_float) = rhs.as_float() {
+            return lhs_float == rhs_float;
+        } else if let Some(rhs_int) = rhs.as_int() {
+            return lhs_float == rhs_int as f64;
+        }
+    } 
+    return false;
 }
 
 #[cfg(test)]
