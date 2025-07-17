@@ -1,6 +1,6 @@
 use std::{cell::RefCell, fmt, ptr::NonNull, rc::Rc};
 
-use crate::{TableRef, TableValue, ids::BlockID, NativeFunction, NativeFunctionKind};
+use crate::{eq_with_nan::eq_with_nan, ids::BlockID, LuaValue, NativeFunction, NativeFunctionKind, TableRef, TableValue};
 
 use super::{string::{CompactString, SharedStringPtr}, FFIFunc, FromArgs};
 
@@ -134,7 +134,7 @@ impl CompactLuaValue {
 
     pub const NIL: Self = Self(NIL_BITPATTERN);
 
-    pub fn int(x: i32) -> Self {
+    pub const fn int(x: i32) -> Self {
         let low_bits = x as u32 as u64;
         Self(INT_BITPATTERN | low_bits)
     }
@@ -293,6 +293,69 @@ impl CompactLuaValue {
             Some(f64::from_bits(self.0))
         } else {
             None
+        }
+    }
+
+    pub fn coerce_to_f64(&self) -> Option<f64> {
+        if let Some(int) = self.as_int() {
+            Some(int as f64)
+        } else if let Some(float) = self.as_float() {
+            Some(float)
+        } else if let Some(str) = self.as_str() {
+            str.parse().ok()
+        } else {
+            None
+        }
+    }
+
+    pub fn coerce_to_i32(&self) -> Option<i32> {
+        if let Some(int) = self.as_int() {
+            Some(int)
+        } else if let Some(float) = self.as_float() {
+            Some(float as i32)
+        } else if let Some(str) = self.as_str() {
+            str.parse().ok()
+        } else {
+            None
+        }
+    }
+
+    pub const TRUE: Self = Self::int(1);
+    pub const FALSE: Self = Self::NIL;
+
+    pub fn from_bool(v: bool) -> Self {
+        if v {
+            Self::TRUE
+        } else {
+            Self::FALSE
+        }
+    }
+
+    pub fn is_truthy(&self) -> bool {
+        !self.is_falsy()
+    }
+
+    pub fn is_falsy(&self) -> bool {
+        self == &Self::NIL
+    }
+
+    pub fn total_eq(&self, other: &Self) -> bool {
+        if self.is_nil() && other.is_nil() {
+            true
+        } else if let Some(lhs_int) = self.as_int() && let Some(rhs_int) = other.as_int() {
+            lhs_int == rhs_int
+        } else if let Some(lhs_float) = self.as_float() && let Some(rhs_float) = other.as_float() {
+            eq_with_nan(lhs_float, rhs_float)
+        } else if let Some(lhs) = self.as_str() && let Some(rhs) = other.as_str() {
+            lhs == rhs
+        } else if let Some(lhs) = self.as_table() && let Some(rhs) = other.as_table() {
+            lhs == rhs
+        } else if let Some(lhs) = self.as_native_function() && let Some(rhs) = other.as_native_function() {
+            lhs == rhs
+        } else if let Some(lhs) = self.as_lua_function() && let Some(rhs) = other.as_lua_function() {
+            lhs == rhs
+        } else {
+            false
         }
     }
 }
@@ -473,6 +536,44 @@ fn numeric_eq(lhs: &CompactLuaValue, rhs: &CompactLuaValue) -> bool {
         }
     } 
     return false;
+}
+
+#[cfg(feature = "quickcheck")]
+impl quickcheck::Arbitrary for LuaValue {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        use test_util::{with_thread_gen, GenExt};
+
+        match u8::arbitrary(g) % 6 {
+            0 => LuaValue::NIL,
+            1 => LuaValue::int(with_thread_gen(i32::arbitrary)),
+            2 => LuaValue::float(with_thread_gen(f64::arbitrary)),
+            3 => LuaValue::string(with_thread_gen(String::arbitrary)),
+            4 => LuaValue::table(TableRef::arbitrary(&mut g.next_iter())),
+            5 => LuaValue::native_function(|| {}),
+            _ => unreachable!(),
+        }
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        match self {
+            LuaValue::Nil => quickcheck::empty_shrinker(),
+            LuaValue::Int(int) => {
+                Box::new(std::iter::once(LuaValue::Nil).chain(int.shrink().map(LuaValue::Int)))
+            }
+            LuaValue::Float(float) => {
+                Box::new(std::iter::once(LuaValue::Nil).chain(float.shrink().map(LuaValue::Float)))
+            }
+            LuaValue::String(str) => {
+                Box::new(std::iter::once(LuaValue::Nil).chain(str.shrink().map(LuaValue::String)))
+            }
+            LuaValue::NativeFunction(_) | LuaValue::Function(_) => {
+                Box::new(std::iter::once(LuaValue::Nil))
+            }
+            LuaValue::Table(table) => {
+                Box::new(std::iter::once(LuaValue::Nil).chain(table.shrink().map(LuaValue::Table)))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
