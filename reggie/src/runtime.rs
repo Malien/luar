@@ -2,10 +2,10 @@ use super::{
     ids::{ArgumentRegisterID, LocalRegisterID},
     machine::{Machine, ProgramCounter, TestFlag},
     ops::Instruction,
-    ArithmeticError, EvalError, InvalidLuaKey, LuaKey, LuaValue, NativeFunction, TableRef, TableValue, TypeError,
+    ArithmeticError, EvalError, InvalidLuaKey, LuaKey, LuaValue, NativeFunction, TableRef,
+    TableValue, TypeError,
 };
 use crate::{ids::BlockID, trace_execution, ArithmeticOperator};
-use luar_string::lua_format;
 use std::cmp::Ordering;
 
 macro_rules! register_of {
@@ -130,7 +130,7 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                 *position += 1;
             }
             Instruction::WrapI => {
-                register!(AD) = LuaValue::Int(register!(AI));
+                register!(AD) = LuaValue::int(register!(AI));
                 *position += 1;
             }
             Instruction::StrRD(reg) => {
@@ -158,7 +158,7 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                 *position += 1;
             }
             Instruction::ConstN => {
-                register!(AD) = LuaValue::Nil;
+                register!(AD) = LuaValue::NIL;
                 *position += 1;
             }
             Instruction::ConstF(value) => {
@@ -166,7 +166,7 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                 *position += 1;
             }
             Instruction::WrapF => {
-                register!(AD) = LuaValue::Float(register!(AF));
+                register!(AD) = LuaValue::float(register!(AF));
                 *position += 1;
             }
             Instruction::ConstS(string_id) => {
@@ -174,7 +174,7 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                 *position += 1;
             }
             Instruction::WrapS => {
-                register!(AD) = LuaValue::String(register!(AS).clone());
+                register!(AD) = LuaValue::string(register!(AS).clone());
                 *position += 1;
             }
             Instruction::ConstC(local_block_id) => {
@@ -182,7 +182,7 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                 *position += 1;
             }
             Instruction::WrapC => {
-                register!(AD) = LuaValue::Function(register!(AC));
+                register!(AD) = LuaValue::lua_function(register!(AC));
                 *position += 1;
             }
             Instruction::LdaDGl(cell_id) => {
@@ -254,8 +254,8 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                 machine.value_count = register!(AI).try_into().unwrap();
                 *position += 1;
             }
-            Instruction::DCall => match register!(AD).clone() {
-                LuaValue::Function(block_id) => {
+            Instruction::DCall => {
+                if let Some(block_id) = register!(AD).as_lua_function() {
                     let new_block = &machine.code_blocks[block_id];
                     trace_execution!(
                         "d_call into {block_id:?} {}",
@@ -276,28 +276,23 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                     block = new_block;
                     *position = 0;
                     machine.program_counter.block = block_id;
-                }
-                LuaValue::NativeFunction(NativeFunction(dyn_fn)) => {
-                    trace_execution!(
-                        "d_call into native function {:p}",
-                        dyn_fn as *const _
-                    );
+                } else if let Some(NativeFunction(dyn_fn)) = register!(AD).as_native_function() {
+                    trace_execution!("d_call into native function {:p}", dyn_fn as *const _);
                     dyn_fn.call(&mut machine.argument_registers, machine.value_count)?;
                     machine.value_count = dyn_fn.return_count();
                     *position += 1;
-                }
-                _val => {
+                } else {
                     trace_execution!("d_call {_val}");
                     return Err(EvalError::from(TypeError::IsNotCallable(
                         register!(AD).clone(),
                     )));
                 }
-            },
+            }
             Instruction::LdaProt(reg) => {
                 register!(AD) = if machine.value_count > reg.0 {
                     register!(RD, reg).clone()
                 } else {
-                    LuaValue::Nil
+                    LuaValue::NIL
                 };
                 *position += 1;
             }
@@ -360,7 +355,7 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                 *position += 1;
             }
             Instruction::NilTest => {
-                machine.test_flag = TestFlag::from_bool(register!(AD) == LuaValue::Nil);
+                machine.test_flag = TestFlag::from_bool(register!(AD) == LuaValue::NIL);
                 *position += 1;
             }
             Instruction::DSubR(reg) => {
@@ -402,8 +397,8 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                 *position += 1;
             }
             Instruction::CastT => {
-                machine.test_flag = if let LuaValue::Table(ref table) = register!(AD) {
-                    register!(AT) = Some(table.clone());
+                machine.test_flag = if let Some(table) = register!(AD).as_table_ref() {
+                    register!(AT) = Some(table.to_owned());
                     TestFlag::EQ
                 } else {
                     TestFlag::NE
@@ -413,23 +408,23 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
             Instruction::TablePropertyLookupError => {
                 return Err(EvalError::from(TypeError::CannotAccessProperty {
                     property: register!(AS).clone(),
-                    of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
+                    of: std::mem::replace(&mut register!(AD), LuaValue::NIL),
                 }))
             }
             Instruction::TableMemberLookupErrorR(reg) => {
                 return Err(EvalError::from(TypeError::CannotAccessMember {
-                    member: std::mem::replace(&mut register!(RD, reg), LuaValue::Nil),
-                    of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
+                    member: std::mem::replace(&mut register!(RD, reg), LuaValue::NIL),
+                    of: std::mem::replace(&mut register!(AD), LuaValue::NIL),
                 }))
             }
             Instruction::TableMemberLookupErrorL(reg) => {
                 return Err(EvalError::from(TypeError::CannotAccessMember {
-                    member: std::mem::replace(&mut register!(LD, reg), LuaValue::Nil),
-                    of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
+                    member: std::mem::replace(&mut register!(LD, reg), LuaValue::NIL),
+                    of: std::mem::replace(&mut register!(AD), LuaValue::NIL),
                 }))
             }
             Instruction::WrapT => {
-                register!(AD) = LuaValue::Table(register!(AT).as_ref().unwrap().clone());
+                register!(AD) = LuaValue::table(register!(AT).as_ref().unwrap().clone());
                 *position += 1;
             }
             Instruction::LdaAssocAS => {
@@ -447,7 +442,7 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                         register!(AD) = register!(AT).as_mut().unwrap().get(&key);
                     }
                     Err(_) => {
-                        register!(AD) = LuaValue::Nil;
+                        register!(AD) = LuaValue::NIL;
                     }
                 }
                 *position += 1;
@@ -499,19 +494,19 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
             Instruction::TablePropertyAssignError => {
                 return Err(EvalError::from(TypeError::CannotAssignProperty {
                     property: register!(AS).clone(),
-                    of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
+                    of: std::mem::replace(&mut register!(AD), LuaValue::NIL),
                 }))
             }
             Instruction::TableMemberAssignErrorR(reg) => {
                 return Err(EvalError::from(TypeError::CannotAssignMember {
-                    member: std::mem::replace(&mut register!(RD, reg), LuaValue::Nil),
-                    of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
+                    member: std::mem::replace(&mut register!(RD, reg), LuaValue::NIL),
+                    of: std::mem::replace(&mut register!(AD), LuaValue::NIL),
                 }))
             }
             Instruction::TableMemberAssignErrorL(reg) => {
                 return Err(EvalError::from(TypeError::CannotAssignMember {
-                    member: std::mem::replace(&mut register!(LD, reg), LuaValue::Nil),
-                    of: std::mem::replace(&mut register!(AD), LuaValue::Nil),
+                    member: std::mem::replace(&mut register!(LD, reg), LuaValue::NIL),
+                    of: std::mem::replace(&mut register!(AD), LuaValue::NIL),
                 }))
             }
             Instruction::NegD => {
@@ -526,10 +521,10 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
             Instruction::TestLD(reg) => {
                 let lhs = &mut register!(AD);
                 let rhs = &mut register!(LD, reg);
-                if !lhs.is_comparable() || !rhs.is_comparable() {
+                if !lhs.is_comparable_to(rhs) {
                     return Err(EvalError::from(TypeError::Ordering {
-                        lhs: std::mem::replace(lhs, LuaValue::Nil),
-                        rhs: std::mem::replace(rhs, LuaValue::Nil),
+                        lhs: std::mem::replace(lhs, LuaValue::NIL),
+                        rhs: std::mem::replace(rhs, LuaValue::NIL),
                         op: None,
                     }));
                 }
@@ -670,11 +665,11 @@ fn neg_dyn_accumulator(accumulator: &mut LuaValue) -> Result<(), EvalError> {
                 Ok(())
             }
             Err(_) => Err(EvalError::from(TypeError::Arithmetic(
-                ArithmeticError::UnaryMinus(std::mem::replace(accumulator, LuaValue::Nil)),
+                ArithmeticError::UnaryMinus(std::mem::replace(accumulator, LuaValue::NIL)),
             ))),
         },
         accumulator => Err(EvalError::from(TypeError::Arithmetic(
-            ArithmeticError::UnaryMinus(std::mem::replace(accumulator, LuaValue::Nil)),
+            ArithmeticError::UnaryMinus(std::mem::replace(accumulator, LuaValue::NIL)),
         ))),
     }
 }
@@ -878,13 +873,13 @@ mod test {
     });
 
     test_instructions!(wrap_i, [ConstI(42), WrapI, Ret], |machine: Machine| {
-        assert_eq!(register_of!(machine, AD), LuaValue::Int(42));
+        assert_eq!(register_of!(machine, AD), LuaValue::int(42));
     });
 
     test_instructions!(
         str_rd,
         [ConstI(42), WrapI, StrRD(ArgumentRegisterID(0)), Ret],
-        |machine: Machine| { assert_eq!(register_of!(machine, RD0), LuaValue::Int(42)) }
+        |machine: Machine| { assert_eq!(register_of!(machine, RD0), LuaValue::int(42)) }
     );
 
     test_instructions_with_locals! {
@@ -899,7 +894,7 @@ mod test {
             Ret
         ],
         locals: reg_count! { D: 1 },
-        post_condition: |machine: Machine| { assert_eq!(register_of!(machine, AD), LuaValue::Int(42)) }
+        post_condition: |machine: Machine| { assert_eq!(register_of!(machine, AD), LuaValue::int(42)) }
     }
 
     test_instructions!(
@@ -913,7 +908,7 @@ mod test {
             LdaRD(ArgumentRegisterID(0)),
             Ret
         ],
-        |machine: Machine| { assert_eq!(register_of!(machine, AD), LuaValue::Int(42)) }
+        |machine: Machine| { assert_eq!(register_of!(machine, AD), LuaValue::int(42)) }
     );
 
     test_instructions_with_locals! {
@@ -955,7 +950,7 @@ mod test {
     test_instructions!(
         const_n,
         [ConstI(42), WrapI, ConstN, Ret],
-        |machine: Machine| { assert_eq!(register_of!(machine, RD0), LuaValue::Nil) }
+        |machine: Machine| { assert_eq!(register_of!(machine, RD0), LuaValue::NIL) }
     );
 
     test_instructions!(const_f, [ConstF(42.4), Ret], |machine: Machine| {
@@ -1021,7 +1016,7 @@ mod test {
         let result = call_block::<()>(block_id, &mut machine);
         match result {
             Err(EvalError::TypeError(err)) => {
-                assert_eq!(*err, TypeError::IsNotCallable(LuaValue::Nil))
+                assert_eq!(*err, TypeError::IsNotCallable(LuaValue::NIL))
             }
             _ => panic!("Expected ExecutionError, got {:?}", result),
         }
@@ -1132,7 +1127,7 @@ mod test {
         let mut machine = Machine::new();
 
         let cell = machine.global_values.cell_for_name("global_value");
-        assert_eq!(machine.global_values.value_of_cell(cell), &LuaValue::Nil);
+        assert_eq!(machine.global_values.value_of_cell(cell), &LuaValue::NIL);
 
         let block_id = machine.code_blocks.add_top_level_block(CodeBlock {
             meta: CodeMeta {
@@ -1146,11 +1141,11 @@ mod test {
 
         assert_eq!(
             machine.global_values.value_of_cell(cell),
-            &LuaValue::Int(42)
+            &LuaValue::int(42)
         );
         assert_eq!(
             machine.global_values.get("global_value"),
-            &LuaValue::Int(42)
+            &LuaValue::int(42)
         )
     }
 
@@ -1350,7 +1345,7 @@ mod test {
         ],
         post_condition: |machine: Machine| {
             assert_eq!(register_of!(machine, RD0), LuaValue::Int(42));
-            assert_eq!(register_of!(machine, RD1), LuaValue::Nil);
+            assert_eq!(register_of!(machine, RD1), LuaValue::NIL);
         }
     }
 

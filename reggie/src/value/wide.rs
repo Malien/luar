@@ -77,11 +77,27 @@ impl Default for WideLuaValue {
 }
 
 impl WideLuaValue {
+    pub fn table(table_ref: TableRef) -> Self {
+        Self::Table(table_ref)
+    }
+
+    pub fn lua_function(block_id: BlockID) -> Self {
+        Self::Function(block_id)
+    }
+
+    pub fn native_function(function: NativeFunction) -> Self {
+        Self::NativeFunction(function)
+    }
+
+    pub fn float(float: f64) -> Self {
+        Self::Float(float)
+    }
+
     pub fn string(string: impl Into<LuaString>) -> Self {
         Self::String(string.into())
     }
 
-    pub fn native_function<'a, F, Args>(func: F) -> Self
+    pub fn function<'a, F, Args>(func: F) -> Self
     where
         F: FFIFunc<Args> + 'static,
         Args: FromArgs<'a> + 'static,
@@ -140,6 +156,8 @@ impl WideLuaValue {
             _ => None,
         }
     }
+
+    pub const NIL: Self = Self::Nil;
 
     pub fn is_string(&self) -> bool {
         matches!(self, Self::String(_))
@@ -287,3 +305,57 @@ impl quickcheck::Arbitrary for WideLuaValue {
         }
     }
 }
+
+macro_rules! lmatch {
+    (
+        $value:expr; 
+        nil => $nil_match:expr,
+        int $int_ident:ident => $int_match:expr,
+        float $float_ident:ident => $float_match:expr,
+        string $string_ident:ident => $string_match:expr,
+        table $table_ident:ident => $table_match:expr,
+        native_function $native_function_ident:ident => $native_function_match:expr,
+        lua_function $lua_function_ident:ident => $lua_function_match:expr$(,)?
+    ) => {{
+        match $value {
+            $crate::value::wide::WideLuaValue::Nil => $nil_match,
+            $crate::value::wide::WideLuaValue::Int($int_ident) => $int_match,
+            $crate::value::wide::WideLuaValue::Float($float_ident) => $float_match,
+            $crate::value::wide::WideLuaValue::String($string_ident) => $string_match,
+            $crate::value::wide::WideLuaValue::Table($table_ident) => $table_match,
+            $crate::value::wide::WideLuaValue::NativeFunction($native_function_ident) => {
+                $native_function_match
+            }
+            $crate::value::wide::WideLuaValue::Function($lua_function_ident) => {
+                $lua_function_match
+            }
+        }
+    }};
+
+    (
+        $value:expr; 
+        nil => $nil_match:expr,
+        int $int_ident:ident => $int_match:expr,
+        float $float_ident:ident => $float_match:expr,
+        string ref $string_ident:ident => $string_match:expr,
+        table $table_ident:ident => $table_match:expr,
+        native_function $native_function_ident:ident => $native_function_match:expr,
+        lua_function $lua_function_ident:ident => $lua_function_match:expr$(,)?
+    ) => {{
+        match $value {
+            $crate::value::wide::WideLuaValue::Nil => $nil_match,
+            $crate::value::wide::WideLuaValue::Int($int_ident) => $int_match,
+            $crate::value::wide::WideLuaValue::Float($float_ident) => $float_match,
+            $crate::value::wide::WideLuaValue::String(ref $string_ident) => $string_match,
+            $crate::value::wide::WideLuaValue::Table($table_ident) => $table_match,
+            $crate::value::wide::WideLuaValue::NativeFunction($native_function_ident) => {
+                $native_function_match
+            }
+            $crate::value::wide::WideLuaValue::Function($lua_function_ident) => {
+                $lua_function_match
+            }
+        }
+    }};
+}
+
+pub(crate) use lmatch;

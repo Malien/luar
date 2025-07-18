@@ -29,3 +29,14 @@ pub type LuaValue = compact::CompactLuaValue;
 pub type LuaString = luar_string::LuaString;
 #[cfg(feature = "compact_value")]
 pub type LuaString = string::CompactString;
+
+#[cfg(not(feature = "compact_value"))]
+pub(crate) use wide::lmatch;
+#[cfg(feature = "compact_value")]
+pub(crate) use compact::lmatch;
+
+#[cfg(not(feature = "compact_value"))]
+pub(crate) use luar_string::lua_format;
+#[cfg(feature = "compact_value")]
+pub(crate) use string::compact_format as lua_format;
+

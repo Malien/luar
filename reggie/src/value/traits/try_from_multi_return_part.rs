@@ -1,4 +1,4 @@
-use crate::{LuaValue, Machine};
+use crate::Machine;
 
 pub trait TryFromMultiReturnPart<'a, const N: u16>
 where
@@ -17,9 +17,10 @@ impl<'a, const N: u16> TryFromMultiReturnPart<'a, N> for &'a str {
     type Error = NotAString;
 
     fn try_from_multi_return(machine: &'a Machine) -> Result<Self, Self::Error> {
-        match &machine.argument_registers.d[N as usize] {
-            LuaValue::String(str) => Ok(str.as_ref()),
-            _ => Err(NotAString),
+        if let Some(str) = machine.argument_registers.d[N as usize].as_str() {
+            Ok(str.as_ref())
+        } else {
+            Err(NotAString)
         }
     }
 

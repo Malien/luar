@@ -2,7 +2,7 @@
 // #[repr(transparent)]
 // struct CompactString(NonZeroU64);
 
-use std::{alloc::{alloc, handle_alloc_error, Layout}, fmt, marker::PhantomData, ptr::NonNull, slice};
+use std::{alloc::{alloc, handle_alloc_error, Layout}, fmt, hash::Hash, marker::PhantomData, ops::Deref, ptr::NonNull, slice};
 
 pub(crate) struct StringHeader {
     len: u32,
@@ -41,9 +41,11 @@ impl SharedStringPtr {
 
     /// SAFETY: Make sure that the lifetime of the string block is greater than the desired lifetime
     pub(crate) unsafe fn str_ref<'a>(self) -> &'a str {
-        let data_ptr = self.0.cast::<u8>().as_ptr().byte_add(size_of::<StringHeader>()) as *const _;
-        let slice = slice::from_raw_parts(data_ptr, self.0.as_ref().len as usize);
-        std::str::from_utf8_unchecked(slice)
+        unsafe {
+            let data_ptr = self.0.cast::<u8>().as_ptr().byte_add(size_of::<StringHeader>()) as *const _;
+            let slice = slice::from_raw_parts(data_ptr, self.0.as_ref().len as usize);
+            std::str::from_utf8_unchecked(slice)
+        }
     }
 
     /// SAFETY: Make sure that the pointer is valid
@@ -70,7 +72,7 @@ impl SharedStringPtr {
     pub(crate) unsafe fn retain(mut self) {
         #[cfg(feature = "trace-allocation")]
         eprintln!("[shared string] Retain at {:p}. Refcount: {}", self.0.as_ptr(), self.0.as_ref().refcount);
-        let header = self.0.as_mut();
+        let header = unsafe { self.0.as_mut() };
         let (refcount, did_overflow) = header.refcount.overflowing_add(1);
         assert!(!did_overflow);
         header.refcount = refcount;
@@ -78,7 +80,11 @@ impl SharedStringPtr {
 
     /// SAFETY: Make sure that the pointer is valid
     pub(crate) unsafe fn refcount(self) -> u32 {
-        self.0.as_ref().refcount
+        unsafe { self.0.as_ref().refcount }
+    }
+
+    pub(crate) unsafe fn len(self) -> u32 {
+        unsafe { self.0.as_ref().len }
     }
 
     fn layout(body_len: u32) -> Layout {
@@ -98,9 +104,13 @@ impl CompactString {
         Self(SharedStringPtr::alloc_and_copy(str.as_ref()))
     }
 
+    pub fn len(&self) -> u32 {
+        unsafe { self.0.len() }
+    }
+
     // SAFETY: Make sure the pointer is valid
     pub(crate) unsafe fn retain(ptr: SharedStringPtr) -> Self {
-        ptr.retain();
+        unsafe { ptr.retain() };
         Self(ptr)
     }
 
@@ -128,8 +138,42 @@ impl AsRef<str> for CompactString {
     }
 }
 
+#[repr(transparent)]
+struct UnsafeGlobalAllocation(StringHeader);
+unsafe impl Sync for UnsafeGlobalAllocation {}
+
+static EMPTY_STRING_ALLOCATION: UnsafeGlobalAllocation = UnsafeGlobalAllocation(StringHeader {
+    len: 0,
+    // There is a race condition here. Even though LuaString is not Sync, one could create two
+    // empty strings in two threads at the same time, and both would try to change the count.
+    //
+    // This would be fixed by interning and/or small string optimization.
+    // TODO: SSO
+    refcount: 1,
+    _unused: PhantomData,
+});
+
+impl Default for CompactString {
+    fn default() -> Self {
+        let ptr = &EMPTY_STRING_ALLOCATION.0 as *const StringHeader as *mut _;
+        let ptr = unsafe { NonNull::new_unchecked(ptr) };
+        let ptr = SharedStringPtr(ptr);
+        Self(ptr)
+    }
+}
+
+impl Deref for CompactString {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
+    }
+}
+
 impl Drop for CompactString {
     fn drop(&mut self) {
+        // SAFETY: It is safe to release the string here, because we guarantee that
+        // it is alive. And empty string will never be released.
         unsafe { self.0.release() };
     }
 }
@@ -153,3 +197,62 @@ impl fmt::Display for CompactString {
     }
 }
 
+impl PartialEq for CompactString {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_ref() == other.as_ref()
+    }
+}
+
+impl Eq for CompactString {}
+
+impl PartialOrd for CompactString {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.as_ref().partial_cmp(other.as_ref())
+    }
+}
+
+impl Ord for CompactString {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.as_ref().cmp(other.as_ref())
+    }
+}
+
+impl Hash for CompactString {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.as_ref().hash(state);
+    }
+}
+
+impl From<&str> for CompactString {
+    fn from(str: &str) -> Self {
+        Self::new(str)
+    }
+}
+
+#[cfg(feature = "quickcheck")]
+impl quickcheck::Arbitrary for CompactString {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let str = String::arbitrary(g);
+        Self::from(str.as_str())
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        Box::new(
+            self.as_ref()
+                .to_string()
+                .shrink()
+                .map(|str| Self::from(str.as_str())),
+        )
+    }
+}
+
+macro_rules! compact_format {
+    ($($t:expr),*) => {
+        {
+            let str = format!($($t),*);
+            $crate::value::LuaString::from(str.as_str())
+        }
+    }
+}
+
+pub(crate) use compact_format;

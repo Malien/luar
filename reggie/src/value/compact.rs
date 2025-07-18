@@ -1,8 +1,8 @@
-use std::{cell::RefCell, fmt, ptr::NonNull, rc::Rc};
+use std::{cell::{Ref, RefCell}, fmt, ptr::NonNull, rc::Rc};
 
 use crate::{eq_with_nan::eq_with_nan, ids::BlockID, LuaValue, NativeFunction, NativeFunctionKind, TableRef, TableValue};
 
-use super::{string::{CompactString, SharedStringPtr}, FFIFunc, FromArgs};
+use super::{lua_format, string::{CompactString, SharedStringPtr}, FFIFunc, FromArgs, LuaString, UnownedTableRef};
 
 /// Here's the anatomy of the packed value:
 /// ```text
@@ -97,6 +97,8 @@ macro_rules! pick {
     }
 }
 
+static GLOBAL_NIL: &'static CompactLuaValue = &CompactLuaValue::NIL;
+
 impl CompactLuaValue {
     pub fn is_float(&self) -> bool {
         pick!(self.0, exponent, snan) != SIGNALING_NAN_BITPATTERN || 
@@ -133,6 +135,9 @@ impl CompactLuaValue {
     }
 
     pub const NIL: Self = Self(NIL_BITPATTERN);
+    pub const fn nil_ref() -> &'static Self {
+        GLOBAL_NIL
+    }
 
     pub const fn int(x: i32) -> Self {
         let low_bits = x as u32 as u64;
@@ -185,6 +190,14 @@ impl CompactLuaValue {
             let ptr = ptr.as_ptr();
             Rc::increment_strong_count(ptr);
             TableRef(Rc::from_raw(ptr))
+        })
+    }
+
+    pub fn as_table_ref(&self) -> Option<UnownedTableRef<'_>> {
+        self.as_table_ptr().map(|ptr| unsafe {
+            // SAFETY: the pointer is valid, since we checked it above
+            //         and the lifetime of the returned reference is shorter than self
+            UnownedTableRef::new(ptr)
         })
     }
 
@@ -320,6 +333,28 @@ impl CompactLuaValue {
         }
     }
 
+    pub fn number_as_f64(&self) -> Option<f64> {
+        if let Some(int) = self.as_int() {
+            Some(int as f64)
+        } else if let Some(float) = self.as_float() {
+            Some(float)
+        } else {
+            None
+        }
+    }
+
+    pub fn coerce_to_string(&self) -> Option<LuaString> {
+        if let Some(string) = self.as_string() {
+            Some(string)
+        } else if let Some(int) = self.as_int() {
+            Some(lua_format!("{int}"))
+        } else if let Some(float) = self.as_float() {
+            Some(lua_format!("{float}"))
+        } else {
+            None
+        }
+    }
+
     pub const TRUE: Self = Self::int(1);
     pub const FALSE: Self = Self::NIL;
 
@@ -357,6 +392,12 @@ impl CompactLuaValue {
         } else {
             false
         }
+    }
+
+    pub fn is_comparable_to(&self, other: &Self) -> bool {
+        let self_is_numeric = self.is_int() || self.is_float();
+        let other_is_numeric = other.is_int() || other.is_float();
+        self_is_numeric && other_is_numeric || self.is_string() && other.is_string()
     }
 }
 
@@ -399,12 +440,12 @@ macro_rules! lmatch {
     (
         $value:expr; 
         nil => $nil_match:expr,
-        int $int_ident:ident => $int_match:expr,
-        float $float_ident:ident => $float_match:expr,
-        string $string_ident:ident => $string_match:expr,
-        table $table_ident:ident => $table_match:expr,
-        native_function $native_function_ident:ident => $native_function_match:expr,
-        lua_function $lua_function_ident:ident => $lua_function_match:expr$(,)?
+        int $int_ident:tt => $int_match:expr,
+        float $float_ident:tt => $float_match:expr,
+        string ref $str_ident:tt => $str_match:expr,
+        table $table_ident:tt => $table_match:expr,
+        native_function $native_function_ident:tt => $native_function_match:expr,
+        lua_function $lua_function_ident:tt => $lua_function_match:expr$(,)?
     ) => {{
         let __value = $value;
         
@@ -414,8 +455,39 @@ macro_rules! lmatch {
             $int_match
         } else if let Some($float_ident) = __value.as_float() {
             $float_match
-        } else if let Some($string_ident) = __value.as_str() {
-            $string_match
+        } else if let Some($str_ident) = __value.as_str() {
+            $str_match
+        } else if let Some($table_ident) = __value.as_table() {
+            $table_match
+        } else if let Some($native_function_ident) = __value.as_native_function() {
+            $native_function_match
+        } else if let Some($lua_function_ident) = __value.as_lua_function() {
+            $lua_function_match
+        } else {
+            unreachable!("CompactLuaValue repr cannot be anything else than nil, int, float, string, table, function")
+        }}
+    };
+
+    (
+        $value:expr; 
+        nil => $nil_match:expr,
+        int $int_ident:tt => $int_match:expr,
+        float $float_ident:tt => $float_match:expr,
+        string $str_ident:tt => $str_match:expr,
+        table $table_ident:tt => $table_match:expr,
+        native_function $native_function_ident:tt => $native_function_match:expr,
+        lua_function $lua_function_ident:tt => $lua_function_match:expr$(,)?
+    ) => {{
+        let __value = $value;
+        
+        if __value.is_nil() {
+            $nil_match
+        } else if let Some($int_ident) = __value.as_int() {
+            $int_match
+        } else if let Some($float_ident) = __value.as_float() {
+            $float_match
+        } else if let Some($str_ident) = __value.as_string() {
+            $str_match
         } else if let Some($table_ident) = __value.as_table() {
             $table_match
         } else if let Some($native_function_ident) = __value.as_native_function() {
@@ -428,6 +500,8 @@ macro_rules! lmatch {
     };
 }
 
+pub(crate) use lmatch;
+
 impl fmt::Debug for CompactLuaValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("CompactLuaValue::")?;
@@ -436,7 +510,7 @@ impl fmt::Debug for CompactLuaValue {
             nil => f.write_str("nil"),
             int x => write!(f, "int({x})"),
             float x => write!(f, "float({x})"),
-            string x => write!(f, "string({x:?}"),
+            string ref x => write!(f, "string({x:?}"),
             table x => write!(f, "table({x:?})"),
             native_function x => write!(f, "native_function({x:?})"),
             lua_function block_id => write!(f, "lua_function({block_id:?})"),
@@ -450,7 +524,7 @@ impl std::fmt::Display for CompactLuaValue {
             nil => f.write_str("nil"),
             int int => std::fmt::Display::fmt(&int, f),
             float float => std::fmt::Display::fmt(&float, f),
-            string string => std::fmt::Debug::fmt(string, f),
+            string ref string => std::fmt::Debug::fmt(string, f),
             table table_ref => write!(f, "table: {:p}", table_ref.as_ptr()),
             native_function function => {
                 write!(f, "native_function: {:p}", Rc::as_ptr(&function.0))
@@ -539,39 +613,38 @@ fn numeric_eq(lhs: &CompactLuaValue, rhs: &CompactLuaValue) -> bool {
 }
 
 #[cfg(feature = "quickcheck")]
-impl quickcheck::Arbitrary for LuaValue {
+impl quickcheck::Arbitrary for CompactLuaValue {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         use test_util::{with_thread_gen, GenExt};
 
         match u8::arbitrary(g) % 6 {
-            0 => LuaValue::NIL,
-            1 => LuaValue::int(with_thread_gen(i32::arbitrary)),
-            2 => LuaValue::float(with_thread_gen(f64::arbitrary)),
-            3 => LuaValue::string(with_thread_gen(String::arbitrary)),
-            4 => LuaValue::table(TableRef::arbitrary(&mut g.next_iter())),
-            5 => LuaValue::native_function(|| {}),
+            0 => Self::NIL,
+            1 => Self::int(with_thread_gen(i32::arbitrary)),
+            2 => Self::float(with_thread_gen(f64::arbitrary)),
+            3 => Self::string(with_thread_gen(String::arbitrary)),
+            4 => Self::table(TableRef::arbitrary(&mut g.next_iter())),
+            5 => Self::function(|| {}),
             _ => unreachable!(),
         }
     }
 
     fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-        match self {
-            LuaValue::Nil => quickcheck::empty_shrinker(),
-            LuaValue::Int(int) => {
-                Box::new(std::iter::once(LuaValue::Nil).chain(int.shrink().map(LuaValue::Int)))
-            }
-            LuaValue::Float(float) => {
-                Box::new(std::iter::once(LuaValue::Nil).chain(float.shrink().map(LuaValue::Float)))
-            }
-            LuaValue::String(str) => {
-                Box::new(std::iter::once(LuaValue::Nil).chain(str.shrink().map(LuaValue::String)))
-            }
-            LuaValue::NativeFunction(_) | LuaValue::Function(_) => {
-                Box::new(std::iter::once(LuaValue::Nil))
-            }
-            LuaValue::Table(table) => {
-                Box::new(std::iter::once(LuaValue::Nil).chain(table.shrink().map(LuaValue::Table)))
-            }
+        lmatch! { self;
+            nil => quickcheck::empty_shrinker(),
+            int int => {
+                Box::new(std::iter::once(LuaValue::NIL).chain(int.shrink().map(LuaValue::int)))
+            },
+            float float => {
+                Box::new(std::iter::once(LuaValue::NIL).chain(float.shrink().map(LuaValue::float)))
+            },
+            string str => {
+                Box::new(std::iter::once(LuaValue::NIL).chain(str.shrink().map(LuaValue::string)))
+            },
+            table table => {
+                Box::new(std::iter::once(LuaValue::NIL).chain(table.shrink().map(LuaValue::table)))
+            },
+            native_function _ => Box::new(std::iter::once(LuaValue::NIL)),
+            lua_function _ => Box::new(std::iter::once(LuaValue::NIL)),
         }
     }
 }

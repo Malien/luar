@@ -1,8 +1,10 @@
 use crate::{ids::BlockID, LuaValue, NativeFunction, TableRef};
 use decorum::NotNan;
-use luar_string::LuaString;
 use num_traits::FromPrimitive;
 
+use super::{lmatch, LuaString};
+
+// TODO: CompactLuaKey equivalent
 // No nills allowed
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum LuaKey {
@@ -30,16 +32,17 @@ impl TryFrom<LuaValue> for LuaKey {
     type Error = InvalidLuaKey;
 
     fn try_from(value: LuaValue) -> Result<Self, Self::Error> {
-        match value {
-            LuaValue::Nil => Err(InvalidLuaKey::Nil),
-            LuaValue::Int(int) => Ok(Self::Int(int)),
-            LuaValue::Float(float) => NotNan::from_f64(float)
+        // TODO: Make a lmatch! { move value; ... } macro to avoid inner-ref-counting
+        lmatch! { value;
+            nil => Err(InvalidLuaKey::Nil),
+            int int => Ok(Self::Int(int)),
+            float float => NotNan::from_f64(float)
                 .map(Self::Float)
                 .ok_or(InvalidLuaKey::NaN),
-            LuaValue::String(str) => Ok(Self::String(str)),
-            LuaValue::NativeFunction(func) => Ok(Self::NativeFunction(func)),
-            LuaValue::Function(func) => Ok(Self::Function(func)),
-            LuaValue::Table(table) => Ok(Self::Table(table)),
+            string str => Ok(Self::String(str)),
+            table table => Ok(Self::Table(table)),
+            native_function func => Ok(Self::NativeFunction(func)),
+            lua_function func => Ok(Self::Function(func)),
         }
     }
 }
@@ -47,12 +50,12 @@ impl TryFrom<LuaValue> for LuaKey {
 impl From<LuaKey> for LuaValue {
     fn from(v: LuaKey) -> Self {
         match v {
-            LuaKey::Int(int) => Self::Int(int),
-            LuaKey::Float(float) => Self::Float(float.into()),
-            LuaKey::String(str) => Self::String(str),
-            LuaKey::NativeFunction(func) => Self::NativeFunction(func),
-            LuaKey::Function(func) => Self::Function(func),
-            LuaKey::Table(table) => Self::Table(table),
+            LuaKey::Int(int) => Self::int(int),
+            LuaKey::Float(float) => Self::float(float.into()),
+            LuaKey::String(str) => Self::string(str),
+            LuaKey::NativeFunction(func) => Self::native_function(func),
+            LuaKey::Function(func) => Self::lua_function(func),
+            LuaKey::Table(table) => Self::table(table),
         }
     }
 }

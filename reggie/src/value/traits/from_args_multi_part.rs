@@ -11,7 +11,7 @@ impl<'a, const N: u16> FromArgsPart<'a, N> for LuaValue {
     }
 
     fn from_absent_argument() -> Self {
-        LuaValue::Nil
+        LuaValue::NIL
     }
 }
 
@@ -21,7 +21,7 @@ impl<'a, const N: u16> FromArgsPart<'a, N> for &'a LuaValue {
     }
 
     fn from_absent_argument() -> Self {
-        &LuaValue::Nil
+        LuaValue::nil_ref()
     }
 }
 

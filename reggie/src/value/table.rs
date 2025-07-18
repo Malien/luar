@@ -1,6 +1,7 @@
 use crate::{LuaKey, LuaValue};
-use luar_string::LuaString;
-use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Rc};
+use std::{borrow::Borrow, cell::{RefCell, RefMut}, collections::HashMap, hash::Hash, ops::Deref, ptr::NonNull, rc::Rc};
+
+use super::LuaString;
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TableValue {
@@ -54,7 +55,7 @@ impl TableValue {
             {
                 &self.array[float.into_inner() as usize - 1]
             }
-            key => self.hash.get(key).unwrap_or(&LuaValue::Nil),
+            key => self.hash.get(key).unwrap_or(&LuaValue::nil_ref()),
         }
     }
 
@@ -114,7 +115,32 @@ impl TableValue {
     }
 }
 
+#[repr(transparent)]
+pub struct UnownedTableRef<'a>(&'a mut RefCell<TableValue>);
+
+impl UnownedTableRef<'_> {
+    /// SAFETY: Make sure the lifetime matches the scope
+    pub unsafe fn new(mut raw: NonNull<RefCell<TableValue>>) -> Self {
+        Self(unsafe { raw.as_mut() })
+    }
+
+    pub fn to_owned(&self) -> TableRef {
+        TableRef(
+            unsafe { Rc::from_raw(self.0 as * const _) }
+        )
+    }
+
+    pub fn borrow(&self) -> std::cell::Ref<'_, TableValue> {
+        RefCell::borrow(self.0)
+    }
+
+    pub fn borrow_mut(&mut self) -> RefMut<'_, TableValue> {
+        RefCell::borrow_mut(self.0)
+    }
+}
+
 #[derive(Debug)]
+#[repr(transparent)]
 pub struct TableRef(pub(crate) Rc<RefCell<TableValue>>);
 
 impl TableRef {

@@ -1,13 +1,7 @@
 use enum_map::Enum;
-use luar_string::LuaString;
 
 use crate::{
-    compiler::CompiledModule,
-    global_values::GlobalValues,
-    ids::{BlockID, LocalBlockID, ModuleID},
-    meta::CodeMeta,
-    ops::Instruction,
-    LuaValue, TableRef, stdlib::define_stdlib, call_stack::CallStack,
+    call_stack::CallStack, compiler::CompiledModule, global_values::GlobalValues, ids::{BlockID, LocalBlockID, ModuleID}, meta::CodeMeta, ops::Instruction, stdlib::define_stdlib, LuaString, LuaValue, TableRef
 };
 use keyed_vec::{keyed_vec, KeyedVec};
 
@@ -251,7 +245,7 @@ impl Machine {
                 s: LuaString::default(),
                 c: dummy_block_id,
                 t: None,
-                d: LuaValue::Nil,
+                d: LuaValue::NIL,
             },
             program_counter: ProgramCounter {
                 block: BlockID(0),
@@ -265,7 +259,7 @@ impl Machine {
                 i: [0; ARG_REG_COUNT],
                 s: [(); ARG_REG_COUNT].map(|_| LuaString::default()),
                 t: [(); ARG_REG_COUNT].map(|_| None),
-                d: [(); ARG_REG_COUNT].map(|_| LuaValue::Nil),
+                d: [(); ARG_REG_COUNT].map(|_| LuaValue::NIL),
             },
             global_values: GlobalValues::default(),
             code_blocks: CodeBlocks::default(),

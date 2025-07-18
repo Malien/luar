@@ -11,7 +11,7 @@ impl<'a, const N: u16> FromMultiReturnPart<'a, N> for LuaValue {
     }
 
     fn from_absent_value(_: &'a Machine) -> Self {
-        LuaValue::Nil
+        LuaValue::NIL
     }
 }
 

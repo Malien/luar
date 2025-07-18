@@ -1,16 +1,15 @@
 use std::{
     cmp::{max, min},
-    io::{self, Write},
-    rc::Rc,
+    io::{self, Write}, rc::Rc,
 };
 
-use crate::{trace_execution, EvalError, ExpectedType, GlobalValues, LuaValue, TypeError};
+use crate::{lmatch, trace_execution, EvalError, ExpectedType, GlobalValues, LuaValue, TypeError};
 
 pub fn assert(value: LuaValue, message: LuaValue) -> Result<(), EvalError> {
     trace_execution!("assert({:?}, {:?})", value, message);
     if value.is_truthy() {
         Ok(())
-    } else if let LuaValue::Nil = message {
+    } else if message.is_nil() {
         Err(EvalError::AssertionError(None))
     } else if let Some(str) = message.coerce_to_string() {
         Err(EvalError::AssertionError(Some(str)))
@@ -28,58 +27,83 @@ fn is_within_int_range(float: f64) -> bool {
 }
 
 pub fn floor(value: &LuaValue) -> Result<LuaValue, TypeError> {
-    match value {
-        LuaValue::Int(int) => Ok(LuaValue::Int(*int)),
-        LuaValue::Float(float) if is_within_int_range(*float) => {
-            Ok(LuaValue::Int(float.floor() as i32))
-        }
-        LuaValue::Float(float) => Ok(LuaValue::Float(float.floor())),
-        LuaValue::String(str) => match str.parse::<f64>() {
-            Ok(float) if is_within_int_range(float) => Ok(LuaValue::Int(float.floor() as i32)),
-            Ok(float) => Ok(LuaValue::Float(float.floor())),
+    // TODO: Coerce to LuaValue::int if possible
+    if let Some(int) = value.as_int() {
+        Ok(LuaValue::int(int))
+    } else if let Some(float) = value.as_float() {
+        Ok(LuaValue::float(float.floor()))
+    } else if let Some(string) = value.as_string() {
+        match string.as_ref().parse::<f64>() {
+            Ok(float) => Ok(LuaValue::float(float.floor())),
             Err(_) => Err(TypeError::ArgumentType {
                 position: 0,
                 expected: ExpectedType::Number,
-                got: LuaValue::String(str.clone()),
+                got: LuaValue::from_compact_string(string),
             }),
-        },
-        value => Err(TypeError::ArgumentType {
+        }
+    } else {
+        Err(TypeError::ArgumentType {
             position: 0,
             expected: ExpectedType::Number,
             got: value.clone(),
-        }),
+        })
     }
+
+    // match value {
+    //     LuaValue::Int(int) => Ok(LuaValue::Int(*int)),
+    //     LuaValue::Float(float) if is_within_int_range(*float) => {
+    //         Ok(LuaValue::Int(float.floor() as i32))
+    //     }
+    //     LuaValue::Float(float) => Ok(LuaValue::Float(float.floor())),
+    //     LuaValue::String(str) => match str.parse::<f64>() {
+    //         Ok(float) if is_within_int_range(float) => Ok(LuaValue::Int(float.floor() as i32)),
+    //         Ok(float) => Ok(LuaValue::Float(float.floor())),
+    //         Err(_) => Err(TypeError::ArgumentType {
+    //             position: 0,
+    //             expected: ExpectedType::Number,
+    //             got: LuaValue::String(str.clone()),
+    //         }),
+    //     },
+    //     value => Err(TypeError::ArgumentType {
+    //         position: 0,
+    //         expected: ExpectedType::Number,
+    //         got: value.clone(),
+    //     }),
+    // }
 }
 
 pub fn random() -> LuaValue {
     // SAFETY: libc rand function should always be safe to call
     let int_value = unsafe { libc::rand() };
     let float_value = int_value as f64 / libc::INT_MAX as f64;
-    return LuaValue::Float(float_value);
+    return LuaValue::float(float_value);
 }
 
 pub fn lua_type(value: &LuaValue) -> LuaValue {
-    match value {
-        LuaValue::Nil => LuaValue::string("nil"),
-        LuaValue::Int(_) => LuaValue::string("number"),
-        LuaValue::Float(_) => LuaValue::string("number"),
-        LuaValue::String(_) => LuaValue::string("string"),
-        LuaValue::NativeFunction(_) => LuaValue::string("function"),
-        LuaValue::Function(_) => LuaValue::string("function"),
-        LuaValue::Table(_) => LuaValue::string("table"),
+    lmatch! { value;
+        nil => LuaValue::string("nil"),
+        int _ => LuaValue::string("number"),
+        float _ => LuaValue::string("number"),
+        string _ => LuaValue::string("string"),
+        table _ => LuaValue::string("table"),
+        native_function _ => LuaValue::string("function"),
+        lua_function _ => LuaValue::string("function"),
     }
 }
 
 pub fn strlen(value: &LuaValue) -> Result<LuaValue, TypeError> {
-    match value {
-        LuaValue::String(str) => Ok(LuaValue::int(str.len())),
-        LuaValue::Int(int) => Ok(LuaValue::int(format!("{}", int).len())),
-        LuaValue::Float(float) => Ok(LuaValue::int(format!("{}", float).len())),
-        value => Err(TypeError::ArgumentType {
+    if let Some(string) = value.as_str() {
+        Ok(LuaValue::int(string.len().try_into().expect("String length exceeds i32 range")))
+    } else if let Some(int) = value.as_int() {
+        Ok(LuaValue::int(format!("{}", int).len() as i32))
+    } else if let Some(float) = value.as_float() {
+        Ok(LuaValue::int(format!("{}", float).len() as i32))
+    } else {
+        return Err(TypeError::ArgumentType {
             position: 0,
             expected: ExpectedType::String,
             got: value.clone(),
-        }),
+        });
     }
 }
 
@@ -102,9 +126,9 @@ pub fn strsub(value: &LuaValue, from: &LuaValue, to: &LuaValue) -> Result<LuaVal
     if from < 1 {
         return Ok(value.clone());
     }
-    let from = min(max(from - 1, 0) as usize, str.len());
+    let from = min(max(from - 1, 0) as usize, str.len() as usize);
 
-    if let LuaValue::Nil = to {
+    if to.is_nil() {
         return Ok(LuaValue::string(&str[from..]));
     }
 
@@ -117,7 +141,7 @@ pub fn strsub(value: &LuaValue, from: &LuaValue, to: &LuaValue) -> Result<LuaVal
     if to < 1 {
         return Ok(LuaValue::string(""));
     }
-    let to = min(max(to, 0) as usize, str.len());
+    let to = min(max(to, 0) as usize, str.len() as usize);
 
     if from > to {
         return Ok(LuaValue::string(""));
@@ -131,14 +155,14 @@ pub fn print_stdout(args: &[LuaValue]) -> Result<(), EvalError> {
 }
 
 fn print_repr(writer: &mut impl Write, value: &LuaValue) -> Result<(), io::Error> {
-    match value {
-        LuaValue::Nil => writer.write_all("nil".as_bytes()).map(|_| ()),
-        LuaValue::String(str) => writer.write_all(str.as_bytes()).map(|_| ()),
-        LuaValue::Int(num) => write!(writer, "{num}"),
-        LuaValue::Float(num) => write!(writer, "{num}"),
-        LuaValue::Function(func) => write!(writer, "function: {func:?}"),
-        LuaValue::NativeFunction(func) => write!(writer, "function: {:p}", Rc::as_ptr(&func.0)),
-        LuaValue::Table(table) => write!(writer, "table: {:p}", table.as_ptr()),
+    lmatch! { value;
+        nil => writer.write_all("nil".as_bytes()).map(|_| ()),
+        int num => write!(writer, "{num}"),
+        float num => write!(writer, "{num}"),
+        string ref str => writer.write_all(str.as_bytes()).map(|_| ()),
+        table table => write!(writer, "table: {:p}", table.as_ptr()),
+        native_function func => write!(writer, "function: {:p}", Rc::as_ptr(&func.0)),
+        lua_function func => write!(writer, "function: {func:?}"),
     }
 }
 
@@ -155,28 +179,28 @@ pub fn print(writer: &mut impl Write, args: &[LuaValue]) -> Result<(), EvalError
 }
 
 pub fn define_stdlib(global_values: &mut GlobalValues) {
-    global_values.set("assert", LuaValue::native_function(assert));
-    global_values.set("floor", LuaValue::native_function(floor));
-    global_values.set("random", LuaValue::native_function(random));
-    global_values.set("type", LuaValue::native_function(lua_type));
-    global_values.set("strlen", LuaValue::native_function(strlen));
-    global_values.set("strsub", LuaValue::native_function(strsub));
-    global_values.set("print", LuaValue::native_function(print_stdout));
+    global_values.set("assert", LuaValue::function(assert));
+    global_values.set("floor", LuaValue::function(floor));
+    global_values.set("random", LuaValue::function(random));
+    global_values.set("type", LuaValue::function(lua_type));
+    global_values.set("strlen", LuaValue::function(strlen));
+    global_values.set("strsub", LuaValue::function(strsub));
+    global_values.set("print", LuaValue::function(print_stdout));
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{TableRef, TableValue};
+    use crate::TableRef;
     use std::io::Cursor;
 
     #[test]
     fn flooring_unconvertible_values_is_an_error() {
         let unsupported = [
-            LuaValue::Nil,
+            LuaValue::NIL,
             LuaValue::string("hello"),
-            LuaValue::Table(TableRef::from(TableValue::new())),
-            LuaValue::native_function(|| ()),
+            LuaValue::table(TableRef::new()),
+            LuaValue::function(|| ()),
         ];
         for value in unsupported {
             assert!(floor(&value).is_err())
@@ -193,7 +217,7 @@ mod test {
     #[test]
     fn printing_nil_prints_nil() {
         let mut buf = Cursor::new(Vec::new());
-        print(&mut buf, &[LuaValue::Nil]).unwrap();
+        print(&mut buf, &[LuaValue::NIL]).unwrap();
         let res = String::from_utf8(buf.into_inner()).unwrap();
         assert_eq!(res, "nil\n");
     }
@@ -204,11 +228,11 @@ mod test {
         use crate::eq_with_nan::eq_with_nan;
         use luar_string::lua_format;
 
-        let res = floor(&LuaValue::Float(num)).unwrap();
+        let res = floor(&LuaValue::float(num)).unwrap();
 
         assert!(eq_with_nan(res.number_as_f64().unwrap(), num.floor()));
 
-        let res = floor(&LuaValue::String(lua_format!("{num}"))).unwrap();
+        let res = floor(&LuaValue::string(lua_format!("{num}"))).unwrap();
         assert!(eq_with_nan(res.number_as_f64().unwrap(), num.floor()));
     }
 
@@ -225,7 +249,7 @@ mod test {
     #[quickcheck]
     fn printing_int_prints_string_repr(num: i32) {
         let mut buf = Cursor::new(Vec::new());
-        print(&mut buf, &[LuaValue::Int(num)]).unwrap();
+        print(&mut buf, &[LuaValue::int(num)]).unwrap();
         let res = String::from_utf8(buf.into_inner()).unwrap();
         assert_eq!(res, format!("{}\n", num));
     }
@@ -234,7 +258,7 @@ mod test {
     #[quickcheck]
     fn printing_float_prints_string_repr(num: f64) {
         let mut buf = Cursor::new(Vec::new());
-        print(&mut buf, &[LuaValue::Float(num)]).unwrap();
+        print(&mut buf, &[LuaValue::float(num)]).unwrap();
         let res = String::from_utf8(buf.into_inner()).unwrap();
         assert_eq!(res, format!("{}\n", num));
     }
@@ -248,7 +272,7 @@ mod test {
         let func = NativeFunction::new(|| ());
         let addr = Rc::as_ptr(&func.0);
         let mut buf = Cursor::new(Vec::new());
-        print(&mut buf, &[LuaValue::NativeFunction(func)]).unwrap();
+        print(&mut buf, &[LuaValue::native_function(func)]).unwrap();
         let res = String::from_utf8(buf.into_inner()).unwrap();
         assert_eq!(res, format!("function: {:p}\n", addr));
     }
@@ -278,8 +302,8 @@ mod test {
     #[quickcheck]
     fn strlen_returns_the_number_of_bytes_in_a_string(str: luar_string::LuaString) {
         let len = str.len();
-        let res = strlen(&LuaValue::String(str)).unwrap();
-        assert_eq!(res, LuaValue::Int(len as i32));
+        let res = strlen(&LuaValue::string(str)).unwrap();
+        assert_eq!(res, LuaValue::int(len as i32));
     }
 
     #[cfg(feature = "quickcheck")]
@@ -287,8 +311,8 @@ mod test {
     fn strlen_returns_the_number_of_bytes_in_a_stringified_int(num: i32) {
         let str = format!("{}", num);
         let len = str.len();
-        let res = strlen(&LuaValue::Int(num)).unwrap();
-        assert_eq!(res, LuaValue::Int(len as i32));
+        let res = strlen(&LuaValue::int(num)).unwrap();
+        assert_eq!(res, LuaValue::int(len as i32));
     }
 
     #[cfg(feature = "quickcheck")]
@@ -296,8 +320,8 @@ mod test {
     fn strlen_returns_the_number_of_bytes_in_a_stringified_float(num: f64) {
         let str = format!("{}", num);
         let len = str.len();
-        let res = strlen(&LuaValue::Float(num)).unwrap();
-        assert_eq!(res, LuaValue::Int(len as i32));
+        let res = strlen(&LuaValue::float(num)).unwrap();
+        assert_eq!(res, LuaValue::int(len as i32));
     }
 
     #[cfg(feature = "quickcheck")]
@@ -324,8 +348,8 @@ mod test {
 
         let res = strsub(
             &LuaValue::string(str),
-            &LuaValue::Int(start as i32),
-            &LuaValue::Nil,
+            &LuaValue::int(start as i32),
+            &LuaValue::NIL,
         );
         assert_eq!(res, Ok(expected_suffix));
     }
@@ -337,9 +361,9 @@ mod test {
             return;
         }
         if let Some(end) = end {
-            assert!(dbg!(strsub(&value, &LuaValue::int(start), &LuaValue::int(end))).is_err());
+            assert!(dbg!(strsub(&value, &LuaValue::int(start as i32), &LuaValue::int(end as i32))).is_err());
         } else {
-            assert!(strsub(&value, &LuaValue::int(start), &LuaValue::Nil).is_err());
+            assert!(strsub(&value, &LuaValue::int(start as i32), &LuaValue::NIL).is_err());
         }
     }
 }

@@ -9,7 +9,7 @@ quickcheck = ["dep:quickcheck", "dep:test_util", "luar_string/quickcheck"]
 compact_value = []
 trace-execution = []
 trace-allocation = []
-# default = ["compact_value"]
+default = ["compact_value"]
 
 [[bin]]
 name = "reggiec"
