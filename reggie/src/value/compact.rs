@@ -152,6 +152,23 @@ impl CompactLuaValue {
         }
     }
 
+    pub fn as_int_mut(&mut self) -> Option<&mut i32> {
+        if self.is_int() {
+            // SAFETY: Low 32 bits of the CompactLuaValue is the i32 (assuming we checked the tag)
+            unsafe {
+                let start_ptr = self as * mut _ as * mut i32;
+                let int_ptr = start_ptr.add(1);
+                Some(&mut *int_ptr)
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn unwrap_int(&self) -> i32 {
+        self.as_int().expect("Expected lua value to be an integer")
+    }
+
     /// SAFETY: Make sure the pointer is valid. Later accesses to it depend on that.
     unsafe fn encode_pointer<T>(ptr: NonNull<T>) -> u64 {
         let ptr = ptr.as_ptr() as u64;
@@ -248,6 +265,10 @@ impl CompactLuaValue {
         } else {
             None
         }
+    }
+
+    pub fn unwrap_lua_function(&self) -> BlockID {
+        self.as_lua_function().expect("Expected lua value to be a function")
     }
 
     pub fn native_function(func: NativeFunction) -> Self {
@@ -610,6 +631,18 @@ fn numeric_eq(lhs: &CompactLuaValue, rhs: &CompactLuaValue) -> bool {
         }
     } 
     return false;
+}
+
+impl PartialEq<i32> for CompactLuaValue {
+    fn eq(&self, other: &i32) -> bool {
+        self.as_int().map(|i| i == *other).unwrap_or(false)
+    }
+}
+
+impl From<i32> for CompactLuaValue {
+    fn from(value: i32) -> Self {
+        Self::int(value)
+    }
 }
 
 #[cfg(feature = "quickcheck")]

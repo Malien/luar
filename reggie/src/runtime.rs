@@ -510,7 +510,7 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                 }))
             }
             Instruction::NegD => {
-                neg_dyn_accumulator(&mut register!(AD))?;
+                register!(AD) = neg_dyn_accumulator(&register!(AD))?;
                 *position += 1;
             }
             Instruction::TestRD(reg) => {
@@ -649,68 +649,68 @@ fn cmp_test_flags(ordering: Option<Ordering>) -> TestFlag {
     }
 }
 
-fn neg_dyn_accumulator(accumulator: &mut LuaValue) -> Result<(), EvalError> {
-    match accumulator {
-        &mut LuaValue::Int(ref mut int) => {
-            *int = -*int;
-            Ok(())
-        }
-        &mut LuaValue::Float(ref mut float) => {
-            *float = -*float;
-            Ok(())
-        }
-        &mut LuaValue::String(ref str) => match str.parse::<f64>() {
+// All arithmetic on integers can overflow. It probably should overflow into the float. Right now
+// it does signed 32-bit wrapping. I'm okay with that, adherence to the lua spec, might not be.
+fn neg_dyn_accumulator(accumulator: &LuaValue) -> Result<LuaValue, EvalError> {
+    if let Some(int) = accumulator.as_int() {
+        Ok(LuaValue::int(-int))
+    } else if let Some(float) = accumulator.as_float() {
+        Ok(LuaValue::float(-float))
+    } else if let Some(str) = accumulator.as_str() {
+        match str.parse::<f64>() {
             Ok(value) => {
-                *accumulator = LuaValue::Float(-value);
-                Ok(())
+                Ok(LuaValue::float(-value))
             }
             Err(_) => Err(EvalError::from(TypeError::Arithmetic(
-                ArithmeticError::UnaryMinus(std::mem::replace(accumulator, LuaValue::NIL)),
+                ArithmeticError::UnaryMinus(accumulator.clone()),
             ))),
-        },
-        accumulator => Err(EvalError::from(TypeError::Arithmetic(
-            ArithmeticError::UnaryMinus(std::mem::replace(accumulator, LuaValue::NIL)),
-        ))),
+        }
+    } else {
+        Err(EvalError::from(TypeError::Arithmetic(
+            ArithmeticError::UnaryMinus(accumulator.clone()),
+        )))
     }
 }
 
 fn sub_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
-    match (lhs, rhs) {
-        (LuaValue::Int(lhs), LuaValue::Int(rhs)) => Ok(LuaValue::Int(lhs - rhs)),
-        (lhs, rhs) => {
-            if let (Some(lhs), Some(rhs)) = (lhs.coerce_to_f64(), rhs.coerce_to_f64()) {
-                Ok(LuaValue::Float(lhs - rhs))
-            } else {
-                Err(TypeError::Arithmetic(ArithmeticError::Binary {
-                    lhs: lhs.clone(),
-                    rhs: rhs.clone(),
-                    op: ArithmeticOperator::Sub,
-                }))
-            }
+    if let Some(lhs_int) = lhs.as_int() {
+        if let Some(rhs_int) = rhs.as_int() {
+            return Ok(LuaValue::int(lhs_int - rhs_int));
+        } else if let Some(rhs_float) = rhs.coerce_to_f64() {
+            return Ok(LuaValue::float(lhs_int as f64 - rhs_float));
         }
+    } else if let Some(lhs_float) = lhs.coerce_to_f64() && let Some(rhs_float) = rhs.coerce_to_f64() {
+        return Ok(LuaValue::float(lhs_float - rhs_float));
     }
+
+    return Err(TypeError::Arithmetic(ArithmeticError::Binary {
+        lhs: lhs.clone(),
+        rhs: rhs.clone(),
+        op: ArithmeticOperator::Sub,
+    }))
 }
 
 fn add_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
-    match (lhs, rhs) {
-        (LuaValue::Int(lhs), LuaValue::Int(rhs)) => Ok(LuaValue::Int(lhs + rhs)),
-        (lhs, rhs) => {
-            if let (Some(lhs), Some(rhs)) = (lhs.coerce_to_f64(), rhs.coerce_to_f64()) {
-                Ok(LuaValue::Float(lhs + rhs))
-            } else {
-                Err(TypeError::Arithmetic(ArithmeticError::Binary {
-                    lhs: lhs.clone(),
-                    rhs: rhs.clone(),
-                    op: ArithmeticOperator::Add,
-                }))
-            }
+    if let Some(lhs_int) = lhs.as_int() {
+        if let Some(rhs_int) = rhs.as_int() {
+            return Ok(LuaValue::int(lhs_int + rhs_int));
+        } else if let Some(rhs_float) = rhs.coerce_to_f64() {
+            return Ok(LuaValue::float(lhs_int as f64 + rhs_float));
         }
+    } else if let Some(lhs_float) = lhs.coerce_to_f64() && let Some(rhs_float) = rhs.coerce_to_f64() {
+        return Ok(LuaValue::float(lhs_float + rhs_float));
     }
+
+    return Err(TypeError::Arithmetic(ArithmeticError::Binary {
+        lhs: lhs.clone(),
+        rhs: rhs.clone(),
+        op: ArithmeticOperator::Add,
+    }))
 }
 
 fn div_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
     if let (Some(lhs), Some(rhs)) = (lhs.coerce_to_f64(), rhs.coerce_to_f64()) {
-        Ok(LuaValue::Float(lhs / rhs))
+        Ok(LuaValue::float(lhs / rhs))
     } else {
         Err(TypeError::Arithmetic(ArithmeticError::Binary {
             lhs: lhs.clone(),
@@ -721,48 +721,50 @@ fn div_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
 }
 
 fn mul_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
-    match (lhs, rhs) {
-        (LuaValue::Int(lhs), LuaValue::Int(rhs)) => Ok(LuaValue::Int(lhs * rhs)),
-        (lhs, rhs) => {
-            if let (Some(lhs), Some(rhs)) = (lhs.coerce_to_f64(), rhs.coerce_to_f64()) {
-                Ok(LuaValue::Float(lhs * rhs))
-            } else {
-                Err(TypeError::Arithmetic(ArithmeticError::Binary {
-                    lhs: lhs.clone(),
-                    rhs: rhs.clone(),
-                    op: ArithmeticOperator::Mul,
-                }))
-            }
+    if let Some(lhs_int) = lhs.as_int() {
+        if let Some(rhs_int) = rhs.as_int() {
+            return Ok(LuaValue::int(lhs_int * rhs_int));
+        } else if let Some(rhs_float) = rhs.coerce_to_f64() {
+            return Ok(LuaValue::float(lhs_int as f64 * rhs_float));
         }
+    } else if let Some(lhs_float) = lhs.coerce_to_f64() && let Some(rhs_float) = rhs.coerce_to_f64() {
+        return Ok(LuaValue::float(lhs_float * rhs_float));
     }
+
+    return Err(TypeError::Arithmetic(ArithmeticError::Binary {
+        lhs: lhs.clone(),
+        rhs: rhs.clone(),
+        op: ArithmeticOperator::Mul,
+    }))
 }
 
-macro_rules! dyn_concat_of {
-    ($lhs:expr, $rhs:expr; $(($left_pat:ident, $right_pat:ident),)*) => {
-        match ($lhs, $rhs) {
-            $((LuaValue::$left_pat(lhs), LuaValue::$right_pat(rhs)) =>
-              Some(lua_format!("{lhs}{rhs}"))
-            ,)*
-            _ => None,
-        }
-    };
-}
 
 fn dyn_concat(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
-    dyn_concat_of! {
-        lhs, rhs;
-
-        (Int, Int),
-        (Int, Float),
-        (Int, String),
-        (Float, Int),
-        (Float, Float),
-        (Float, String),
-        (String, Int),
-        (String, Float),
-        (String, String),
+    macro_rules! dyn_concat_of {
+        ($(($left_pat:ident, $right_pat:ident),)*) => {
+            $(if let Some(lhs) = LuaValue::$left_pat(lhs) && let Some(rhs) = LuaValue::$right_pat(rhs) {
+              Some(format!("{lhs}{rhs}"))
+            })else* else {
+                None
+            }
+        };
     }
-    .map(LuaValue::String)
+
+    dyn_concat_of! {
+        (as_str, as_str),
+        (as_str, as_int),
+        (as_str, as_float),
+
+        (as_int, as_str),
+        (as_float, as_str),
+
+        (as_int, as_int),
+        (as_int, as_float),
+
+        (as_float, as_int),
+        (as_float, as_float),
+    }
+    .map(LuaValue::string)
     .ok_or_else(|| TypeError::StringConcat {
         lhs: lhs.clone(),
         rhs: rhs.clone(),
@@ -958,7 +960,7 @@ mod test {
     });
 
     test_instructions!(wrap_f, [ConstF(42.4), WrapF, Ret], |machine: Machine| {
-        assert_eq!(register_of!(machine, AD), LuaValue::Float(42.4))
+        assert_eq!(register_of!(machine, AD), LuaValue::float(42.4))
     });
 
     test_instructions_with_strings! {
@@ -1184,13 +1186,12 @@ mod test {
     fn d_call_native_function() {
         let mut machine = Machine::new();
 
-        let function = NativeFunction::new(|num| match num {
-            LuaValue::Int(int) => LuaValue::Int(int + 1),
-            _ => panic!("Unexpected value {}", num),
+        let function = NativeFunction::new(|num: LuaValue| {
+            LuaValue::int(num.unwrap_int() + 1)
         });
         let value_cell = machine
             .global_values
-            .set("not_a_function", LuaValue::NativeFunction(function));
+            .set("not_a_function", LuaValue::native_function(function));
 
         let block_id = machine.code_blocks.add_top_level_block(CodeBlock {
             meta: CodeMeta {
@@ -1209,8 +1210,8 @@ mod test {
                 Ret,
             ],
         });
-        let res = call_block::<LuaValue>(block_id, &mut machine).unwrap();
-        assert_eq!(res, LuaValue::Int(69));
+        let res: LuaValue = call_block(block_id, &mut machine).unwrap();
+        assert_eq!(res, 69);
     }
 
     #[test]
@@ -1221,7 +1222,7 @@ mod test {
             NativeFunction::new(|| Result::<(), EvalError>::Err(EvalError::AssertionError(None)));
         let value_cell = machine
             .global_values
-            .set("not_a_function", LuaValue::NativeFunction(function));
+            .set("not_a_function", LuaValue::native_function(function));
 
         let block_id = machine.code_blocks.add_top_level_block(CodeBlock {
             meta: CodeMeta {
@@ -1276,8 +1277,8 @@ mod test {
 
         let top_level_block = machine.code_blocks.add_module(module);
 
-        let res = call_block::<LuaValue>(top_level_block, &mut machine).unwrap();
-        assert_eq!(res, LuaValue::Int(69));
+        let res: LuaValue = call_block(top_level_block, &mut machine).unwrap();
+        assert_eq!(res, 69);
     }
 
     #[test]
@@ -1344,7 +1345,7 @@ mod test {
             Ret
         ],
         post_condition: |machine: Machine| {
-            assert_eq!(register_of!(machine, RD0), LuaValue::Int(42));
+            assert_eq!(register_of!(machine, RD0), LuaValue::int(42));
             assert_eq!(register_of!(machine, RD1), LuaValue::NIL);
         }
     }
@@ -1389,8 +1390,8 @@ mod test {
 
         let top_level_block = machine.code_blocks.add_module(module);
 
-        let res = call_block::<LuaValue>(top_level_block, &mut machine).unwrap();
-        assert_eq!(res, LuaValue::Int(69));
+        let res: LuaValue = call_block(top_level_block, &mut machine).unwrap();
+        assert_eq!(res, 69);
     }
 
     test_instructions! {
@@ -1410,9 +1411,9 @@ mod test {
             Ret
         ],
         post_condition: |machine: Machine| {
-            assert_eq!(register_of!(machine, RD2), LuaValue::Int(1));
-            assert_eq!(register_of!(machine, RD3), LuaValue::Int(2));
-            assert_eq!(register_of!(machine, RD4), LuaValue::Int(3));
+            assert_eq!(register_of!(machine, RD2), 1);
+            assert_eq!(register_of!(machine, RD3), 2);
+            assert_eq!(register_of!(machine, RD4), 3);
         }
     }
 

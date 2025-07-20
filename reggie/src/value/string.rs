@@ -205,6 +205,12 @@ impl PartialEq for CompactString {
 
 impl Eq for CompactString {}
 
+impl PartialEq<&str> for CompactString {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_ref() == *other
+    }
+}
+
 impl PartialOrd for CompactString {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.as_ref().partial_cmp(other.as_ref())
