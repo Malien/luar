@@ -3,6 +3,7 @@
 #[macro_use]
 extern crate quickcheck_macros;
 
+pub(crate) mod call_stack;
 pub mod compiler;
 pub(crate) mod eq_with_nan;
 pub mod global_values;
@@ -14,7 +15,6 @@ pub(crate) mod optimizer;
 pub(crate) mod runtime;
 pub mod stdlib;
 pub mod value;
-pub(crate) mod call_stack;
 
 use compiler::CompiledModule;
 pub use global_values::GlobalValues;
@@ -85,7 +85,7 @@ pub fn call_block<'a, T: FromReturn<'a>>(
 #[cfg(feature = "trace-execution")]
 macro_rules! trace_execution {
     ($($fmt:expr),*) => {
-        println!($($fmt,)*);
+        eprintln!($($fmt,)*);
     };
 }
 
@@ -95,7 +95,3 @@ macro_rules! trace_execution {
     ($($fmt:expr),*) => {};
 }
 
-#[test]
-fn lua_value_is_still_16_bytes() {
-    assert_eq!(std::mem::size_of::<LuaValue>(), 16);
-}

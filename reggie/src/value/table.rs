@@ -1,5 +1,10 @@
 use crate::{LuaKey, LuaValue};
-use std::{borrow::Borrow, cell::{RefCell, RefMut}, collections::HashMap, hash::Hash, ops::Deref, ptr::NonNull, rc::Rc};
+use std::{
+    cell::{RefCell, RefMut},
+    collections::HashMap,
+    hash::Hash,
+    rc::Rc,
+};
 
 use super::LuaString;
 
@@ -116,18 +121,20 @@ impl TableValue {
 }
 
 #[repr(transparent)]
-pub struct UnownedTableRef<'a>(&'a mut RefCell<TableValue>);
+pub struct UnownedTableRef<'a>(pub &'a RefCell<TableValue>);
 
 impl UnownedTableRef<'_> {
-    /// SAFETY: Make sure the lifetime matches the scope
-    pub unsafe fn new(mut raw: NonNull<RefCell<TableValue>>) -> Self {
-        Self(unsafe { raw.as_mut() })
-    }
+    // /// SAFETY: Make sure the lifetime matches the scope
+    // pub unsafe fn new(mut raw: NonNull<RefCell<TableValue>>) -> Self {
+    //     Self(unsafe { raw.as_mut() })
+    // }
 
     pub fn to_owned(&self) -> TableRef {
-        TableRef(
-            unsafe { Rc::from_raw(self.0 as * const _) }
-        )
+        TableRef(unsafe {
+            let ptr = self.0 as *const _;
+            Rc::increment_strong_count(ptr);
+            Rc::from_raw(ptr)
+        })
     }
 
     pub fn borrow(&self) -> std::cell::Ref<'_, TableValue> {
@@ -137,15 +144,22 @@ impl UnownedTableRef<'_> {
     pub fn borrow_mut(&mut self) -> RefMut<'_, TableValue> {
         RefCell::borrow_mut(self.0)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.borrow().is_empty()
+    }
+
+    pub fn as_ptr(&self) -> *const RefCell<TableValue> {
+        self.0 as _
+    }
 }
 
-#[derive(Debug)]
 #[repr(transparent)]
 pub struct TableRef(pub(crate) Rc<RefCell<TableValue>>);
 
 impl TableRef {
-    pub fn as_ptr(&self) -> *const TableValue {
-        RefCell::as_ptr(self.0.as_ref())
+    pub fn as_ptr(&self) -> *const RefCell<TableValue> {
+        Rc::as_ptr(&self.0)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -171,7 +185,7 @@ impl TableRef {
     }
 
     pub fn get(&self, member: &LuaKey) -> LuaValue {
-        self.0.borrow().get(member).clone()
+        RefCell::borrow(&self.0).get(member).clone()
     }
 
     pub fn set(&mut self, member: LuaKey, value: LuaValue) {
@@ -181,6 +195,22 @@ impl TableRef {
     /// Construct a new empty table value and reference it
     pub fn new() -> Self {
         Self::from(TableValue::new())
+    }
+
+    pub fn as_unowned(&self) -> UnownedTableRef<'_> {
+        UnownedTableRef(self.0.as_ref())
+    }
+}
+
+impl std::fmt::Debug for UnownedTableRef<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.borrow().fmt(f)
+    }
+}
+
+impl std::fmt::Debug for TableRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.borrow().fmt(f)
     }
 }
 

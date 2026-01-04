@@ -2,9 +2,8 @@
 extern crate quickcheck_macros;
 
 use luar_lex::{NumberLiteral, StringLiteral, Token};
-use luar_string::lua_format;
 use quickcheck::TestResult;
-use reggie::{eval_module, eval_str, value::Strict, LuaError, LuaValue, Machine};
+use reggie::{LuaError, LuaValue, Machine, eval_module, eval_str, lua_format, value::Strict};
 
 mod assignment;
 mod boolean_ops;
@@ -37,7 +36,7 @@ fn eval_nil() -> Result<(), LuaError> {
     let mut machine = Machine::new();
     assert_eq!(
         eval_str::<Strict<LuaValue>>("return nil", &mut machine)?.0,
-        LuaValue::Nil
+        LuaValue::NIL
     );
     Ok(())
 }
@@ -64,7 +63,7 @@ fn eval_number_literal(num: f64) -> Result<TestResult, LuaError> {
 fn eval_string_literal(str: String) -> Result<(), LuaError> {
     use luar_syn::unspanned_lua_token_parser;
 
-    let expected_value = LuaValue::string(&str);
+    let expected_value = LuaValue::string(&*str);
     let module =
         unspanned_lua_token_parser::module([Token::Return, Token::String(StringLiteral(str))])?;
     let mut context = Machine::new();
@@ -77,7 +76,7 @@ fn eval_string_literal(str: String) -> Result<(), LuaError> {
 
 #[quickcheck]
 fn value_is_equal_to_itself(value: LuaValue) -> Result<TestResult, LuaError> {
-    if let LuaValue::Float(num) = value {
+    if let Some(num) = value.as_float() {
         if num.is_nan() {
             // NaN does not equal itself
             return Ok(TestResult::discard());
@@ -86,8 +85,8 @@ fn value_is_equal_to_itself(value: LuaValue) -> Result<TestResult, LuaError> {
 
     let mut machine = Machine::new();
     machine.global_values.set("value", value);
-    let res = eval_str("return value == value", &mut machine)?;
-    assert_eq!(LuaValue::true_value(), res);
+    let res: LuaValue = eval_str("return value == value", &mut machine)?;
+    assert_eq!(LuaValue::TRUE, res);
     Ok(TestResult::passed())
 }
 
@@ -97,7 +96,7 @@ fn different_values_do_not_equal_themselves(lhs: LuaValue, rhs: LuaValue) -> Res
     let mut machine = Machine::new();
     machine.global_values.set("lhs", lhs);
     machine.global_values.set("rhs", rhs);
-    let res = eval_str("return lhs == rhs", &mut machine)?;
+    let res: LuaValue = eval_str("return lhs == rhs", &mut machine)?;
     assert_eq!(expected, res);
     Ok(())
 }
@@ -107,8 +106,8 @@ fn not_equals_is_the_negation_of_equality(lhs: LuaValue, rhs: LuaValue) -> Resul
     let mut machine = Machine::new();
     machine.global_values.set("lhs", lhs);
     machine.global_values.set("rhs", rhs);
-    let res = eval_str("return (not (lhs ~= rhs)) == (lhs == rhs)", &mut machine)?;
-    assert_eq!(LuaValue::true_value(), res);
+    let res: LuaValue = eval_str("return (not (lhs ~= rhs)) == (lhs == rhs)", &mut machine)?;
+    assert_eq!(LuaValue::TRUE, res);
     Ok(())
 }
 
@@ -121,7 +120,7 @@ fn concat(lhs: LuaValue, rhs: LuaValue) {
     let res = eval_str::<LuaValue>("return lhs .. rhs", &mut machine);
     if let (Some(lhs), Some(rhs)) = (lhs.coerce_to_string(), rhs.coerce_to_string()) {
         let res = res.unwrap();
-        assert!(res.total_eq(&LuaValue::String(lua_format!("{lhs}{rhs}"))));
+        assert!(res.total_eq(&LuaValue::string(lua_format!("{lhs}{rhs}"))));
     } else {
         assert!(res.is_err());
     }

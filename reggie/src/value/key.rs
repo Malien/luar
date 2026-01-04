@@ -40,7 +40,7 @@ impl TryFrom<LuaValue> for LuaKey {
                 .map(Self::Float)
                 .ok_or(InvalidLuaKey::NaN),
             string str => Ok(Self::String(str)),
-            table table => Ok(Self::Table(table)),
+            table table => Ok(Self::Table(table.to_owned())),
             native_function func => Ok(Self::NativeFunction(func)),
             lua_function func => Ok(Self::Function(func)),
         }

@@ -1,11 +1,10 @@
 use crate::{
+    LuaString, LuaValue, NativeFunction, TableRef,
     ids::{BlockID, LocalRegisterID},
     machine::{CodeBlocks, DataType, ProgramCounter},
     meta::{CodeMeta, LocalRegCount},
-    LuaValue, NativeFunction, TableRef,
 };
-use enum_map::{enum_map, EnumMap};
-use luar_string::LuaString;
+use enum_map::{EnumMap, enum_map};
 use std::mem::{align_of, size_of, size_of_val};
 
 pub struct CallStack {
@@ -357,22 +356,39 @@ impl<'a, 'b> FrameHandle<'a, 'b> {
 
 #[cfg(test)]
 mod test {
-    use crate::{LuaValue, NativeFunction, TableRef};
-    use luar_string::LuaString;
+    use crate::{LuaString, LuaValue, NativeFunction, TableRef};
     use std::mem::size_of;
 
     #[test]
+    #[cfg(not(feature = "compact-value"))]
     fn zero_bit_initialized_lua_value_is_nil() {
         let zeros = [0u8; size_of::<LuaValue>()];
         let zero_value: LuaValue = unsafe { std::mem::transmute(zeros) };
-        assert_eq!(zero_value, LuaValue::Nil);
+        assert_eq!(zero_value, LuaValue::NIL);
     }
 
     #[test]
+    #[cfg(feature = "compact-value")]
+    fn zero_bit_initialized_lua_value_is_float_zero() {
+        let zeros = [0u8; size_of::<LuaValue>()];
+        let zero_value: LuaValue = unsafe { std::mem::transmute(zeros) };
+        assert_eq!(zero_value, LuaValue::float(0.0));
+    }
+
+    #[test]
+    #[cfg(not(feature = "compact-value"))]
     fn zero_bit_initialized_lua_string_is_empty() {
         let zeros = [0u8; size_of::<LuaString>()];
         let zero_value: LuaString = unsafe { std::mem::transmute(zeros) };
         assert_eq!(zero_value, "");
+    }
+
+    #[test]
+    #[cfg(feature = "compact-value")]
+    fn zero_bit_initialized_lua_string_is_none() {
+        let zeros = [0u8; size_of::<LuaString>()];
+        let zero_value: Option<LuaString> = unsafe { std::mem::transmute(zeros) };
+        assert_eq!(zero_value, None);
     }
 
     #[test]

@@ -5,13 +5,15 @@ use luar_lex::Ident;
 use luar_syn::lua_parser;
 use non_empty::NonEmptyVec;
 use quickcheck::TestResult;
-use reggie::{eval_module, LuaError, LuaValue, Machine, NativeFunction, Strict, TypeError, call_block, assert_type_error};
+use reggie::{
+    LuaError, LuaValue, Machine, Strict, TypeError, assert_type_error, call_block, eval_module,
+};
 
 #[test]
 fn eval_fn_call() -> Result<(), LuaError> {
     let module = lua_parser::module("myfn(42)")?;
     let called_with = Rc::new(RefCell::new(0));
-    let myfn = NativeFunction::new({
+    let myfn = LuaValue::function({
         let called_with = Rc::clone(&called_with);
         move |first_arg: LuaValue| {
             let mut called = called_with.borrow_mut();
@@ -19,9 +21,7 @@ fn eval_fn_call() -> Result<(), LuaError> {
         }
     });
     let mut machine = Machine::new();
-    machine
-        .global_values
-        .set("myfn", LuaValue::NativeFunction(myfn));
+    machine.global_values.set("myfn", myfn);
     eval_module::<Strict<()>>(&module, &mut machine)?;
     let called = called_with.borrow();
     assert_eq!(*called, 42);
@@ -32,13 +32,11 @@ fn eval_fn_call() -> Result<(), LuaError> {
 fn eval_fn_return(ret_value: LuaValue) -> Result<(), LuaError> {
     let module = lua_parser::module("return myfn()")?;
     let mut machine = Machine::new();
-    let myfn = NativeFunction::new({
+    let myfn = LuaValue::function({
         let ret_value = ret_value.clone();
         move || ret_value.clone()
     });
-    machine
-        .global_values
-        .set("myfn", LuaValue::NativeFunction(myfn));
+    machine.global_values.set("myfn", myfn);
     let Strict(res) = eval_module(&module, &mut machine)?;
     assert!(ret_value.total_eq(&res));
     Ok(())
@@ -63,13 +61,8 @@ fn eval_fn_call_multiple_returns(value1: LuaValue, value2: LuaValue) -> Result<(
     let module = lua_parser::module("return myfn()")?;
     let mut machine = Machine::new();
     let ret_values = (value1.clone(), value2.clone());
-    let myfn = NativeFunction::new({
-        let ret_values = ret_values.clone();
-        move || ret_values.clone()
-    });
-    machine
-        .global_values
-        .set("myfn", LuaValue::NativeFunction(myfn));
+    let myfn = LuaValue::function(move || ret_values.clone());
+    machine.global_values.set("myfn", myfn);
     let Strict((res1, res2)) =
         eval_module::<Strict<(&LuaValue, &LuaValue)>>(&module, &mut machine)?;
     assert!(res1.total_eq(&value1));
@@ -125,10 +118,11 @@ fn function_multiple_returns(values: NonEmptyVec<LuaValue>) -> Result<TestResult
     }
     let res = eval_module::<&[LuaValue]>(&module, &mut machine)?;
     assert!(res.len() == values.len().get());
-    assert!(res
-        .into_iter()
-        .zip(&values)
-        .all(|(lhs, rhs)| lhs.total_eq(rhs)));
+    assert!(
+        res.into_iter()
+            .zip(&values)
+            .all(|(lhs, rhs)| lhs.total_eq(rhs))
+    );
     Ok(TestResult::passed())
 }
 
@@ -163,7 +157,7 @@ fn arguments_passed_in_are_defined_as_local_variables_inside_fn(
     let Strict((func_return, arg)) =
         eval_module::<Strict<(&LuaValue, &LuaValue)>>(&module, &mut machine)?;
     assert!(func_return.total_eq(&value));
-    assert_eq!(arg, &LuaValue::Nil);
+    assert_eq!(arg, &LuaValue::NIL);
     Ok(())
 }
 
@@ -179,10 +173,10 @@ fn not_passed_arguments_are_set_to_nil() -> Result<(), LuaError> {
     let Strict(res) =
         eval_module::<Strict<(&LuaValue, &LuaValue, &LuaValue, &LuaValue)>>(&module, &mut machine)?;
     let expected = (
-        &LuaValue::Int(1),
-        &LuaValue::Int(2),
-        &LuaValue::Nil,
-        &LuaValue::Nil,
+        &LuaValue::int(1),
+        &LuaValue::int(2),
+        &LuaValue::NIL,
+        &LuaValue::NIL,
     );
     assert_eq!(res, expected);
     Ok(())
@@ -198,7 +192,7 @@ fn passing_more_arguments_than_stated_just_gets_arglist_truncated() -> Result<()
     )?;
     let mut machine = Machine::new();
     let Strict(res) = eval_module::<Strict<(&LuaValue, &LuaValue)>>(&module, &mut machine)?;
-    let expected = (&LuaValue::Int(1), &LuaValue::Int(2));
+    let expected = (&LuaValue::int(1), &LuaValue::int(2));
     assert_eq!(res, expected);
     Ok(())
 }
@@ -230,10 +224,11 @@ fn multiple_return_is_propagated() -> Result<(), LuaError> {
     for (func, expected) in expectations {
         let block_id = machine.global_values.get(func).unwrap_lua_function();
         let res = call_block::<&[LuaValue]>(block_id, &mut machine)?;
-        assert!(res
-            .into_iter()
-            .map(LuaValue::unwrap_int)
-            .eq(expected.into_iter().cloned()));
+        assert!(
+            res.into_iter()
+                .map(LuaValue::unwrap_int)
+                .eq(expected.into_iter().cloned())
+        );
     }
 
     Ok(())

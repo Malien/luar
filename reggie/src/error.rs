@@ -33,7 +33,7 @@ pub enum EvalError {
     TypeError(#[source] Box<TypeError>),
     AssertionError(Option<LuaString>),
     IO(#[from] std::io::Error),
-    Utf8Error,
+Utf8Error,
 }
 
 impl fmt::Display for EvalError {
@@ -246,5 +246,21 @@ macro_rules! assert_type_error {
         } else {
             panic!("Unexpected result type");
         }
+    };
+}
+
+#[macro_export]
+macro_rules! match_type_error {
+    (let $pattern:pat = $value:expr; $($rest:tt)*) => {
+        if let ::std::result::Result::Err($crate::EvalError::TypeError(err)) = $value {
+            if let $pattern = err.as_ref() {
+                $($rest)*
+            } else {
+                panic!("Unexpected result type")
+            }
+        } else {
+            panic!("Unexpected result type")
+        }
+        
     };
 }

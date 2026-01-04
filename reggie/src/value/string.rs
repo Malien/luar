@@ -1,13 +1,20 @@
-
 // #[repr(transparent)]
 // struct CompactString(NonZeroU64);
 
-use std::{alloc::{alloc, handle_alloc_error, Layout}, fmt, hash::Hash, marker::PhantomData, ops::Deref, ptr::NonNull, slice};
+use std::{
+    alloc::{Layout, alloc, handle_alloc_error},
+    fmt,
+    hash::Hash,
+    marker::PhantomData,
+    ops::Deref,
+    ptr::NonNull,
+    slice,
+};
 
 pub(crate) struct StringHeader {
     len: u32,
     refcount: u32,
-    _unused: PhantomData<*const()>,
+    _unused: PhantomData<*const ()>,
 }
 
 /// A simple wrapper around a raw pointer. Does not manages it's lifetime.
@@ -20,7 +27,10 @@ impl SharedStringPtr {
     pub(crate) fn alloc_and_copy(str: &str) -> Self {
         // SAFETY: I mean. There is a lot to unpack here. I don't really want to.
         unsafe {
-            let len = str.len().try_into().expect("Strings cannot exceed the length of u32::MAX bytes");
+            let len = str
+                .len()
+                .try_into()
+                .expect("Strings cannot exceed the length of u32::MAX bytes");
 
             let block = alloc(Self::layout(len));
             #[cfg(feature = "trace-allocation")]
@@ -42,7 +52,11 @@ impl SharedStringPtr {
     /// SAFETY: Make sure that the lifetime of the string block is greater than the desired lifetime
     pub(crate) unsafe fn str_ref<'a>(self) -> &'a str {
         unsafe {
-            let data_ptr = self.0.cast::<u8>().as_ptr().byte_add(size_of::<StringHeader>()) as *const _;
+            let data_ptr = self
+                .0
+                .cast::<u8>()
+                .as_ptr()
+                .byte_add(size_of::<StringHeader>()) as *const _;
             let slice = slice::from_raw_parts(data_ptr, self.0.as_ref().len as usize);
             std::str::from_utf8_unchecked(slice)
         }
@@ -52,16 +66,17 @@ impl SharedStringPtr {
     pub(crate) unsafe fn release(mut self) {
         let header = unsafe { self.0.as_mut() };
         #[cfg(feature = "trace-allocation")]
-        eprintln!("[shared string] Release at {:p}. Refcount: {}", self.0.as_ptr(), header.refcount);
+        eprintln!(
+            "[shared string] Release at {:p}. Refcount: {}",
+            self.0.as_ptr(),
+            header.refcount
+        );
         if header.refcount == 0 {
             #[cfg(feature = "trace-allocation")]
             eprintln!("[shared string] Dealloc at {:p}", self.0.as_ptr());
             unsafe {
                 // No need to call Drop, since StrBlock is trivially dropable.
-                std::alloc::dealloc(
-                    self.0.as_ptr() as *mut u8,
-                    Self::layout(header.len)
-                );
+                std::alloc::dealloc(self.0.as_ptr() as *mut u8, Self::layout(header.len));
             }
         } else {
             header.refcount -= 1;
@@ -71,7 +86,11 @@ impl SharedStringPtr {
     /// SAFETY: Make sure that the pointer is valid
     pub(crate) unsafe fn retain(mut self) {
         #[cfg(feature = "trace-allocation")]
-        eprintln!("[shared string] Retain at {:p}. Refcount: {}", self.0.as_ptr(), self.0.as_ref().refcount);
+        eprintln!(
+            "[shared string] Retain at {:p}. Refcount: {}",
+            self.0.as_ptr(),
+            self.0.as_ref().refcount
+        );
         let header = unsafe { self.0.as_mut() };
         let (refcount, did_overflow) = header.refcount.overflowing_add(1);
         assert!(!did_overflow);
@@ -83,6 +102,7 @@ impl SharedStringPtr {
         unsafe { self.0.as_ref().refcount }
     }
 
+    /// SAFETY: Make sure that the pointer is valid
     pub(crate) unsafe fn len(self) -> u32 {
         unsafe { self.0.as_ref().len }
     }
@@ -128,7 +148,6 @@ impl CompactString {
         std::mem::forget(self);
         ptr
     }
-
 }
 
 impl AsRef<str> for CompactString {
@@ -138,27 +157,9 @@ impl AsRef<str> for CompactString {
     }
 }
 
-#[repr(transparent)]
-struct UnsafeGlobalAllocation(StringHeader);
-unsafe impl Sync for UnsafeGlobalAllocation {}
-
-static EMPTY_STRING_ALLOCATION: UnsafeGlobalAllocation = UnsafeGlobalAllocation(StringHeader {
-    len: 0,
-    // There is a race condition here. Even though LuaString is not Sync, one could create two
-    // empty strings in two threads at the same time, and both would try to change the count.
-    //
-    // This would be fixed by interning and/or small string optimization.
-    // TODO: SSO
-    refcount: 1,
-    _unused: PhantomData,
-});
-
 impl Default for CompactString {
     fn default() -> Self {
-        let ptr = &EMPTY_STRING_ALLOCATION.0 as *const StringHeader as *mut _;
-        let ptr = unsafe { NonNull::new_unchecked(ptr) };
-        let ptr = SharedStringPtr(ptr);
-        Self(ptr)
+        Self::from("")
     }
 }
 
@@ -235,6 +236,18 @@ impl From<&str> for CompactString {
     }
 }
 
+impl From<String> for CompactString {
+    fn from(str: String) -> Self {
+        Self::new(&*str)
+    }
+}
+
+impl From<&String> for CompactString {
+    fn from(str: &String) -> Self {
+        Self::new(&*str)
+    }
+}
+
 #[cfg(feature = "quickcheck")]
 impl quickcheck::Arbitrary for CompactString {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
@@ -252,6 +265,7 @@ impl quickcheck::Arbitrary for CompactString {
     }
 }
 
+#[macro_export]
 macro_rules! compact_format {
     ($($t:expr),*) => {
         {
@@ -261,4 +275,31 @@ macro_rules! compact_format {
     }
 }
 
-pub(crate) use compact_format;
+pub use compact_format;
+
+#[cfg(test)]
+mod tests {
+    use crate::value::string::CompactString;
+    use quickcheck;
+
+    #[cfg(feature = "quickcheck")]
+    #[quickcheck]
+    fn alloc_and_dealloc(str: String) {
+        let lua_str = CompactString::new(str);
+        assert_eq!(lua_str.refcount(), 1);
+        drop(lua_str);
+    }
+
+    #[cfg(feature = "quickcheck")]
+    #[quickcheck]
+    fn alloc_copy_and_drop(str: String) {
+        let lua_str = CompactString::new(str);
+        assert_eq!(lua_str.refcount(), 1);
+        let clone = lua_str.clone();
+        assert_eq!(lua_str.refcount(), 2);
+        assert_eq!(clone.refcount(), 2);
+        drop(lua_str);
+        assert_eq!(clone.refcount(), 1);
+        drop(clone);
+    }
+}

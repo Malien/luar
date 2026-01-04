@@ -7,10 +7,9 @@ use super::{
 use crate::{
     ids::ArgumentRegisterID,
     machine::DataType,
-    meta::{self, ReturnCount},
+    meta::{self, ReturnCount}, LuaString,
 };
 use keyed_vec::KeyedVec;
-use luar_string::LuaString;
 use std::{collections::HashMap, num::NonZeroU16};
 
 pub(crate) mod assignment;

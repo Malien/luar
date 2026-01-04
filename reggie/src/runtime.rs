@@ -1,11 +1,11 @@
 use super::{
+    ArithmeticError, EvalError, InvalidLuaKey, LuaKey, LuaValue, NativeFunction, TableRef,
+    TableValue, TypeError,
     ids::{ArgumentRegisterID, LocalRegisterID},
     machine::{Machine, ProgramCounter, TestFlag},
     ops::Instruction,
-    ArithmeticError, EvalError, InvalidLuaKey, LuaKey, LuaValue, NativeFunction, TableRef,
-    TableValue, TypeError,
 };
-use crate::{ids::BlockID, trace_execution, ArithmeticOperator};
+use crate::{ArithmeticOperator, ids::BlockID, trace_execution};
 use std::cmp::Ordering;
 
 macro_rules! register_of {
@@ -397,7 +397,7 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                 *position += 1;
             }
             Instruction::CastT => {
-                machine.test_flag = if let Some(table) = register!(AD).as_table_ref() {
+                machine.test_flag = if let Some(table) = register!(AD).as_table() {
                     register!(AT) = Some(table.to_owned());
                     TestFlag::EQ
                 } else {
@@ -409,19 +409,19 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                 return Err(EvalError::from(TypeError::CannotAccessProperty {
                     property: register!(AS).clone(),
                     of: std::mem::replace(&mut register!(AD), LuaValue::NIL),
-                }))
+                }));
             }
             Instruction::TableMemberLookupErrorR(reg) => {
                 return Err(EvalError::from(TypeError::CannotAccessMember {
                     member: std::mem::replace(&mut register!(RD, reg), LuaValue::NIL),
                     of: std::mem::replace(&mut register!(AD), LuaValue::NIL),
-                }))
+                }));
             }
             Instruction::TableMemberLookupErrorL(reg) => {
                 return Err(EvalError::from(TypeError::CannotAccessMember {
                     member: std::mem::replace(&mut register!(LD, reg), LuaValue::NIL),
                     of: std::mem::replace(&mut register!(AD), LuaValue::NIL),
-                }))
+                }));
             }
             Instruction::WrapT => {
                 register!(AD) = LuaValue::table(register!(AT).as_ref().unwrap().clone());
@@ -468,10 +468,10 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                 let key = match LuaKey::try_from(register!(AD).clone()) {
                     Ok(key) => key,
                     Err(InvalidLuaKey::Nil) => {
-                        return Err(EvalError::from(TypeError::NilAssign(value)))
+                        return Err(EvalError::from(TypeError::NilAssign(value)));
                     }
                     Err(InvalidLuaKey::NaN) => {
-                        return Err(EvalError::from(TypeError::NaNAssign(value)))
+                        return Err(EvalError::from(TypeError::NaNAssign(value)));
                     }
                 };
                 register!(AT).as_mut().unwrap().set(key, value);
@@ -482,10 +482,10 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                 let key = match LuaKey::try_from(register!(AD).clone()) {
                     Ok(key) => key,
                     Err(InvalidLuaKey::Nil) => {
-                        return Err(EvalError::from(TypeError::NilAssign(value)))
+                        return Err(EvalError::from(TypeError::NilAssign(value)));
                     }
                     Err(InvalidLuaKey::NaN) => {
-                        return Err(EvalError::from(TypeError::NaNAssign(value)))
+                        return Err(EvalError::from(TypeError::NaNAssign(value)));
                     }
                 };
                 register!(AT).as_mut().unwrap().set(key, value);
@@ -495,19 +495,19 @@ pub(crate) fn execute(machine: &mut Machine, block_id: BlockID) -> Result<(), Ev
                 return Err(EvalError::from(TypeError::CannotAssignProperty {
                     property: register!(AS).clone(),
                     of: std::mem::replace(&mut register!(AD), LuaValue::NIL),
-                }))
+                }));
             }
             Instruction::TableMemberAssignErrorR(reg) => {
                 return Err(EvalError::from(TypeError::CannotAssignMember {
                     member: std::mem::replace(&mut register!(RD, reg), LuaValue::NIL),
                     of: std::mem::replace(&mut register!(AD), LuaValue::NIL),
-                }))
+                }));
             }
             Instruction::TableMemberAssignErrorL(reg) => {
                 return Err(EvalError::from(TypeError::CannotAssignMember {
                     member: std::mem::replace(&mut register!(LD, reg), LuaValue::NIL),
                     of: std::mem::replace(&mut register!(AD), LuaValue::NIL),
-                }))
+                }));
             }
             Instruction::NegD => {
                 register!(AD) = neg_dyn_accumulator(&register!(AD))?;
@@ -658,9 +658,7 @@ fn neg_dyn_accumulator(accumulator: &LuaValue) -> Result<LuaValue, EvalError> {
         Ok(LuaValue::float(-float))
     } else if let Some(str) = accumulator.as_str() {
         match str.parse::<f64>() {
-            Ok(value) => {
-                Ok(LuaValue::float(-value))
-            }
+            Ok(value) => Ok(LuaValue::float(-value)),
             Err(_) => Err(EvalError::from(TypeError::Arithmetic(
                 ArithmeticError::UnaryMinus(accumulator.clone()),
             ))),
@@ -679,7 +677,9 @@ fn sub_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
         } else if let Some(rhs_float) = rhs.coerce_to_f64() {
             return Ok(LuaValue::float(lhs_int as f64 - rhs_float));
         }
-    } else if let Some(lhs_float) = lhs.coerce_to_f64() && let Some(rhs_float) = rhs.coerce_to_f64() {
+    } else if let Some(lhs_float) = lhs.coerce_to_f64()
+        && let Some(rhs_float) = rhs.coerce_to_f64()
+    {
         return Ok(LuaValue::float(lhs_float - rhs_float));
     }
 
@@ -687,7 +687,7 @@ fn sub_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
         lhs: lhs.clone(),
         rhs: rhs.clone(),
         op: ArithmeticOperator::Sub,
-    }))
+    }));
 }
 
 fn add_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
@@ -697,7 +697,9 @@ fn add_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
         } else if let Some(rhs_float) = rhs.coerce_to_f64() {
             return Ok(LuaValue::float(lhs_int as f64 + rhs_float));
         }
-    } else if let Some(lhs_float) = lhs.coerce_to_f64() && let Some(rhs_float) = rhs.coerce_to_f64() {
+    } else if let Some(lhs_float) = lhs.coerce_to_f64()
+        && let Some(rhs_float) = rhs.coerce_to_f64()
+    {
         return Ok(LuaValue::float(lhs_float + rhs_float));
     }
 
@@ -705,7 +707,7 @@ fn add_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
         lhs: lhs.clone(),
         rhs: rhs.clone(),
         op: ArithmeticOperator::Add,
-    }))
+    }));
 }
 
 fn div_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
@@ -727,7 +729,9 @@ fn mul_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
         } else if let Some(rhs_float) = rhs.coerce_to_f64() {
             return Ok(LuaValue::float(lhs_int as f64 * rhs_float));
         }
-    } else if let Some(lhs_float) = lhs.coerce_to_f64() && let Some(rhs_float) = rhs.coerce_to_f64() {
+    } else if let Some(lhs_float) = lhs.coerce_to_f64()
+        && let Some(rhs_float) = rhs.coerce_to_f64()
+    {
         return Ok(LuaValue::float(lhs_float * rhs_float));
     }
 
@@ -735,9 +739,8 @@ fn mul_dyn(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
         lhs: lhs.clone(),
         rhs: rhs.clone(),
         op: ArithmeticOperator::Mul,
-    }))
+    }));
 }
-
 
 fn dyn_concat(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
     macro_rules! dyn_concat_of {
@@ -764,7 +767,7 @@ fn dyn_concat(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
         (as_float, as_int),
         (as_float, as_float),
     }
-    .map(LuaValue::string)
+    .map(|str| LuaValue::string(&*str))
     .ok_or_else(|| TypeError::StringConcat {
         lhs: lhs.clone(),
         rhs: rhs.clone(),
@@ -774,16 +777,15 @@ fn dyn_concat(lhs: &LuaValue, rhs: &LuaValue) -> Result<LuaValue, TypeError> {
 #[cfg(test)]
 mod test {
     use crate::{
-        call_block,
+        EvalError, LuaValue, NativeFunction, Strict, TypeError, call_block,
         compiler::CompiledModule,
         ids::{ArgumentRegisterID, JmpLabel, LocalBlockID, LocalRegisterID, StringID},
         machine::{
             CodeBlock, Machine,
             TestFlag::{self, *},
         },
-        meta::{reg_count, CodeMeta, LocalRegCount},
+        meta::{CodeMeta, LocalRegCount, reg_count},
         ops::Instruction::{self, *},
-        EvalError, LuaValue, NativeFunction, Strict, TypeError,
     };
     use keyed_vec::keyed_vec;
     use ntest::timeout;
@@ -1186,9 +1188,7 @@ mod test {
     fn d_call_native_function() {
         let mut machine = Machine::new();
 
-        let function = NativeFunction::new(|num: LuaValue| {
-            LuaValue::int(num.unwrap_int() + 1)
-        });
+        let function = NativeFunction::new(|num: LuaValue| LuaValue::int(num.unwrap_int() + 1));
         let value_cell = machine
             .global_values
             .set("not_a_function", LuaValue::native_function(function));

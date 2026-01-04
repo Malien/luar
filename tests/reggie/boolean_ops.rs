@@ -22,7 +22,7 @@ fn eval_and_falsy(rhs: LuaValue) -> Result<(), LuaError> {
     let mut machine = Machine::new();
     machine.global_values.set("rhs", rhs.clone());
     let res: LuaValue = eval_module(&module, &mut machine)?;
-    assert_eq!(res, LuaValue::Nil);
+    assert_eq!(res, LuaValue::NIL);
     Ok(())
 }
 

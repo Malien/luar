@@ -8,7 +8,7 @@ use reggie::{eval_module, GlobalValues, LuaError, LuaValue, Machine, Strict};
 fn eval_single_assignment(ident: Ident, v1: LuaValue, v2: LuaValue) -> Result<(), LuaError> {
     let module = lua_parser::module(&format!("{} = value", ident))?;
     let mut machine = Machine::new();
-    assert_eq!(machine.global_values.get(&ident), &LuaValue::Nil);
+    assert_eq!(machine.global_values.get(&ident), &LuaValue::NIL);
     machine.global_values.set("value", v1.clone());
     eval_module::<()>(&module, &mut machine)?;
     assert!(machine.global_values.get(&ident).total_eq(&v1));
@@ -53,7 +53,7 @@ fn assign_values(
 fn assert_multiple_assignment(global: &GlobalValues, idents: Vec<Ident>, values: Vec<LuaValue>) {
     if idents.len() > values.len() {
         for ident in &idents[values.len()..] {
-            assert_eq!(global.get(ident), &LuaValue::Nil);
+            assert_eq!(global.get(ident), &LuaValue::NIL);
         }
     }
 
@@ -65,7 +65,7 @@ fn assert_multiple_assignment(global: &GlobalValues, idents: Vec<Ident>, values:
 
 fn put_dummy_values<'a>(values: &mut GlobalValues, idents: impl IntoIterator<Item = &'a Ident>) {
     for ident in idents {
-        values.set(ident.clone(), LuaValue::Int(42));
+        values.set(ident.clone(), LuaValue::int(42));
     }
 }
 

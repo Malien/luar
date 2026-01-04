@@ -1,5 +1,7 @@
 set -e
 
+cargo c --tests --features quickcheck
+
 cd lex
 cargo t --features quickcheck
 cd ..

@@ -1,9 +1,10 @@
 use std::{
     cmp::{max, min},
-    io::{self, Write}, rc::Rc,
+    io::{self, Write},
+    rc::Rc,
 };
 
-use crate::{lmatch, trace_execution, EvalError, ExpectedType, GlobalValues, LuaValue, TypeError};
+use crate::{EvalError, ExpectedType, GlobalValues, LuaValue, TypeError, lmatch, trace_execution};
 
 pub fn assert(value: LuaValue, message: LuaValue) -> Result<(), EvalError> {
     trace_execution!("assert({:?}, {:?})", value, message);
@@ -32,13 +33,13 @@ pub fn floor(value: &LuaValue) -> Result<LuaValue, TypeError> {
         Ok(LuaValue::int(int))
     } else if let Some(float) = value.as_float() {
         Ok(LuaValue::float(float.floor()))
-    } else if let Some(string) = value.as_string() {
-        match string.as_ref().parse::<f64>() {
+    } else if let Some(string) = value.as_str() {
+        match string.parse::<f64>() {
             Ok(float) => Ok(LuaValue::float(float.floor())),
             Err(_) => Err(TypeError::ArgumentType {
                 position: 0,
                 expected: ExpectedType::Number,
-                got: LuaValue::from_compact_string(string),
+                got: LuaValue::string(string),
             }),
         }
     } else {
@@ -80,7 +81,7 @@ pub fn random() -> LuaValue {
 }
 
 pub fn lua_type(value: &LuaValue) -> LuaValue {
-    lmatch! { value;
+    lmatch! { &value;
         nil => LuaValue::string("nil"),
         int _ => LuaValue::string("number"),
         float _ => LuaValue::string("number"),
@@ -93,7 +94,12 @@ pub fn lua_type(value: &LuaValue) -> LuaValue {
 
 pub fn strlen(value: &LuaValue) -> Result<LuaValue, TypeError> {
     if let Some(string) = value.as_str() {
-        Ok(LuaValue::int(string.len().try_into().expect("String length exceeds i32 range")))
+        Ok(LuaValue::int(
+            string
+                .len()
+                .try_into()
+                .expect("string length cannot exceed i32"),
+        ))
     } else if let Some(int) = value.as_int() {
         Ok(LuaValue::int(format!("{}", int).len() as i32))
     } else if let Some(float) = value.as_float() {
@@ -159,7 +165,7 @@ fn print_repr(writer: &mut impl Write, value: &LuaValue) -> Result<(), io::Error
         nil => writer.write_all("nil".as_bytes()).map(|_| ()),
         int num => write!(writer, "{num}"),
         float num => write!(writer, "{num}"),
-        string ref str => writer.write_all(str.as_bytes()).map(|_| ()),
+        string str => writer.write_all(str.as_bytes()).map(|_| ()),
         table table => write!(writer, "table: {:p}", table.as_ptr()),
         native_function func => write!(writer, "function: {:p}", Rc::as_ptr(&func.0)),
         lua_function func => write!(writer, "function: {func:?}"),
@@ -226,7 +232,7 @@ mod test {
     #[quickcheck]
     fn floor_floor_numbers(num: f64) {
         use crate::eq_with_nan::eq_with_nan;
-        use luar_string::lua_format;
+        use crate::lua_format;
 
         let res = floor(&LuaValue::float(num)).unwrap();
 
@@ -240,7 +246,7 @@ mod test {
     #[quickcheck]
     fn printing_string_prints_its_value(str: String) {
         let mut buf = Cursor::new(Vec::new());
-        print(&mut buf, &[LuaValue::string(&str)]).unwrap();
+        print(&mut buf, &[LuaValue::string(&*str)]).unwrap();
         let res = String::from_utf8(buf.into_inner()).unwrap();
         assert_eq!(res, format!("{}\n", str));
     }
@@ -302,7 +308,7 @@ mod test {
     #[quickcheck]
     fn strlen_returns_the_number_of_bytes_in_a_string(str: luar_string::LuaString) {
         let len = str.len();
-        let res = strlen(&LuaValue::string(str)).unwrap();
+        let res = strlen(&LuaValue::string(&*str)).unwrap();
         assert_eq!(res, LuaValue::int(len as i32));
     }
 
@@ -347,7 +353,7 @@ mod test {
         let expected_suffix = LuaValue::string(&str[suffix_start..]);
 
         let res = strsub(
-            &LuaValue::string(str),
+            &LuaValue::string(&*str),
             &LuaValue::int(start as i32),
             &LuaValue::NIL,
         );
@@ -361,7 +367,14 @@ mod test {
             return;
         }
         if let Some(end) = end {
-            assert!(dbg!(strsub(&value, &LuaValue::int(start as i32), &LuaValue::int(end as i32))).is_err());
+            assert!(
+                dbg!(strsub(
+                    &value,
+                    &LuaValue::int(start as i32),
+                    &LuaValue::int(end as i32)
+                ))
+                .is_err()
+            );
         } else {
             assert!(strsub(&value, &LuaValue::int(start as i32), &LuaValue::NIL).is_err());
         }

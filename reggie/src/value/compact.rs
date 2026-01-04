@@ -1,6 +1,6 @@
-use std::{cell::{Ref, RefCell}, fmt, ptr::NonNull, rc::Rc};
+use std::{cell::RefCell, fmt, ptr::NonNull, rc::Rc};
 
-use crate::{eq_with_nan::eq_with_nan, ids::BlockID, LuaValue, NativeFunction, NativeFunctionKind, TableRef, TableValue};
+use crate::{eq_with_nan::eq_with_nan, ids::BlockID, NativeFunction, NativeFunctionKind, TableRef, TableValue};
 
 use super::{lua_format, string::{CompactString, SharedStringPtr}, FFIFunc, FromArgs, LuaString, UnownedTableRef};
 
@@ -30,7 +30,7 @@ use super::{lua_format, string::{CompactString, SharedStringPtr}, FFIFunc, FromA
 pub struct CompactLuaValue(u64);
 
 // We can be able to pack pointers into 48 bits on:
-//   - aarch64 without pointer signings
+//   - aarch64 without pointer signing (PAC)
 //   - x86-64 macos malloc'd heap pointers
 //   - x86-64 linux glibc malloc'd heap pointers
 // The current list is just the platforms I have (kinda) tested.
@@ -40,14 +40,15 @@ const fn is_compatible_with_48bit_pointers() -> bool {
     cfg!(all(target_os = "linux", target_arch = "x86_64")) ||
     cfg!(all(target_os = "macos", target_arch = "aarch64"))
 }
-const _: () = assert!(is_compatible_with_48bit_pointers(), "Compact Lua values (compact_value feature) are only supported on 64-bit x86 macos. For now.");
+const _: () = assert!(is_compatible_with_48bit_pointers(), "Compact Lua values (compact-value feature) are only supported on aarch64-apple-darwing, x86_64-apple-darwin, and x86_64-unknown-linux-gnu. For now.");
 
 
 #[repr(u8)]
 /// Tags values that are not floats nor small strings. Should fit in three bits.
-/// Cannot be all zeros, since that would be a IEE754 inf, not signaling NaN
+/// Together with the 48-bit payload cannot be all zeros, since that would be a 
+/// IEE754 inf, not signaling NaN.
 enum Tag {
-    Table          = 0b000,
+    Table          = 0b000, // table pointers are never null
     Nil            = 0b001,
     Int            = 0b010,
     Function       = 0b100,
@@ -198,33 +199,20 @@ impl CompactLuaValue {
         }
     }
 
-    pub fn as_table(&self) -> Option<TableRef> {
-        // SAFETY: the ptr is a valid pointer since the encoded one was valid and the
-        //         decoding masked out float stuff, and brought it back to being a valid pointer.
-        //         Every acess to the Rc::from_raw is preceeded with Rc::increment_strong_count.
-        //         As a result, we give out properly refcounted table refs.
-        self.as_table_ptr().map(|ptr| unsafe {
-            let ptr = ptr.as_ptr();
-            Rc::increment_strong_count(ptr);
-            TableRef(Rc::from_raw(ptr))
-        })
-    }
-
-    pub fn as_table_ref(&self) -> Option<UnownedTableRef<'_>> {
-        self.as_table_ptr().map(|ptr| unsafe {
+    pub fn as_table(&self) -> Option<UnownedTableRef<'_>> {
+        if self.is_table() {
             // SAFETY: the pointer is valid, since we checked it above
             //         and the lifetime of the returned reference is shorter than self
-            UnownedTableRef::new(ptr)
-        })
+            Some(UnownedTableRef(unsafe { 
+                self.decode_pointer().cast().as_ref()
+            }))
+        } else {
+            None
+        }
     }
 
-    pub fn string(str: impl AsRef<str>) -> Self {
-        Self::from_shared_string_ptr(SharedStringPtr::alloc_and_copy(str.as_ref()))
-    }
-
-    /// More efficient transformation than going through AsRef<str>
-    pub fn from_compact_string(str: CompactString) -> Self {
-        Self::from_shared_string_ptr(str.leak())
+    pub fn string(str: impl Into<CompactString>) -> Self {
+        Self::from_shared_string_ptr(str.into().leak())
     }
 
     fn from_shared_string_ptr(ptr: SharedStringPtr) -> Self {
@@ -405,7 +393,7 @@ impl CompactLuaValue {
         } else if let Some(lhs) = self.as_str() && let Some(rhs) = other.as_str() {
             lhs == rhs
         } else if let Some(lhs) = self.as_table() && let Some(rhs) = other.as_table() {
-            lhs == rhs
+            lhs.borrow().total_eq(&rhs.borrow())
         } else if let Some(lhs) = self.as_native_function() && let Some(rhs) = other.as_native_function() {
             lhs == rhs
         } else if let Some(lhs) = self.as_lua_function() && let Some(rhs) = other.as_lua_function() {
@@ -457,6 +445,7 @@ impl Clone for CompactLuaValue {
     }
 }
 
+#[macro_export]
 macro_rules! lmatch {
     (
         $value:expr; 
@@ -521,7 +510,7 @@ macro_rules! lmatch {
     };
 }
 
-pub(crate) use lmatch;
+pub use lmatch;
 
 impl fmt::Debug for CompactLuaValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -581,7 +570,7 @@ impl PartialEq for CompactLuaValue {
         } else if let Some(lhs) = self.as_str() && let Some(rhs) = other.as_str() {
             lhs == rhs
         } else if let Some(lhs) = self.as_table() && let Some(rhs) = other.as_table() {
-            lhs == rhs
+            lhs.borrow().eq(&*rhs.borrow())
         } else if let Some(lhs) = self.as_native_function() && let Some(rhs) = other.as_native_function() {
             lhs == rhs
         } else if let Some(lhs) = self.as_lua_function() && let Some(rhs) = other.as_lua_function() {
@@ -594,25 +583,24 @@ impl PartialEq for CompactLuaValue {
 
 impl PartialOrd for CompactLuaValue {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        if let Some(lhs_int) = self.as_int() {
-            if let Some(rhs_int) = other.as_int() {
-                return lhs_int.partial_cmp(&rhs_int);
-            }
-            if let Some(rhs_float) = other.as_float() {
-                return (lhs_int as f64).partial_cmp(&rhs_float);
-            }
-        } else if let Some(lhs_float) = self.as_float() {
-            if let Some(rhs_float) = other.as_float() {
-                return lhs_float.partial_cmp(&rhs_float);
-            }
-            if let Some(rhs_int) = other.as_int() {
-                return lhs_float.partial_cmp(&(rhs_int as f64));
-            }
-        } else if let Some(lhs_str) = self.as_str() && let Some(rhs_str) = self.as_str() {
-            return lhs_str.partial_cmp(rhs_str);
-        } 
-
-        return None;
+        if let Some(lhs) = self.as_int() && let Some(rhs) = other.as_int() {
+            // Both are ints
+            lhs.partial_cmp(&rhs)
+        } else if let Some(lhs) = self.as_float() && let Some(rhs) = other.as_float() {
+            // Both are floats
+            lhs.partial_cmp(&rhs)
+        } else if let Some(lhs) = self.as_str() && let Some(rhs) = other.as_str() {
+            // Both are strings
+            lhs.partial_cmp(&rhs)
+        } else if let Some(lhs) = self.as_int() && let Some(rhs) = other.as_float() {
+            // coerce self from int to float
+            (lhs as f64).partial_cmp(&rhs)
+        } else if let Some(lhs) = self.as_float() && let Some(rhs) = other.as_int() {
+            // coerce other from int to float
+            lhs.partial_cmp(&(rhs as f64))
+        } else {
+            None
+        }
     }
 }
 
@@ -654,7 +642,7 @@ impl quickcheck::Arbitrary for CompactLuaValue {
             0 => Self::NIL,
             1 => Self::int(with_thread_gen(i32::arbitrary)),
             2 => Self::float(with_thread_gen(f64::arbitrary)),
-            3 => Self::string(with_thread_gen(String::arbitrary)),
+            3 => Self::string(with_thread_gen(String::arbitrary).as_str()),
             4 => Self::table(TableRef::arbitrary(&mut g.next_iter())),
             5 => Self::function(|| {}),
             _ => unreachable!(),
@@ -665,19 +653,19 @@ impl quickcheck::Arbitrary for CompactLuaValue {
         lmatch! { self;
             nil => quickcheck::empty_shrinker(),
             int int => {
-                Box::new(std::iter::once(LuaValue::NIL).chain(int.shrink().map(LuaValue::int)))
+                Box::new(std::iter::once(Self::NIL).chain(int.shrink().map(Self::int)))
             },
             float float => {
-                Box::new(std::iter::once(LuaValue::NIL).chain(float.shrink().map(LuaValue::float)))
+                Box::new(std::iter::once(Self::NIL).chain(float.shrink().map(Self::float)))
             },
             string str => {
-                Box::new(std::iter::once(LuaValue::NIL).chain(str.shrink().map(LuaValue::string)))
+                Box::new(std::iter::once(Self::NIL).chain(str.shrink().map(Self::string)))
             },
             table table => {
-                Box::new(std::iter::once(LuaValue::NIL).chain(table.shrink().map(LuaValue::table)))
+                Box::new(std::iter::once(Self::NIL).chain(table.to_owned().shrink().map(Self::table)))
             },
-            native_function _ => Box::new(std::iter::once(LuaValue::NIL)),
-            lua_function _ => Box::new(std::iter::once(LuaValue::NIL)),
+            native_function _ => Box::new(std::iter::once(Self::NIL)),
+            lua_function _ => Box::new(std::iter::once(Self::NIL)),
         }
     }
 }
@@ -716,7 +704,7 @@ mod tests {
     fn tables_are_properly_stored(table_ref: TableRef) {
         let value = CompactLuaValue::table(table_ref.clone());
         assert!(value.is_table());
-        assert_eq!(value.as_table(), Some(table_ref));
+        assert_eq!(value.as_table().map(|r| r.to_owned()), Some(table_ref));
     }
 
     #[test]
@@ -727,7 +715,7 @@ mod tests {
         let value = CompactLuaValue::table(table_ref.clone());
         assert_eq!(Rc::strong_count(&table_ref.0), 2);
 
-        let accessed_table = value.as_table().unwrap();
+        let accessed_table = value.as_table().unwrap().to_owned();
         assert_eq!(Rc::strong_count(&table_ref.0), 3);
 
         drop(value);
@@ -797,14 +785,14 @@ mod tests {
     #[test]
     fn cloning_tables_does_retain_them() {
         let table = CompactLuaValue::table(TableRef::new());
-        assert_eq!(Rc::strong_count(&table.as_table().unwrap().0), 2);
+        assert_eq!(Rc::strong_count(&table.as_table().unwrap().to_owned().0), 2);
 
         let clone = table.clone();
-        assert_eq!(Rc::strong_count(&table.as_table().unwrap().0), 3);
+        assert_eq!(Rc::strong_count(&table.as_table().unwrap().to_owned().0), 3);
         assert_eq!(table.as_table_ptr(), clone.as_table_ptr());
 
         drop(table);
-        assert_eq!(Rc::strong_count(&clone.as_table().unwrap().0), 2);
+        assert_eq!(Rc::strong_count(&clone.as_table().unwrap().to_owned().0), 2);
     }
 
     #[test]
@@ -840,3 +828,11 @@ mod tests {
     //     assert_eq!(value, clone);
     // }
 }
+
+
+#[cfg(test)]
+#[test]
+fn compact_lua_value_is_still_8_bytes() {
+    assert_eq!(std::mem::size_of::<CompactLuaValue>(), 8);
+}
+

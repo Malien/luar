@@ -1,7 +1,7 @@
-use luar_lex::{vec_of_idents, Ident};
-use luar_syn::{lua_parser, Expression, Module, Return, TableConstructor, Var};
+use luar_lex::{Ident, vec_of_idents};
+use luar_syn::{Expression, Module, Return, TableConstructor, Var, lua_parser};
 use non_empty::NonEmptyVec;
-use reggie::{eval_module, LuaError, LuaValue, Machine, Strict, LuaKey, TableValue};
+use reggie::{LuaError, LuaKey, LuaValue, Machine, Strict, TableValue, eval_module};
 
 #[test]
 fn empty_table_constructor_creates_empty_table() -> Result<(), LuaError> {
@@ -9,7 +9,7 @@ fn empty_table_constructor_creates_empty_table() -> Result<(), LuaError> {
     let mut machine = Machine::new();
     let Strict(res) = eval_module::<Strict<LuaValue>>(&module, &mut machine)?;
     assert!(res.is_table());
-    assert!(res.unwrap_table().is_empty());
+    assert!(res.as_table().unwrap().is_empty());
     Ok(())
 }
 
@@ -47,7 +47,12 @@ fn list_table_constructor_creates_table_with_integer_indices_from_one_upwards(
     }
     drop(machine);
 
-    assert!(res.unwrap_table().unwrap_or_clone().total_eq(&expected));
+    assert!(
+        res.as_table()
+            .expect("return value to be a table")
+            .borrow()
+            .total_eq(&expected)
+    );
 
     Ok(())
 }
@@ -95,7 +100,12 @@ fn key_value_pairs_constructor_creates_table_with_corresponding_key_value_associ
     }
     drop(machine);
 
-    assert!(res.unwrap_table().unwrap_or_clone().total_eq(&expected));
+    assert!(
+        res.as_table()
+            .expect("return value to be a table")
+            .borrow()
+            .total_eq(&expected)
+    );
 
     Ok(())
 }

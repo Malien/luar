@@ -2,7 +2,7 @@ use std::{cmp::Ordering, rc::Rc};
 
 use luar_string::{lua_format, LuaString};
 
-use crate::{eq_with_nan::eq_with_nan, ids::BlockID};
+use crate::{eq_with_nan::eq_with_nan, ids::BlockID, UnownedTableRef};
 
 use super::{FFIFunc, FromArgs, NativeFunction, TableRef};
 
@@ -34,6 +34,12 @@ impl PartialEq for WideLuaValue {
             (Self::Table(l0), Self::Table(r0)) => l0 == r0,
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
+    }
+}
+
+impl PartialEq<i32> for WideLuaValue {
+    fn eq(&self, other: &i32) -> bool {
+        matches!(self, Self::Int(v) if v == other)
     }
 }
 
@@ -110,7 +116,7 @@ impl WideLuaValue {
         T: TryInto<i32>,
         T::Error: std::fmt::Debug,
     {
-        Self::Int(int.try_into().unwrap())
+        Self::Int(int.try_into().expect("LuaValue int should be fit into i32"))
     }
 
     pub fn coerce_to_f64(&self) -> Option<f64> {
@@ -158,6 +164,15 @@ impl WideLuaValue {
     }
 
     pub const NIL: Self = Self::Nil;
+    pub const TRUE: Self = Self::Int(1);
+
+    pub fn nil_ref() -> &'static Self {
+        &Self::NIL
+    }
+
+    pub fn is_nil(&self) -> bool {
+        matches!(self, Self::Nil)
+    }
 
     pub fn is_string(&self) -> bool {
         matches!(self, Self::String(_))
@@ -187,6 +202,54 @@ impl WideLuaValue {
         matches!(self, Self::Nil)
     }
 
+    pub fn as_str(&self) -> Option<&str> {
+        if let Self::String(str) = self {
+            Some(str.as_ref())
+        } else {
+            None
+        }
+    }
+
+    pub fn as_string_ref(&self) -> Option<&LuaString> {
+        if let Self::String(str) = self {
+            Some(str)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_int(&self) -> Option<i32> {
+        if let Self::Int(int) = self {
+            Some(*int)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_float(&self) -> Option<f64> {
+        if let Self::Float(float) = self {
+            Some(*float)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_table(&self) -> Option<UnownedTableRef<'_>> {
+        if let Self::Table(table) = self {
+            Some(table.as_unowned())
+        } else {
+            None
+        }
+    }
+
+    pub fn as_native_function(&self) -> Option<&NativeFunction> {
+        if let Self::NativeFunction(func) = self {
+            Some(func)
+        } else {
+            None
+        }
+    }
+
     pub fn unwrap_int(&self) -> i32 {
         if let Self::Int(int) = self {
             return *int;
@@ -208,9 +271,9 @@ impl WideLuaValue {
         panic!("Tried to call unwrap_table() on {:?}", self)
     }
 
-    pub fn as_lua_function(self) -> Option<BlockID> {
+    pub fn as_lua_function(&self) -> Option<BlockID> {
         if let Self::Function(block_id) = self {
-            Some(block_id)
+            Some(*block_id)
         } else {
             None
         }
@@ -245,10 +308,11 @@ impl WideLuaValue {
         }
     }
 
-    pub fn is_comparable(&self) -> bool {
+    pub fn is_comparable_to(&self, other: &Self) -> bool {
         matches!(
-            self,
-            Self::Int(_) | Self::Float(_) | Self::String(_)
+            (self, other),
+            (Self::Int(_) | Self::Float(_), Self::Int(_) | Self::Float(_)) |
+            (Self::String(_), Self::String(_))
         )
     }
 }
@@ -310,23 +374,23 @@ macro_rules! lmatch {
     (
         $value:expr; 
         nil => $nil_match:expr,
-        int $int_ident:ident => $int_match:expr,
-        float $float_ident:ident => $float_match:expr,
-        string $string_ident:ident => $string_match:expr,
-        table $table_ident:ident => $table_match:expr,
-        native_function $native_function_ident:ident => $native_function_match:expr,
-        lua_function $lua_function_ident:ident => $lua_function_match:expr$(,)?
+        int $int_ident:pat => $int_match:expr,
+        float $float_ident:pat => $float_match:expr,
+        string ref $string_ident:ident => $string_match:expr,
+        table $table_ident:pat => $table_match:expr,
+        native_function $native_function_ident:pat => $native_function_match:expr,
+        lua_function $lua_function_ident:pat => $lua_function_match:expr$(,)?
     ) => {{
         match $value {
-            $crate::value::wide::WideLuaValue::Nil => $nil_match,
-            $crate::value::wide::WideLuaValue::Int($int_ident) => $int_match,
-            $crate::value::wide::WideLuaValue::Float($float_ident) => $float_match,
-            $crate::value::wide::WideLuaValue::String($string_ident) => $string_match,
-            $crate::value::wide::WideLuaValue::Table($table_ident) => $table_match,
-            $crate::value::wide::WideLuaValue::NativeFunction($native_function_ident) => {
+            $crate::value::LuaValue::Nil => $nil_match,
+            $crate::value::LuaValue::Int($int_ident) => $int_match,
+            $crate::value::LuaValue::Float($float_ident) => $float_match,
+            $crate::value::LuaValue::String($string_ident) => $string_match,
+            $crate::value::LuaValue::Table($table_ident) => $table_match,
+            $crate::value::LuaValue::NativeFunction($native_function_ident) => {
                 $native_function_match
             }
-            $crate::value::wide::WideLuaValue::Function($lua_function_ident) => {
+            $crate::value::LuaValue::Function($lua_function_ident) => {
                 $lua_function_match
             }
         }
@@ -335,23 +399,23 @@ macro_rules! lmatch {
     (
         $value:expr; 
         nil => $nil_match:expr,
-        int $int_ident:ident => $int_match:expr,
-        float $float_ident:ident => $float_match:expr,
-        string ref $string_ident:ident => $string_match:expr,
-        table $table_ident:ident => $table_match:expr,
-        native_function $native_function_ident:ident => $native_function_match:expr,
-        lua_function $lua_function_ident:ident => $lua_function_match:expr$(,)?
+        int $int_ident:pat => $int_match:expr,
+        float $float_ident:pat => $float_match:expr,
+        string $string_ident:pat => $string_match:expr,
+        table $table_ident:pat => $table_match:expr,
+        native_function $native_function_ident:pat => $native_function_match:expr,
+        lua_function $lua_function_ident:pat => $lua_function_match:expr$(,)?
     ) => {{
         match $value {
-            $crate::value::wide::WideLuaValue::Nil => $nil_match,
-            $crate::value::wide::WideLuaValue::Int($int_ident) => $int_match,
-            $crate::value::wide::WideLuaValue::Float($float_ident) => $float_match,
-            $crate::value::wide::WideLuaValue::String(ref $string_ident) => $string_match,
-            $crate::value::wide::WideLuaValue::Table($table_ident) => $table_match,
-            $crate::value::wide::WideLuaValue::NativeFunction($native_function_ident) => {
+            $crate::value::LuaValue::Nil => $nil_match,
+            $crate::value::LuaValue::Int($int_ident) => $int_match,
+            $crate::value::LuaValue::Float($float_ident) => $float_match,
+            $crate::value::LuaValue::String($string_ident) => $string_match,
+            $crate::value::LuaValue::Table($table_ident) => $table_match,
+            $crate::value::LuaValue::NativeFunction($native_function_ident) => {
                 $native_function_match
             }
-            $crate::value::wide::WideLuaValue::Function($lua_function_ident) => {
+            $crate::value::LuaValue::Function($lua_function_ident) => {
                 $lua_function_match
             }
         }
@@ -359,3 +423,9 @@ macro_rules! lmatch {
 }
 
 pub(crate) use lmatch;
+
+#[cfg(test)]
+#[test]
+fn lua_value_is_still_16_bytes() {
+    assert_eq!(std::mem::size_of::<WideLuaValue>(), 16);
+}

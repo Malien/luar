@@ -13,7 +13,7 @@ impl GlobalValueCell {
     pub fn new(name: String) -> Self {
         Self {
             name,
-            value: LuaValue::Nil,
+            value: LuaValue::NIL,
         }
     }
 

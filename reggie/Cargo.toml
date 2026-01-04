@@ -6,10 +6,10 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
 quickcheck = ["dep:quickcheck", "dep:test_util", "luar_string/quickcheck"]
-compact_value = []
+compact-value = []
 trace-execution = []
 trace-allocation = []
-default = ["compact_value"]
+default = ["compact-value"]
 
 [[bin]]
 name = "reggiec"

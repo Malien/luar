@@ -12,10 +12,10 @@ fn while_loop_executes_until_condition_is_true(times: u8) -> Result<(), LuaError
         return i, count_executed",
     )?;
     let mut machine = Machine::new();
-    machine.global_values.set("i", LuaValue::Int(times as i32));
+    machine.global_values.set("i", LuaValue::int(times as i32));
     let Strict((i, count_executed)) =
         eval_module::<Strict<(&LuaValue, &LuaValue)>>(&module, &mut machine)?;
-    assert_eq!(i, &LuaValue::Int(0));
-    assert_eq!(count_executed, &LuaValue::Int(times as i32));
+    assert_eq!(i, &LuaValue::int(0));
+    assert_eq!(count_executed, &LuaValue::int(times as i32));
     Ok(())
 }

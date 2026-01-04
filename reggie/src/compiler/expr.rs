@@ -23,7 +23,7 @@ pub fn compile_expr(expr: &Expression, state: &mut LocalScopeCompilationState) {
             state.push_instr(WrapF);
         }
         Expression::String(str) => {
-            let str_id = state.alloc_string(str.0.clone());
+            let str_id = state.alloc_string(str.0.as_str());
             state.push_instr(ConstS(str_id));
             state.push_instr(WrapS);
         }
@@ -244,7 +244,7 @@ pub fn compile_table_constructor(table: &TableConstructor, state: &mut LocalScop
     }
 
     for (ident, value) in &table.ffield {
-        let ident_id = state.alloc_string(ident.as_ref().to_owned());
+        let ident_id = state.alloc_string(ident.as_ref());
         compile_expr(value, state);
         state.push_instr(ConstS(ident_id));
         state.push_instr(LdaLT(table_reg));

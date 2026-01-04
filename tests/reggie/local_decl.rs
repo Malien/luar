@@ -12,7 +12,7 @@ fn local_decl_does_not_behave_like_global_assignment_in_global_scope(
     let mut machine = Machine::new();
     machine.global_values.set("value", value.clone());
     eval_module::<Strict<()>>(&module, &mut machine)?;
-    assert_eq!(machine.global_values.get(&ident), &LuaValue::Nil);
+    assert_eq!(machine.global_values.get(&ident), &LuaValue::NIL);
     Ok(())
 }
 
@@ -27,7 +27,7 @@ fn redeclaring_local_declares_new_local(ident: Ident, value: LuaValue) -> Result
     let mut machine = Machine::new();
     machine.global_values.set("value", value.clone());
     let Strict(res) = eval_module::<Strict<LuaValue>>(&module, &mut machine)?;
-    assert_eq!(res, LuaValue::Nil);
+    assert_eq!(res, LuaValue::NIL);
     Ok(())
 }
 
@@ -81,7 +81,7 @@ fn local_var_in_global_context_is_not_accessible_from_other_function_contexts(
     )?;
     let mut context = Machine::new();
     let Strict(res) = eval_module::<Strict<LuaValue>>(&module, &mut context)?;
-    assert_eq!(res, LuaValue::Nil);
+    assert_eq!(res, LuaValue::NIL);
     Ok(())
 }
 
@@ -96,8 +96,8 @@ fn global_var_cannot_be_reassigned_with_local_declaration() -> Result<(), LuaErr
     let mut machine = Machine::new();
     let Strict((foo, bar_res)) =
         eval_module::<Strict<(LuaValue, LuaValue)>>(&module, &mut machine)?;
-    assert_eq!(foo, LuaValue::Int(42));
-    assert_eq!(bar_res, LuaValue::Int(69));
+    assert_eq!(foo, LuaValue::int(42));
+    assert_eq!(bar_res, LuaValue::int(69));
     Ok(())
 }
 
@@ -118,7 +118,7 @@ fn local_vars_do_not_leak_through_function_calls() -> Result<(), LuaError> {
     )?;
     let mut context = Machine::new();
     let Strict(res) = eval_module::<Strict<LuaValue>>(&module, &mut context)?;
-    assert_eq!(res, LuaValue::Nil);
+    assert_eq!(res, LuaValue::NIL);
     Ok(())
 }
 
@@ -137,7 +137,7 @@ fn local_scopes_are_different() -> Result<(), LuaError> {
         ",
     )?;
     let Strict(res) = eval_module::<Strict<LuaValue>>(&module, &mut Machine::new())?;
-    assert_eq!(res, LuaValue::Nil);
+    assert_eq!(res, LuaValue::NIL);
     Ok(())
 }
 

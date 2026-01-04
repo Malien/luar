@@ -388,7 +388,7 @@ impl std::fmt::Display for Instruction {
             Instruction::StrDGl(cell) => write!(f, "str_D_gl {}", cell.0),
             Instruction::LdaDynGl => write!(f, "lda_dyn_gl"),
             Instruction::StrDynGl => write!(f, "str_dyn_gl"),
-            Instruction::LdaProt(reg) => write!(f, "lda_prot_{}", reg.0),
+            Instruction::LdaProt(reg) => write!(f, "lda_prot {}", reg.0),
             Instruction::RFShiftRight => write!(f, "RF_shift_right"),
             Instruction::RIShiftRight => write!(f, "RI_shift_right"),
             Instruction::RSShiftRight => write!(f, "RS_shift_right"),

@@ -8,9 +8,9 @@ fn not(value: LuaValue) -> Result<(), LuaError> {
     let Strict(res) = eval_str::<Strict<LuaValue>>("return not value", &mut machine)?;
 
     if is_truthy {
-        assert_eq!(res, LuaValue::Nil);
+        assert_eq!(res, LuaValue::NIL);
     } else {
-        assert_eq!(res, LuaValue::Int(1));
+        assert_eq!(res, LuaValue::int(1));
     }
     Ok(())
 }

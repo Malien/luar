@@ -24,7 +24,7 @@ pub fn run_lua_test_impl(module_path: &str, group_name: &str, module_str: &str) 
         let test_cases: Vec<_> = (&machine.global_values)
             .into_iter()
             .map(|value| (value.name.clone(), value.value.clone()))
-            .filter_map(|(name, value)| LuaValue::as_lua_function(value).map(|func| (name, func)))
+            .filter_map(|(name, value)| LuaValue::as_lua_function(&value).map(|func| (name, func)))
             .filter(|(name, _)| !name.starts_with('_'))
             .collect();
         let mut error_occurred = false;
